@@ -4,13 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>高松・瓦町 多言語徒歩ナビ（音声入力＋音声案内＋SAFE MODE）</title>
-
   <!-- Leaflet（CDN）。ブロック時は自動でSAFE MODEに切替 -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
-
   <style>
     html, body, #map { height: 100%; margin: 0; }
-
     /* 上部検索パネル */
     #panel {
       position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1000;
@@ -21,7 +18,6 @@
     #q { flex: 1 1 240px; padding: 8px; font-size: 14px; }
     select, button { padding: 8px 10px; font-size: 14px; border-radius: 8px; border: 1px solid #888; background:#fff; cursor: pointer; }
     button:disabled { opacity: .6; cursor: not-allowed; }
-
     /* 結果リスト */
     #results {
       position: absolute; top: 64px; left: 8px; max-height: 45%; overflow: auto; z-index: 999;
@@ -31,7 +27,6 @@
     #results .item:hover { background: #f5f5f5; }
     .badge { font-size: 11px; color: #333; background:#eee; padding: 2px 6px; border-radius: 10px; margin-left: 6px; }
     .group { display:flex; gap:6px; align-items:center; }
-
     /* 下部ナビパネル */
     #navPanel {
       position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 1050;
@@ -43,7 +38,6 @@
     #distText { font-size: 18px; font-weight: 700; }
     #targetName { font-size: 14px; color: #333; max-width: 70vw; text-align: center; }
     #actions { display:flex; gap:8px; }
-
     /* 右下：道案内手順 */
     #steps {
       position: absolute; right: 8px; bottom: 84px; z-index: 1100;
@@ -53,13 +47,11 @@
     #steps h4 { margin: 0 0 6px 0; font-size: 14px; }
     #steps .step { padding:6px 4px; border-bottom:1px solid #eee; font-size:13px; }
     #steps .step.active { background:#e8f7ff; border-left: 3px solid #2ea8ff; }
-
     /* SAFE MODE（Leaflet不可の時のCanvas描画） */
     #safeCanvasWrap { position:absolute; inset:0; display:none;
       background: repeating-conic-gradient(#fafafa 0 25%, #f3f3f3 0 50%); background-size: 24px 24px; }
     #safeCanvas { width:100%; height:100%; display:block; }
     #safeNote { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); color:#fff; padding:4px 8px; border-radius:8px; font-size:12px; }
-
     /* トースト（0件などの軽い通知） */
     #toast {
       position:absolute; top:70px; left:50%; transform: translateX(-50%);
@@ -377,7 +369,7 @@
         if (!SAFE){ if (routeLine) map.removeLayer(routeLine); routeLine=L.polyline(routeCoords,{color:'#1976d2',weight:5,opacity:0.9}).addTo(map); }
         else { redrawSafe(); }
         renderSteps(routeSteps); highlightStep(0);
-        lastStepAnnounced=-1; // 出発時から読み上げ
+        lastStepAnnounced=-1;
         if (routeSteps.length){ speakText(stepSpeechText(routeSteps[0])); lastStepAnnounced=0; }
       } catch(e){
         routeCoords=[]; routeSteps=[];
@@ -391,19 +383,16 @@
         const lat=pos.coords.latitude, lon=pos.coords.longitude; setCurrent(lat,lon);
         const d=haversine(lat,lon,dest.lat,dest.lon); distLabel.textContent=distText(d);
 
-        // 矢印
         const target = routeSteps.length ? routeSteps[nearestStepIndex(lat,lon)].location : dest;
         const br=bearing(lat,lon,target.lat,target.lon); const heading=(pos.coords.heading!=null&&pos.coords.heading>=0)?pos.coords.heading:0;
         arrowEl.textContent = arrowFromDelta(br - heading);
 
-        // ステップ更新・読み上げ
         if (routeSteps.length){
           const idx = nearestStepIndex(lat,lon);
           if (idx !== activeStepIndex){ highlightStep(idx); }
           if (idx !== lastStepAnnounced){ speakText(stepSpeechText(routeSteps[idx])); lastStepAnnounced = idx; }
         }
 
-        // 到着判定（5m）
         if (d < 5){
           stopNavigation();
           const L = I18N[currentLang] || I18N.ja;
@@ -432,6 +421,32 @@
     } else { micBtn.disabled=true; micBtn.title='音声入力に非対応 / Speech API unsupported'; }
     micBtn.addEventListener('click', ()=>{ if(recog) recog.start(); });
 
+    /* ========= フェッチ共通＆ミラー ========= */
+    async function fetchJSON(url, opt={}) {
+      const res = await fetch(url, opt);
+      const ct = res.headers.get('content-type')||'';
+      if (!ct.includes('application/json')) {
+        const text = await res.text();
+        throw new Error(`非JSON応答 (${res.status}) : ${text.slice(0,120)}…`);
+      }
+      return await res.json();
+    }
+    async function fetchOverpass(query) {
+      const mirrors = [
+        'https://overpass-api.de/api/interpreter',
+        'https://z.overpass-api.de/api/interpreter',
+        'https://overpass.kumi.systems/api/interpreter'
+      ];
+      let lastErr;
+      for (const base of mirrors) {
+        try {
+          const url = base + '?data=' + encodeURIComponent(query);
+          return await fetchJSON(url, { headers: { 'Accept': 'application/json' }});
+        } catch (e) { lastErr = e; }
+      }
+      throw lastErr || new Error('Overpass 全ミラー失敗');
+    }
+
     /* ========= 検索（近くの店舗名／電話／住所）========= */
     searchBtn.addEventListener('click', doSearch);
     qEl.addEventListener('keydown', e=>{ if (e.key==='Enter') doSearch(); });
@@ -448,7 +463,9 @@
         if (mode==='nearby') return await searchNearby(lat,lon,radius,q);
         if (mode==='phone')  return await searchPhone(lat,lon,Math.max(radius,800),q);
         if (mode==='address') return await searchAddress(q);
-      } catch(e){ alert('検索エラー: ' + e); }
+      } catch(e){
+        alert('検索エラー: ' + (e && e.message ? e.message : e));
+      }
     }
 
     function showResults(items){
@@ -495,9 +512,7 @@
         out center 60;
       `.replace(/{around}/g, around).replace(/{lat}/g, lat).replace(/{lon}/g, lon)
        .replace(/{nameFilter}/g, nameFilter).replace(/{keyword}/g, (keyword||'').replace(/"/g,'\\"'));
-      const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
-      const res = await fetch(url, { headers: {'Accept':'application/json'} });
-      const json = await res.json();
+      const json = await fetchOverpass(query);
       const tagLang = getLangTag();
       const L = I18N[currentLang] || I18N.ja;
       const items = (json.elements || []).map(el=>{
@@ -526,9 +541,7 @@
         );
         out center 40;
       `.replace(/{around}/g, around).replace(/{lat}/g, lat).replace(/{lon}/g, lon).replace(/{digits}/g, digits);
-      const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
-      const res = await fetch(url, { headers: {'Accept':'application/json'} });
-      const json = await res.json();
+      const json = await fetchOverpass(query);
       const nameLang = getLangTag();
       const L = I18N[currentLang] || I18N.ja;
       const items = (json.elements || []).map(el=>{
@@ -544,12 +557,19 @@
 
     async function searchAddress(q){
       if (!q) { alert('住所を入力してください'); return; }
-      const params = new URLSearchParams({ q, format:'jsonv2', addressdetails:'1', limit:'10', countrycodes:'jp', 'accept-language': currentLang+',ja,en' });
-      const url = 'https://nominatim.openstreetmap.org/search?' + params.toString();
-      const res = await fetch(url, { headers: {'Accept':'application/json'} });
-      const json = await res.json();
+      // Nominatimの非JSON応答を避けるため Photon API を使用
+      const url = 'https://photon.komoot.io/api/?' + new URLSearchParams({
+        q, lang: (currentLang||'ja'), limit: '10'
+      }).toString();
+      const json = await fetchJSON(url, { headers: { 'Accept': 'application/json' } });
       const L = I18N[currentLang] || I18N.ja;
-      const items = json.map(r=>({ lat:parseFloat(r.lat), lon:parseFloat(r.lon), name:r.display_name, info:(r.address||{}).road?((r.address.road||'')+' '+(r.address.house_number||'')):'', badge:L.address }));
+      const items = (json.features || []).map(f=>{
+        const [lon,lat] = f.geometry.coordinates;
+        const p = f.properties || {};
+        const name = p.name || p.street || p.city || p.country || '(不明)';
+        const info = [p.country, p.state, p.city, p.street, p.housenumber].filter(Boolean).join(' / ');
+        return { lat, lon, name, info, badge:L.address };
+      });
       showResults(items);
     }
   </script>
