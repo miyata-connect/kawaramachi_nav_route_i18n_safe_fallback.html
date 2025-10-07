@@ -5,123 +5,122 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>高松・瓦町 多言語徒歩ナビ</title>
 
-<!-- Leaflet（jsDelivr・SRI付き） -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+ integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
 <style>
-  html,body,#map{height:100%;margin:0}
-  /* 検索ヘッダ */
-  #panel{
-    position:absolute; top:8px; left:8px; right:8px; z-index:1000;
-    display:grid; grid-template-columns:1fr auto auto auto; gap:6px; align-items:center;
-    background:rgba(255,255,255,.96); border:1px solid #ccc; border-radius:10px; padding:6px 8px;
-    box-shadow:0 2px 8px rgba(0,0,0,.15); font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif
-  }
-  #q{padding:8px;font-size:14px;border-radius:8px;border:1px solid #888}
-  #mic,#searchBtn,#lang{padding:8px 10px; font-size:14px; border-radius:8px; border:1px solid #888; background:#fff; cursor:pointer}
-  #mic.rec{background:#ffeaea;border-color:#d33}
-  #searchBtn[aria-busy="true"]{cursor:progress;opacity:.7}
-  /* 候補リスト */
-  #results{
-    position:absolute; left:8px; z-index:999; min-width:320px; max-height:45%; overflow:auto; display:none;
-    background:#fff; border:1px solid #ddd; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.15);
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif
-  }
-  #results .item{padding:10px;border-bottom:1px solid #eee;cursor:pointer}
-  #results .item:hover{background:#f5f5f5}
-  .badge{font-size:11px;color:#333;background:#eee;padding:2px 6px;border-radius:10px;margin-left:6px}
+ html,body,#map{height:100%;margin:0}
+ /* 検索ヘッダ */
+ #panel{
+  position:absolute; top:8px; left:8px; right:8px; z-index:1000;
+  display:grid; grid-template-columns:1fr auto auto auto; gap:6px; align-items:center;
+  background:rgba(255,255,255,.96); border:1px solid #ccc; border-radius:10px; padding:6px 8px;
+  box-shadow:0 2px 8px rgba(0,0,0,.15); font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif
+ }
+ #q{padding:8px;font-size:14px;border-radius:8px;border:1px solid #888}
+ #mic,#searchBtn,#lang{padding:8px 10px; font-size:14px; border-radius:8px; border:1px solid #888; background:#fff; cursor:pointer}
+ #mic.rec{background:#ffeaea;border-color:#d33}
+ #searchBtn[aria-busy="true"]{cursor:progress;opacity:.7}
+ /* 候補リスト */
+ #results{
+  position:absolute; left:8px; z-index:999; min-width:320px; max-height:45%; overflow:auto; display:none;
+  background:#fff; border:1px solid #ddd; border-radius:8px; box-shadow:0 4px 12px rgba(0,0,0,.15);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif
+ }
+ #results .item{padding:10px;border-bottom:1px solid #eee;cursor:pointer}
+ #results .item:hover{background:#f5f5f5}
+ .badge{font-size:11px;color:#333;background:#eee;padding:2px 6px;border-radius:10px;margin-left:6px}
 
-  /* 案内パネル */
-  #navPanel{
-    position:absolute; bottom:10px; left:50%; transform:translateX(-50%); z-index:1050;
-    background:rgba(255,255,255,.95); border:1px solid #ccc; border-radius:12px; padding:8px 12px; min-width:260px;
-    display:none; flex-direction:column; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(0,0,0,.15);
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif
-  }
-  #arrow{font-size:40px;line-height:1}
-  #dirText{font-size:16px;font-weight:600}
-  #distText{font-size:18px;font-weight:700}
-  #targetName{font-size:14px;color:#333;max-width:70vw;text-align:center}
-  #actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+ /* 案内パネル */
+ #navPanel{
+  position:absolute; bottom:10px; left:50%; transform:translateX(-50%); z-index:1050;
+  background:rgba(255,255,255,.95); border:1px solid #ccc; border-radius:12px; padding:8px 12px; min-width:260px;
+  display:none; flex-direction:column; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(0,0,0,.15);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif
+ }
+ #arrow{font-size:40px;line-height:1}
+ #dirText{font-size:16px;font-weight:600}
+ #distText{font-size:18px;font-weight:700}
+ #targetName{font-size:14px;color:#333;max-width:70vw;text-align:center}
+ #actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
 
-  /* ステップ詳細 */
-  #steps{
-    position:absolute; right:8px; bottom:84px; z-index:1100; width:300px; max-height:45%; overflow:auto; display:none;
-    background:rgba(255,255,255,.95); border:1px solid #ccc; border-radius:10px; padding:8px;
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif
-  }
-  #steps h4{margin:0 0 6px 0; font-size:14px}
-  #steps .step{padding:6px 4px; border-bottom:1px solid #eee; font-size:13px}
-  #steps .step.active{background:#e8f7ff; border-left:3px solid #2ea8ff}
+ /* ステップ詳細 */
+ #steps{
+  position:absolute; right:8px; bottom:84px; z-index:1100; width:300px; max-height:45%; overflow:auto; display:none;
+  background:rgba(255,255,255,.95); border:1px solid #ccc; border-radius:10px; padding:8px;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif
+ }
+ #steps h4{margin:0 0 6px 0; font-size:14px}
+ #steps .step{padding:6px 4px; border-bottom:1px solid #eee; font-size:13px}
+ #steps .step.active{background:#e8f7ff; border-left:3px solid #2ea8ff}
 
-  /* 現在地に戻る */
-  #recenter{
-    position:absolute; right:12px; bottom:12px; z-index:1200; width:48px; height:48px; border-radius:999px;
-    display:flex; align-items:center; justify-content:center; background:#fff; border:1px solid #bbb; box-shadow:0 2px 8px rgba(0,0,0,.2)
-  }
+ /* 現在地に戻る */
+ #recenter{
+  position:absolute; right:12px; bottom:12px; z-index:1200; width:48px; height:48px; border-radius:999px;
+  display:flex; align-items:center; justify-content:center; background:#fff; border:1px solid #bbb; box-shadow:0 2px 8px rgba(0,0,0,.2)
+ }
 
-  /* トースト */
-  #toast{
-    position:absolute; top:70px; left:50%; transform:translateX(-50%); z-index:2000;
-    background:rgba(0,0,0,.75); color:#fff; padding:8px 12px; border-radius:10px; font-size:13px; display:none;
-    font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif
-  }
+ /* トースト */
+ #toast{
+  position:absolute; top:70px; left:50%; transform:translateX(-50%); z-index:2000;
+  background:rgba(0,0,0,.75); color:#fff; padding:8px 12px; border-radius:10px; font-size:13px; display:none;
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif
+ }
 </style>
 </head>
 <body>
 <div id="toast" role="status" aria-live="polite"></div>
 
 <div id="panel" role="search" aria-label="search panel">
-  <input id="q" type="text" placeholder="店名・地名・電話番号・住所を入力" aria-label="検索語句">
-  <button id="mic" title="音声入力">🎤</button>
-  <button id="searchBtn" title="検索する">検索</button>
-  <select id="lang" title="Language">
-    <option value="ja" selected>日本語</option>
-    <option value="en">English</option>
-    <option value="ko">한국어</option>
-    <option value="fr">Français</option>
-    <option value="de">Deutsch</option>
-    <option value="es">Español</option>
-    <option value="zh">中文</option>
-  </select>
+ <input id="q" type="text" placeholder="店名・地名・電話番号・住所を入力" aria-label="検索語句">
+ <button id="mic" title="音声入力">🎤</button>
+ <button id="searchBtn" title="検索する">検索</button>
+ <select id="lang" title="Language">
+  <option value="ja" selected>日本語</option>
+  <option value="en">English</option>
+  <option value="ko">한국어</option>
+  <option value="fr">Français</option>
+  <option value="de">Deutsch</option>
+  <option value="es">Español</option>
+  <option value="zh">中文</option>
+ </select>
 </div>
 
 <div id="results" aria-live="polite"></div>
 <div id="map" role="application" aria-label="地図"></div>
 
 <div id="navPanel" aria-live="polite">
-  <div id="arrow">↑</div>
-  <div id="dirText">方向：—</div>
-  <div id="distText">— m</div>
-  <div id="targetName"></div>
-  <div id="actions">
-    <button id="startNav">案内開始</button>
-    <button id="stopNav" disabled>停止</button>
-    <button id="speak">読み上げ</button>
-  </div>
+ <div id="arrow">↑</div>
+ <div id="dirText">方向：—</div>
+ <div id="distText">— m</div>
+ <div id="targetName"></div>
+ <div id="actions">
+  <button id="startNav">案内開始</button>
+  <button id="stopNav" disabled>停止</button>
+  <button id="speak">読み上げ</button>
+ </div>
 </div>
 
 <button id="recenter" title="現在地へ戻る">📍</button>
 
 <div id="steps">
-  <h4 id="stepsTitle">道案内手順</h4>
-  <div id="stepsBody"></div>
+ <h4 id="stepsTitle">道案内手順</h4>
+ <div id="stepsBody"></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-VuZ8H6HxZ7Q6OQEiQY6m+yt9Y1/1Xx1bCHHBw36r2nM=" crossorigin="anonymous"></script>
+ integrity="sha256-VuZ8H6HxZ7Q6OQEiQY6m+yt9Y1/1Xx1bCHHBw36r2nM=" crossorigin="anonymous"></script>
 <script>
 /* ===== ユーティリティ / i18n ===== */
 const I18N={
-  ja:{search:'検索',current:'現在地',distance:'距離：約 __m__ m',start:'案内開始',stop:'停止',speak:'読み上げ',
-      steps:'道案内手順',start_say:'出発します',arrived:'到着しました',arrived_say:'目的地に到着しました',
-      go_straight:'このまま直進',slight_right:'やや右方向',right:'右方向',sharp_right:'鋭角に右方向',
-      slight_left:'やや左方向',left:'左方向',sharp_left:'鋭角に左方向',back_right:'後方右方向（Uターン気味）',back_left:'後方左方向（Uターン気味）',
-      not_supported:'このブラウザは音声認識に未対応です。Chromeで開くか、キーボードの🎤をご利用ください。'},
-  en:{search:'Search',current:'Current location',distance:'Distance: ~ __m__ m',start:'Start',stop:'Stop',speak:'Speak',
-      steps:'Steps',start_say:'Navigation started',arrived:'Arrived',arrived_say:'You have arrived',
-      go_straight:'Go straight',slight_right:'Slight right',right:'Right',sharp_right:'Sharp right',
-      slight_left:'Slight left',left:'Left',sharp_left:'Sharp left',back_right:'Back-right (U-turn-ish)',back_left:'Back-left (U-turn-ish)'}
+ ja:{search:'検索',current:'現在地',distance:'距離：約 __m__ m',start:'案内開始',stop:'停止',speak:'読み上げ',
+   steps:'道案内手順',start_say:'出発します',arrived:'到着しました',arrived_say:'目的地に到着しました',
+   go_straight:'このまま直進',slight_right:'やや右方向',right:'右方向',sharp_right:'鋭角に右方向',
+   slight_left:'やや左方向',left:'左方向',sharp_left:'鋭角に左方向',back_right:'後方右方向（Uターン気味）',back_left:'後方左方向（Uターン気味）',
+   not_supported:'このブラウザは音声認識に未対応です。Chromeで開くか、キーボードの🎤をご利用ください。'},
+ en:{search:'Search',current:'Current location',distance:'Distance: ~ __m__ m',start:'Start',stop:'Stop',speak:'Speak',
+   steps:'Steps',start_say:'Navigation started',arrived:'Arrived',arrived_say:'You have arrived',
+   go_straight:'Go straight',slight_right:'Slight right',right:'Right',sharp_right:'Sharp right',
+   slight_left:'Slight left',left:'Left',sharp_left:'Sharp left',back_right:'Back-right (U-turn-ish)',back_left:'Back-left (U-turn-ish)'}
 };
 const toast=(m)=>{const t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',1600);};
 const toRad=x=>x*Math.PI/180;
@@ -139,15 +138,15 @@ applyLang();
 /* ===== 地図（タイル自動フォールバック） ===== */
 let map=L.map('map');
 const tileCandidates = [
-  { url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt:{maxZoom:20, attribution:'&copy; OpenStreetMap contributors'} },
-  { url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', opt:{subdomains:'abcd',maxZoom:20, attribution:'&copy; OpenStreetMap &copy; CARTO'} },
-  { url:'https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}.jpg', opt:{maxZoom:18, attribution:'Map tiles &copy; Stamen, Data &copy; OpenStreetMap'} }
+ { url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt:{maxZoom:20, attribution:'&copy; OpenStreetMap contributors'} },
+ { url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', opt:{subdomains:'abcd',maxZoom:20, attribution:'&copy; OpenStreetMap &copy; CARTO'} },
+ { url:'https://stamen-tiles.a.ssl.fastly.net/terrain/{z}/{x}/{y}.jpg', opt:{maxZoom:18, attribution:'Map tiles &copy; Stamen, Data &copy; OpenStreetMap'} }
 ];
 function attachTileWithFallback(cands, idx=0){
-  if(idx>=cands.length){ toast('タイルの読み込みに失敗しました'); return null; }
-  const c=cands[idx], layer=L.tileLayer(c.url,c.opt);
-  layer.on('tileerror', ()=>{ toast('タイルエラー→別ソースに切替'); if(map.hasLayer(layer)) map.removeLayer(layer); attachTileWithFallback(cands,idx+1); });
-  layer.addTo(map); return layer;
+ if(idx>=cands.length){ toast('タイルの読み込みに失敗しました'); return null; }
+ const c=cands[idx], layer=L.tileLayer(c.url,c.opt);
+ layer.on('tileerror', ()=>{ toast('タイルエラー→別ソースに切替'); if(map.hasLayer(layer)) map.removeLayer(layer); attachTileWithFallback(cands,idx+1); });
+ layer.addTo(map); return layer;
 }
 attachTileWithFallback(tileCandidates);
 const DEF=[34.33917,134.05264]; map.setView(DEF,17);
@@ -155,7 +154,7 @@ const DEF=[34.33917,134.05264]; map.setView(DEF,17);
 let currentMarker=null, currentLL=null, routeLine=null;
 function setCurrent(lat,lon){ currentLL={lat,lon}; if(currentMarker) map.removeLayer(currentMarker); const Ls=(I18N[currentLang]||I18N.ja).current; currentMarker=L.marker([lat,lon],{title:Ls}).addTo(map).bindPopup(Ls); }
 if(navigator.geolocation){
-  navigator.geolocation.getCurrentPosition(p=>{ setCurrent(p.coords.latitude,p.coords.longitude); map.setView([p.coords.latitude,p.coords.longitude],17); }, _=> map.setView(DEF,16));
+ navigator.geolocation.getCurrentPosition(p=>{ setCurrent(p.coords.latitude,p.coords.longitude); map.setView([p.coords.latitude,p.coords.longitude],17); }, _=> map.setView(DEF,16));
 } else { map.setView(DEF,16); }
 document.getElementById('recenter').onclick=()=>{ if(!currentLL) return toast('現在地未取得'); map.setView([currentLL.lat,currentLL.lon],18,{animate:true}); };
 
@@ -166,22 +165,22 @@ function placeResults(){ const r=panel.getBoundingClientRect(); results.style.to
 
 /* ===== ルート計算（OSRM） ===== */
 async function fetchRoute(a,b,c,d){
-  const url=`https://router.project-osrm.org/route/v1/foot/${b},${a};${d},${c}?overview=full&geometries=geojson&steps=true`;
-  const res=await fetch(url,{headers:{'Accept':'application/json'}}); if(!res.ok) throw new Error('OSRM NG'); const data=await res.json();
-  if(!data.routes||!data.routes.length) throw new Error('route none');
-  const R=data.routes[0]; const coords=R.geometry.coordinates.map(([x,y])=>[y,x]);
-  const steps=R.legs[0].steps.map(s=>({name:s.name,distance:s.distance,maneuver:s.maneuver,location:{lat:s.maneuver.location[1],lon:s.maneuver.location[0]}}));
-  return {coords,steps};
+ const url=`https://router.project-osrm.org/route/v1/foot/${b},${a};${d},${c}?overview=full&geometries=geojson&steps=true`;
+ const res=await fetch(url,{headers:{'Accept':'application/json'}}); if(!res.ok) throw new Error('OSRM NG'); const data=await res.json();
+ if(!data.routes||!data.routes.length) throw new Error('route none');
+ const R=data.routes[0]; const coords=R.geometry.coordinates.map(([x,y])=>[y,x]);
+ const steps=R.legs[0].steps.map(s=>({name:s.name,distance:s.distance,maneuver:s.maneuver,location:{lat:s.maneuver.location[1],lon:s.maneuver.location[0]}}));
+ return {coords,steps};
 }
 let dest=null, routeSteps=[], activeIdx=0, watchId=null, lastDirSpoken='', lastSpeak=0;
 function renderSteps(){
-  const L=document.getElementById('stepsBody');
-  L.innerHTML=routeSteps.map((s,i)=>{const m=s.maneuver||{}, mod=m.modifier||''; let icon='直進';
-    if(m.type==='arrive') icon='到着'; else if(mod==='left') icon='左折'; else if(mod==='right') icon='右折';
-    else if(mod==='slight left') icon='やや左'; else if(mod==='slight right') icon='やや右'; else if(mod==='uturn') icon='Uターン';
-    return `<div class="step" id="step-${i}">▶ ${icon} : ${s.name||''} (${Math.round(s.distance)} m)</div>`;
-  }).join('');
-  document.getElementById('steps').style.display='block';
+ const L=document.getElementById('stepsBody');
+ L.innerHTML=routeSteps.map((s,i)=>{const m=s.maneuver||{}, mod=m.modifier||''; let icon='直進';
+  if(m.type==='arrive') icon='到着'; else if(mod==='left') icon='左折'; else if(mod==='right') icon='右折';
+  else if(mod==='slight left') icon='やや左'; else if(mod==='slight right') icon='やや右'; else if(mod==='uturn') icon='Uターン';
+  return `<div class="step" id="step-${i}">▶ ${icon} : ${s.name||''} (${Math.round(s.distance)} m)</div>`;
+ }).join('');
+ document.getElementById('steps').style.display='block';
 }
 function hilite(i){ activeIdx=i; [...document.querySelectorAll('#stepsBody .step')].forEach((el,idx)=> el.classList.toggle('active',idx===i)); }
 function nearestStep(lat,lon){ let best=0, bd=1e12; for(let i=0;i<routeSteps.length;i++){const s=routeSteps[i]; const d=hav(lat,lon,s.location.lat,s.location.lon); if(d<bd){bd=d;best=i;}} return best; }
@@ -192,37 +191,37 @@ function openNav(name){ targetEl.textContent=name||''; navPanel.style.display='f
 function speak(t){ if(!('speechSynthesis' in window)) return; const u=new SpeechSynthesisUtterance(t); u.lang=speechLocale(currentLang); speechSynthesis.cancel(); speechSynthesis.speak(u); }
 
 document.getElementById('startNav').onclick=async()=>{
-  if(!dest) return alert('目的地を選択してください');
-  document.getElementById('startNav').disabled=true; document.getElementById('stopNav').disabled=false;
-  if(currentLL) map.setView([currentLL.lat,currentLL.lon],18,{animate:true});
-  speak((I18N[currentLang]||I18N.ja).start_say);
-  const lat0=currentLL?currentLL.lat:DEF[0], lon0=currentLL?currentLL.lon:DEF[1];
-  try{
-    const r=await fetchRoute(lat0,lon0,dest.lat,dest.lon);
-    if(routeLine) map.removeLayer(routeLine);
-    routeLine=L.polyline(r.coords,{color:'#1976d2',weight:5,opacity:.9}).addTo(map);
-    routeSteps=r.steps; renderSteps(); hilite(0);
-    lastDirSpoken=''; lastSpeak=0;
-  }catch{
-    routeSteps=[];
-    if(routeLine) map.removeLayer(routeLine);
-    routeLine=L.polyline([[lat0,lon0],[dest.lat,dest.lon]],{color:'#2ecc71',weight:4,opacity:.8}).addTo(map);
-  }
-  if(!navigator.geolocation) return alert('Geolocation未対応');
-  watchId=navigator.geolocation.watchPosition(p=>{
-    setCurrent(p.coords.latitude,p.coords.longitude);
-    const trg=routeSteps.length?routeSteps[nearestStep(p.coords.latitude,p.coords.longitude)].location:dest;
-    const br=brg(p.coords.latitude,p.coords.longitude,trg.lat,trg.lon);
-    const heading=(p.coords.heading!=null && p.coords.heading>=0)?p.coords.heading:0;
-    const delta=br-heading;
-    arrowEl.textContent=arrowFromDelta(delta);
-    const Lx=I18N[currentLang]||I18N.ja, dText=dirText(Lx,delta);
-    dirTextEl.textContent='方向：'+dText;
-    const d=hav(p.coords.latitude,p.coords.longitude,dest.lat,dest.lon); distEl.textContent=(Lx.distance||'Distance: ~ __m__ m').replace('__m__',Math.round(d));
-    if(routeSteps.length){ const idx=nearestStep(p.coords.latitude,p.coords.longitude); if(idx!==activeIdx) hilite(idx); }
-    const now=Date.now(); if(dText!==lastDirSpoken && now-lastSpeak>3000){ speak(dText); lastDirSpoken=dText; lastSpeak=now; }
-    if(d<5){ document.getElementById('stopNav').click(); distEl.textContent=(Lx.arrived||'Arrived'); speak((Lx.arrived_say||'到着しました')+'。'+(dest.name||'')); }
-  },err=>console.warn('watch error',err),{enableHighAccuracy:true,maximumAge:1000,timeout:10000});
+ if(!dest) return alert('目的地を選択してください');
+ document.getElementById('startNav').disabled=true; document.getElementById('stopNav').disabled=false;
+ if(currentLL) map.setView([currentLL.lat,currentLL.lon],18,{animate:true});
+ speak((I18N[currentLang]||I18N.ja).start_say);
+ const lat0=currentLL?currentLL.lat:DEF[0], lon0=currentLL?currentLL.lon:DEF[1];
+ try{
+  const r=await fetchRoute(lat0,lon0,dest.lat,dest.lon);
+  if(routeLine) map.removeLayer(routeLine);
+  routeLine=L.polyline(r.coords,{color:'#1976d2',weight:5,opacity:.9}).addTo(map);
+  routeSteps=r.steps; renderSteps(); hilite(0);
+  lastDirSpoken=''; lastSpeak=0;
+ }catch{
+  routeSteps=[];
+  if(routeLine) map.removeLayer(routeLine);
+  routeLine=L.polyline([[lat0,lon0],[dest.lat,dest.lon]],{color:'#2ecc71',weight:4,opacity:.8}).addTo(map);
+ }
+ if(!navigator.geolocation) return alert('Geolocation未対応');
+ watchId=navigator.geolocation.watchPosition(p=>{
+  setCurrent(p.coords.latitude,p.coords.longitude);
+  const trg=routeSteps.length?routeSteps[nearestStep(p.coords.latitude,p.coords.longitude)].location:dest;
+  const br=brg(p.coords.latitude,p.coords.longitude,trg.lat,trg.lon);
+  const heading=(p.coords.heading!=null && p.coords.heading>=0)?p.coords.heading:0;
+  const delta=br-heading;
+  arrowEl.textContent=arrowFromDelta(delta);
+  const Lx=I18N[currentLang]||I18N.ja, dText=dirText(Lx,delta);
+  dirTextEl.textContent='方向：'+dText;
+  const d=hav(p.coords.latitude,p.coords.longitude,dest.lat,dest.lon); distEl.textContent=(Lx.distance||'Distance: ~ __m__ m').replace('__m__',Math.round(d));
+  if(routeSteps.length){ const idx=nearestStep(p.coords.latitude,p.coords.longitude); if(idx!==activeIdx) hilite(idx); }
+  const now=Date.now(); if(dText!==lastDirSpoken && now-lastSpeak>3000){ speak(dText); lastDirSpoken=dText; lastSpeak=now; }
+  if(d<5){ document.getElementById('stopNav').click(); distEl.textContent=(Lx.arrived||'Arrived'); speak((Lx.arrived_say||'到着しました')+'。'+(dest.name||'')); }
+ },err=>console.warn('watch error',err),{enableHighAccuracy:true,maximumAge:1000,timeout:10000});
 };
 document.getElementById('stopNav').onclick=()=>{ if(watchId!=null){navigator.geolocation.clearWatch(watchId); watchId=null;} document.getElementById('startNav').disabled=false; document.getElementById('stopNav').disabled=true; };
 document.getElementById('speak').onclick=()=>{ if(!dest||!currentLL) return; const br=brg(currentLL.lat,currentLL.lon,dest.lat,dest.lon); const Lx=I18N[currentLang]||I18N.ja; const dText=dirText(Lx,br); const d=hav(currentLL.lat,currentLL.lon,dest.lat,dest.lon); speak(dText+'。'+(Lx.distance||'').replace('__m__',Math.round(d)).replace('距離：約 ','')); };
@@ -234,24 +233,24 @@ function busy(b){ if(b){searchBtn.setAttribute('aria-busy','true'); searchBtn.te
 const isPhone=q=>/^[\s+]*[0-9][0-9\s\-()+]{5,}$/.test(q);
 const isAddr=q=>/(〒?\d{3}\-?\d{4})|(北海道|都|道|府|県)|([市区町村郡])|(丁目|番地|号)|\d+\-\d+/.test(q);
 function showResults(items){
-  placeResults();
-  if(!Array.isArray(items)) items=[];
-  if(items.length===1){const it=items[0]; results.style.display='none'; focus(it.lat,it.lon,it.name,it.info,true); return;}
-  if(!items.length){results.style.display='none'; toast('見つかりませんでした'); return;}
-  results.innerHTML=items.map(it=>`<div class="item" data-lat="${it.lat}" data-lon="${it.lon}" data-name="${(it.name||'').replace(/</g,'&lt;')}" data-info="${(it.info||'').replace(/</g,'&lt;')}">
-      <div><b>${it.name||''}</b>${it.badge?`<span class="badge">${it.badge}</span>`:''}</div>
-      <div style="font-size:12px;color:#555">${it.info||''}</div></div>`).join('');
-  results.style.display='block';
-  [...results.querySelectorAll('.item')].forEach(el=>el.onclick=()=>{results.style.display='none'; focus(parseFloat(el.dataset.lat),parseFloat(el.dataset.lon),el.dataset.name,el.dataset.info,true);});
+ placeResults();
+ if(!Array.isArray(items)) items=[];
+ if(items.length===1){const it=items[0]; results.style.display='none'; focus(it.lat,it.lon,it.name,it.info,true); return;}
+ if(!items.length){results.style.display='none'; toast('見つかりませんでした'); return;}
+ results.innerHTML=items.map(it=>`<div class="item" data-lat="${it.lat}" data-lon="${it.lon}" data-name="${(it.name||'').replace(/</g,'&lt;')}" data-info="${(it.info||'').replace(/</g,'&lt;')}">
+   <div><b>${it.name||''}</b>${it.badge?`<span class="badge">${it.badge}</span>`:''}</div>
+   <div style="font-size:12px;color:#555">${it.info||''}</div></div>`).join('');
+ results.style.display='block';
+ [...results.querySelectorAll('.item')].forEach(el=>el.onclick=()=>{results.style.display='none'; focus(parseFloat(el.dataset.lat),parseFloat(el.dataset.lon),el.dataset.name,el.dataset.info,true);});
 }
 function focus(lat,lon,name,info,open){
-  dest={lat,lon,name};
-  const m=L.marker([lat,lon]).addTo(map).bindPopup('<b>'+name+'</b>'+(info?'<br>'+info:'')); m.openPopup(); map.setView([lat,lon],18);
-  if(currentMarker){const cl=currentMarker.getLatLng(); if(routeLine) map.removeLayer(routeLine);
-    routeLine=L.polyline([[cl.lat,cl.lng],[lat,lon]],{color:'#2ecc71',weight:4,opacity:.8}).addTo(map);
-    distEl.textContent=(I18N[currentLang].distance||'Distance: ~ __m__ m').replace('__m__',Math.round(hav(cl.lat,cl.lng,lat,lon)));
-  }
-  if(open) openNav(name);
+ dest={lat,lon,name};
+ const m=L.marker([lat,lon]).addTo(map).bindPopup('<b>'+name+'</b>'+(info?'<br>'+info:'')); m.openPopup(); map.setView([lat,lon],18);
+ if(currentMarker){const cl=currentMarker.getLatLng(); if(routeLine) map.removeLayer(routeLine);
+  routeLine=L.polyline([[cl.lat,cl.lng],[lat,lon]],{color:'#2ecc71',weight:4,opacity:.8}).addTo(map);
+  distEl.textContent=(I18N[currentLang].distance||'Distance: ~ __m__ m').replace('__m__',Math.round(hav(cl.lat,cl.lng,lat,lon)));
+ }
+ if(open) openNav(name);
 }
 
 function withTimeout(p,ms=12000){return new Promise((ok,ng)=>{const id=setTimeout(()=>ng(new Error('timeout')),ms); p.then(v=>{clearTimeout(id);ok(v);},e=>{clearTimeout(id);ng(e);});});}
@@ -259,24 +258,24 @@ async function j(url,opt={}){const r=await withTimeout(fetch(url,opt)); const ct
 async function overpass(q){const bases=['https://overpass-api.de/api/interpreter','https://z.overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter']; let last; for(const b of bases){try{return await j(b+'?data='+encodeURIComponent(q));}catch(e){last=e;}} throw last||new Error('Overpass失敗');}
 
 async function searchNearby(lat,lon,r,kw){
-  const nf=kw?`[name~"{kw}",i]`:''; const Q=(`
+ const nf=kw?`[name~"{kw}",i]`:''; const Q=(`
 [out:json][timeout:25];
 (
-  node(around:${r},${lat},${lon})${nf}[~"^(shop|amenity)$"~".*"];
-  way(around:${r},${lat},${lon})${nf}[~"^(shop|amenity)$"~".*"];
+ node(around:${r},${lat},${lon})${nf}[~"^(shop|amenity)$"~".*"];
+ way(around:${r},${lat},${lon})${nf}[~"^(shop|amenity)$"~".*"];
 ); out center 60;`).replace('{kw}',kw.replace(/"/g,'\\"'));
-  const js=await overpass(Q);
-  const items=(js.elements||[]).map(el=>{
-    const c=el.center||(el.type==='node'?{lat:el.lat,lon:el.lon}:null); if(!c)return null;
-    const t=el.tags||{}; const name=t['name:ja']||t.name||'(名称未設定)';
-    const info=[t['addr:full'],t['name:en'],t['addr:street']].filter(Boolean).join(' / ');
-    const badge=t.shop||t.amenity||'施設'; return {lat:c.lat,lon:c.lon,name,info,badge};
-  }).filter(Boolean);
-  showResults(items.slice(0,60));
+ const js=await overpass(Q);
+ const items=(js.elements||[]).map(el=>{
+  const c=el.center||(el.type==='node'?{lat:el.lat,lon:el.lon}:null); if(!c)return null;
+  const t=el.tags||{}; const name=t['name:ja']||t.name||'(名称未設定)';
+  const info=[t['addr:full'],t['name:en'],t['addr:street']].filter(Boolean).join(' / ');
+  const badge=t.shop||t.amenity||'施設'; return {lat:c.lat,lon:c.lon,name,info,badge};
+ }).filter(Boolean);
+ showResults(items.slice(0,60));
 }
 async function searchPhone(lat,lon,r,raw){
-  const d=(raw||'').replace(/[^0-9+]/g,'');
-  const Q=`
+ const d=(raw||'').replace(/[^0-9+]/g,'');
+ const Q=`
 [out:json][timeout:25];
 (
  node(around:${r},${lat},${lon})[phone~"${d}"];
@@ -284,83 +283,83 @@ async function searchPhone(lat,lon,r,raw){
  way(around:${r},${lat},${lon})[phone~"${d}"];
  way(around:${r},${lat},${lon})["contact:phone"~"${d}"];
 ); out center 40;`;
-  const js=await overpass(Q);
-  const items=(js.elements||[]).map(el=>{
-    const c=el.center||(el.type==='node'?{lat:el.lat,lon:el.lon}:null); if(!c)return null;
-    const t=el.tags||{}; const name=t['name:ja']||t.name||'(名称未設定)'; const info=[t.phone,t['contact:phone']].filter(Boolean).join(' / ');
-    return {lat:c.lat,lon:c.lon,name,info,badge:'電話'};
-  }).filter(Boolean);
-  showResults(items.slice(0,40));
+ const js=await overpass(Q);
+ const items=(js.elements||[]).map(el=>{
+  const c=el.center||(el.type==='node'?{lat:el.lat,lon:el.lon}:null); if(!c)return null;
+  const t=el.tags||{}; const name=t['name:ja']||t.name||'(名称未設定)'; const info=[t.phone,t['contact:phone']].filter(Boolean).join(' / ');
+  return {lat:c.lat,lon:c.lon,name,info,badge:'電話'};
+ }).filter(Boolean);
+ showResults(items.slice(0,40));
 }
 async function searchAddr(q,bias){
-  const ref=bias||(currentLL||{lat:DEF[0],lon:DEF[1]});
-  try{
-    const url='https://photon.komoot.io/api/?'+new URLSearchParams({q,lang:currentLang,limit:'15',lat:String(ref.lat),lon:String(ref.lon)});
-    const j1=await j(url,{headers:{Accept:'application/json'}});
-    const items=(j1.features||[]).map(f=>{
-      const [lo,la]=f.geometry.coordinates; const p=f.properties||{};
-      const name=p.name||[p.city,p.street,p.housenumber].filter(Boolean).join(' ')||p.country||'(不明)';
-      const info=[p.country,p.state,p.city,p.district,p.street,p.housenumber].filter(Boolean).join(' / ');
-      return {lat:la,lon:lo,name,info,badge:'住所'};
-    });
-    if(items.length){showResults(items); return;}
-  }catch{}
-  try{
-    const url='https://nominatim.openstreetmap.org/search?'+new URLSearchParams({
-      q,format:'jsonv2',addressdetails:'1',limit:'15',countrycodes:'jp','accept-language':currentLang+',ja,en',
-      viewbox:[(ref.lon-0.05).toFixed(6),(ref.lat+0.05).toFixed(6),(ref.lon+0.05).toFixed(6),(ref.lat-0.05).toFixed(6)].join(','),bounded:'1'
-    });
-    const j2=await j(url,{headers:{Accept:'application/json'}});
-    const items=(j2||[]).map(r=>{
-      const la=parseFloat(r.lat), lo=parseFloat(r.lon), a=r.address||{};
-      const name=r.display_name||[a.state,a.city||a.town||a.village,a.road,a.house_number].filter(Boolean).join(' ');
-      const info=[a.postcode,a.state,a.city||a.town||a.village,a.road,a.house_number].filter(Boolean).join(' / ');
-      return {lat:la,lon:lo,name,info,badge:'住所'};
-    });
-    showResults(items);
-  }catch(e){alert('検索エラー: '+(e&&e.message?e.message:e));}
+ const ref=bias||(currentLL||{lat:DEF[0],lon:DEF[1]});
+ try{
+  const url='https://photon.komoot.io/api/?'+new URLSearchParams({q,lang:currentLang,limit:'15',lat:String(ref.lat),lon:String(ref.lon)});
+  const j1=await j(url,{headers:{Accept:'application/json'}});
+  const items=(j1.features||[]).map(f=>{
+   const [lo,la]=f.geometry.coordinates; const p=f.properties||{};
+   const name=p.name||[p.city,p.street,p.housenumber].filter(Boolean).join(' ')||p.country||'(不明)';
+   const info=[p.country,p.state,p.city,p.district,p.street,p.housenumber].filter(Boolean).join(' / ');
+   return {lat:la,lon:lo,name,info,badge:'住所'};
+  });
+  if(items.length){showResults(items); return;}
+ }catch{}
+ try{
+  const url='https://nominatim.openstreetmap.org/search?'+new URLSearchParams({
+   q,format:'jsonv2',addressdetails:'1',limit:'15',countrycodes:'jp','accept-language':currentLang+',ja,en',
+   viewbox:[(ref.lon-0.05).toFixed(6),(ref.lat+0.05).toFixed(6),(ref.lon+0.05).toFixed(6),(ref.lat-0.05).toFixed(6)].join(','),bounded:'1'
+  });
+  const j2=await j(url,{headers:{Accept:'application/json'}});
+  const items=(j2||[]).map(r=>{
+   const la=parseFloat(r.lat), lo=parseFloat(r.lon), a=r.address||{};
+   const name=r.display_name||[a.state,a.city||a.town||a.village,a.road,a.house_number].filter(Boolean).join(' ');
+   const info=[a.postcode,a.state,a.city||a.town||a.village,a.road,a.house_number].filter(Boolean).join(' / ');
+   return {lat:la,lon:lo,name,info,badge:'住所'};
+  });
+  showResults(items);
+ }catch(e){alert('検索エラー: '+(e&&e.message?e.message:e));}
 }
 async function doSearch(){
-  const q=qEl.value.trim(); if(!q){qEl.focus(); return;}
-  busy(true); results.style.display='none';
-  const lat=currentLL?currentLL.lat:DEF[0], lon=currentLL?currentLL.lon:DEF[1];
-  try{
-    if(isPhone(q)) await searchPhone(lat,lon,1200,q);
-    else if(isAddr(q)) await searchAddr(q,{lat,lon});
-    else await searchNearby(lat,lon,800,q);
-  } finally { busy(false); }
+ const q=qEl.value.trim(); if(!q){qEl.focus(); return;}
+ busy(true); results.style.display='none';
+ const lat=currentLL?currentLL.lat:DEF[0], lon=currentLL?currentLL.lon:DEF[1];
+ try{
+  if(isPhone(q)) await searchPhone(lat,lon,1200,q);
+  else if(isAddr(q)) await searchAddr(q,{lat,lon});
+  else await searchNearby(lat,lon,800,q);
+ } finally { busy(false); }
 }
 searchBtn.onclick=doSearch; qEl.addEventListener('keydown',e=>{ if(e.key==='Enter') doSearch(); });
 
 /* ===== 音声入力（Android向け PTT + 事前権限ウォーム） ===== */
 let recog=null, primed=false;
 (function(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){ mic.onclick=()=>alert((I18N[currentLang]||I18N.ja).not_supported); return; }
-  recog=new SR(); recog.lang=speechLocale(currentLang); recog.interimResults=false; recog.continuous=false; recog.maxAlternatives=1;
-  recog.onresult=e=>{ qEl.value=e.results[0][0].transcript; setTimeout(()=>doSearch(),30); };
-  recog.onerror=e=>{
-    if(e.error==='not-allowed'||e.error==='service-not-allowed'){
-      alert('マイクが許可されていません。アドレスバーの🔒→権限→マイクを許可してください。\nアプリ内ブラウザではなくChromeで開いてください。');
-    } else if(e.error==='no-speech'||e.error==='audio-capture'){ toast('音声が取得できませんでした'); } else { toast('音声エラー: '+e.error); }
-    mic.classList.remove('rec');
-  };
-  recog.onend=()=>mic.classList.remove('rec');
-  async function prime(){ if(primed||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) return true;
-    try{const s=await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t=>t.stop()); primed=true; return true;}catch{return false;}
-  }
-  let on=false;
-  const start=async()=>{ await prime(); if(on){try{recog.stop();}catch{} return;} on=true; mic.classList.add('rec'); try{recog.start();}catch{on=false; mic.classList.remove('rec');} };
-  const stop =()=>{ if(!on) return; try{recog.stop();}catch{} on=false; };
-  mic.addEventListener('click',start);
-  mic.addEventListener('mousedown',start); mic.addEventListener('mouseup',stop); mic.addEventListener('mouseleave',stop);
-  mic.addEventListener('touchstart',e=>{e.preventDefault();start();},{passive:false});
-  mic.addEventListener('touchend',e=>{e.preventDefault();stop();},{passive:false});
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){ mic.onclick=()=>alert((I18N[currentLang]||I18N.ja).not_supported); return; }
+ recog=new SR(); recog.lang=speechLocale(currentLang); recog.interimResults=false; recog.continuous=false; recog.maxAlternatives=1;
+ recog.onresult=e=>{ qEl.value=e.results[0][0].transcript; setTimeout(()=>doSearch(),30); };
+ recog.onerror=e=>{
+  if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+   alert('マイクが許可されていません。アドレスバーの🔒→権限→マイクを許可してください。\nアプリ内ブラウザではなくChromeで開いてください。');
+  } else if(e.error==='no-speech'||e.error==='audio-capture'){ toast('音声が取得できませんでした'); } else { toast('音声エラー: '+e.error); }
+  mic.classList.remove('rec');
+ };
+ recog.onend=()=>mic.classList.remove('rec');
+ async function prime(){ if(primed||!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) return true;
+  try{const s=await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t=>t.stop()); primed=true; return true;}catch{return false;}
+ }
+ let on=false;
+ const start=async()=>{ await prime(); if(on){try{recog.stop();}catch{} return;} on=true; mic.classList.add('rec'); try{recog.start();}catch{on=false; mic.classList.remove('rec');} };
+ const stop =()=>{ if(!on) return; try{recog.stop();}catch{} on=false; };
+ mic.addEventListener('click',start);
+ mic.addEventListener('mousedown',start); mic.addEventListener('mouseup',stop); mic.addEventListener('mouseleave',stop);
+ mic.addEventListener('touchstart',e=>{e.preventDefault();start();},{passive:false});
+ mic.addEventListener('touchend',e=>{e.preventDefault();stop();},{passive:false});
 })();
 
 /* ===== 開発時の file:// 警告 ===== */
 if(location.protocol==='file:'){
-  alert('file:// で開いています。地図/音声/現在地が制限されます。必ず https:// または http://localhost で開いてください。');
+ alert('file:// で開いています。地図/音声/現在地が制限されます。必ず https:// または http://localhost で開いてください。');
 }
 </script>
 </body>
