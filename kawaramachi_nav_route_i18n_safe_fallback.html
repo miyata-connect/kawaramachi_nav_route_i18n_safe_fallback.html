@@ -4,8 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>高松・瓦町 多言語徒歩ナビ（音声入力＋音声案内＋SAFE MODE）</title>
-  <!-- Leaflet（CDN）。ブロック時は自動でSAFE MODEに切替 -->
+
+  <!-- Leaflet（CDN）：ブロック時はSAFE MODEに自動切替 -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
   <style>
     html, body, #map { height: 100%; margin: 0; }
     /* 上部検索パネル */
@@ -14,48 +16,58 @@
       display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
       background: rgba(255,255,255,0.92); border: 1px solid #ccc; border-radius: 10px;
       padding: 6px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans JP', sans-serif;
     }
     #q { flex: 1 1 240px; padding: 8px; font-size: 14px; }
     select, button { padding: 8px 10px; font-size: 14px; border-radius: 8px; border: 1px solid #888; background:#fff; cursor: pointer; }
     button:disabled { opacity: .6; cursor: not-allowed; }
-    /* 結果リスト */
+    .group { display:flex; gap:6px; align-items:center; }
+
+    /* 検索結果リスト */
     #results {
       position: absolute; top: 64px; left: 8px; max-height: 45%; overflow: auto; z-index: 999;
       background: white; border: 1px solid #ddd; border-radius: 8px; display: none; min-width: 320px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans JP', sans-serif;
     }
     #results .item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
     #results .item:hover { background: #f5f5f5; }
     .badge { font-size: 11px; color: #333; background:#eee; padding: 2px 6px; border-radius: 10px; margin-left: 6px; }
-    .group { display:flex; gap:6px; align-items:center; }
+
     /* 下部ナビパネル */
     #navPanel {
       position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 1050;
       background: rgba(255,255,255,0.95); border: 1px solid #ccc; border-radius: 12px; padding: 8px 12px;
       display: none; flex-direction: column; align-items: center; gap: 6px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 260px;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans JP', sans-serif;
     }
     #arrow { font-size: 40px; line-height: 1; }
     #distText { font-size: 18px; font-weight: 700; }
     #targetName { font-size: 14px; color: #333; max-width: 70vw; text-align: center; }
     #actions { display:flex; gap:8px; }
+
     /* 右下：道案内手順 */
     #steps {
       position: absolute; right: 8px; bottom: 84px; z-index: 1100;
       background: rgba(255,255,255,0.95); border:1px solid #ccc; border-radius: 10px; padding:8px;
       width: 300px; max-height: 45%; overflow:auto; display:none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans JP', sans-serif;
     }
     #steps h4 { margin: 0 0 6px 0; font-size: 14px; }
     #steps .step { padding:6px 4px; border-bottom:1px solid #eee; font-size:13px; }
     #steps .step.active { background:#e8f7ff; border-left: 3px solid #2ea8ff; }
+
     /* SAFE MODE（Leaflet不可の時のCanvas描画） */
     #safeCanvasWrap { position:absolute; inset:0; display:none;
       background: repeating-conic-gradient(#fafafa 0 25%, #f3f3f3 0 50%); background-size: 24px 24px; }
     #safeCanvas { width:100%; height:100%; display:block; }
     #safeNote { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); color:#fff; padding:4px 8px; border-radius:8px; font-size:12px; }
+
     /* トースト（0件などの軽い通知） */
     #toast {
       position:absolute; top:70px; left:50%; transform: translateX(-50%);
       background:rgba(0,0,0,0.75); color:#fff; padding:8px 12px; border-radius:10px; font-size:13px; z-index:2000; display:none;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Noto Sans JP', sans-serif;
     }
   </style>
 </head>
@@ -316,42 +328,33 @@
 
     // ステップの自然言語（読み上げ用）
     function stepSpeechText(step){
-      const L=I18N[currentLang]||I18N.ja;
       const man = step.maneuver || {};
-      const label = (function(){
-        const type = man.type || '', mod = man.modifier || '';
-        if (currentLang==='ja'){
-          if (type==='depart') return '出発します';
-          if (type==='arrive') return 'まもなく到着です';
-          if (type==='turn' || type==='continue'){
-            if (mod==='left') return '次の交差点を左折です';
-            if (mod==='right') return '次の交差点を右折です';
-            if (mod==='slight left') return 'やや左方向です';
-            if (mod==='slight right') return 'やや右方向です';
-            if (mod==='straight' || !mod) return '直進です';
-            if (mod==='uturn') return 'ここでUターンです';
-          }
-          return '道なりに進みます';
-        } else {
-          if (type==='depart') return 'Let\'s go';
-          if (type==='arrive') return 'Approaching destination';
-          if (type==='turn' || type==='continue'){
-            if (mod==='left') return 'Turn left';
-            if (mod==='right') return 'Turn right';
-            if (mod==='slight left') return 'Slight left';
-            if (mod==='slight right') return 'Slight right';
-            if (mod==='straight' || !mod) return 'Go straight';
-            if (mod==='uturn') return 'Make a U-turn';
-          }
-          return 'Continue';
+      const type = man.type || '', mod = man.modifier || '';
+      if (currentLang==='ja'){
+        if (type==='depart') return '出発します。';
+        if (type==='arrive') return 'まもなく到着です。';
+        if (type==='turn' || type==='continue'){
+          if (mod==='left') return '次の交差点を左折です。';
+          if (mod==='right') return '次の交差点を右折です。';
+          if (mod==='slight left') return 'やや左方向です。';
+          if (mod==='slight right') return 'やや右方向です。';
+          if (mod==='straight' || !mod) return '直進です。';
+          if (mod==='uturn') return 'ここでUターンです。';
         }
-      })();
-      const dist = Math.round(step.distance||0);
-      if (dist>0){
-        if (currentLang==='ja') return `${label}。約 ${dist} メートルです。`;
-        return `${label}. about ${dist} meters.`;
+        return '道なりに進みます。';
+      } else {
+        if (type==='depart') return "Let's go.";
+        if (type==='arrive') return 'Approaching destination.';
+        if (type==='turn' || type==='continue'){
+          if (mod==='left') return 'Turn left.';
+          if (mod==='right') return 'Turn right.';
+          if (mod==='slight left') return 'Slight left.';
+          if (mod==='slight right') return 'Slight right.';
+          if (mod==='straight' || !mod) return 'Go straight.';
+          if (mod==='uturn') return 'Make a U-turn.';
+        }
+        return 'Continue.';
       }
-      return label;
     }
 
     /* ========= ライブナビ ========= */
@@ -393,6 +396,7 @@
           if (idx !== lastStepAnnounced){ speakText(stepSpeechText(routeSteps[idx])); lastStepAnnounced = idx; }
         }
 
+        // 到着判定：5m
         if (d < 5){
           stopNavigation();
           const L = I18N[currentLang] || I18N.ja;
@@ -407,21 +411,17 @@
     stopBtn.addEventListener('click', stopNavigation);
     speakBtn.addEventListener('click', ()=>{ if (!dest || !currentLL) return; const d=haversine(currentLL.lat,currentLL.lon,dest.lat,dest.lon); const L=I18N[currentLang]||I18N.ja; speakText((dest.name||'')+'、'+(L.distance||'距離').replace('__m__', Math.round(d))); });
 
-    /* ========= 音声入力 ========= */
+    /* ========= 音声入力（確定→自動検索） ========= */
     let recog=null;
     if ('webkitSpeechRecognition' in window){
       recog=new webkitSpeechRecognition();
       recog.lang=langToSpeechLocale(currentLang);
       recog.interimResults=false; recog.continuous=false;
-      // 音声確定 → 自動検索を実行
-      recog.onresult = e => {
-        qEl.value = e.results[0][0].transcript;
-        setTimeout(()=>doSearch(), 50);
-      };
+      recog.onresult = e => { qEl.value = e.results[0][0].transcript; setTimeout(()=>doSearch(), 50); };
     } else { micBtn.disabled=true; micBtn.title='音声入力に非対応 / Speech API unsupported'; }
     micBtn.addEventListener('click', ()=>{ if(recog) recog.start(); });
 
-    /* ========= フェッチ共通＆ミラー ========= */
+    /* ========= 共通フェッチ＆Overpassミラー ========= */
     async function fetchJSON(url, opt={}) {
       const res = await fetch(url, opt);
       const ct = res.headers.get('content-type')||'';
@@ -447,7 +447,7 @@
       throw lastErr || new Error('Overpass 全ミラー失敗');
     }
 
-    /* ========= 検索（近くの店舗名／電話／住所）========= */
+    /* ========= 検索（周辺／電話／住所） ========= */
     searchBtn.addEventListener('click', doSearch);
     qEl.addEventListener('keydown', e=>{ if (e.key==='Enter') doSearch(); });
     function getLangTag(){ const m={ja:'ja', en:'en', ko:'ko', fr:'fr', de:'de', es:'es', zh:'zh'}; return m[currentLang] || 'ja'; }
@@ -457,12 +457,13 @@
       const q = qEl.value.trim();
       const radius = parseInt(radiusEl.value, 10) || 500;
 
+      // ★ 現在地バイアス（未取得時は瓦町近辺を仮置き）
       let lat, lon; if (currentLL){ lat=currentLL.lat; lon=currentLL.lon; } else { lat=safeCenter.lat; lon=safeCenter.lon; }
 
       try {
         if (mode==='nearby') return await searchNearby(lat,lon,radius,q);
         if (mode==='phone')  return await searchPhone(lat,lon,Math.max(radius,800),q);
-        if (mode==='address') return await searchAddress(q);
+        if (mode==='address') return await searchAddress(q, {lat, lon});
       } catch(e){
         alert('検索エラー: ' + (e && e.message ? e.message : e));
       }
@@ -555,22 +556,57 @@
       showResults(items.slice(0,40));
     }
 
-    async function searchAddress(q){
+    // 住所検索：現在地バイアス → Photon → 0件ならNominatimへフォールバック
+    async function searchAddress(q, bias){
       if (!q) { alert('住所を入力してください'); return; }
-      // Nominatimの非JSON応答を避けるため Photon API を使用
-      const url = 'https://photon.komoot.io/api/?' + new URLSearchParams({
-        q, lang: (currentLang||'ja'), limit: '10'
-      }).toString();
-      const json = await fetchJSON(url, { headers: { 'Accept': 'application/json' } });
-      const L = I18N[currentLang] || I18N.ja;
-      const items = (json.features || []).map(f=>{
-        const [lon,lat] = f.geometry.coordinates;
-        const p = f.properties || {};
-        const name = p.name || p.street || p.city || p.country || '(不明)';
-        const info = [p.country, p.state, p.city, p.street, p.housenumber].filter(Boolean).join(' / ');
-        return { lat, lon, name, info, badge:L.address };
-      });
-      showResults(items);
+      const lang = (currentLang || 'ja');
+      const ref = bias || (currentLL || {lat:34.3398, lon:134.0500}); // 現在地バイアス（未取得時は瓦町中心）
+
+      // 1) Photon（JSON固定・高速・位置バイアス対応）
+      try {
+        const url1 = 'https://photon.komoot.io/api/?' + new URLSearchParams({
+          q, lang, limit: '15', lat: String(ref.lat), lon: String(ref.lon)
+        }).toString();
+        const j1 = await fetchJSON(url1, { headers: { 'Accept': 'application/json' } });
+        const L = I18N[currentLang] || I18N.ja;
+        let items = (j1.features || []).map(f=>{
+          const [lon,lat] = f.geometry.coordinates;
+          const p = f.properties || {};
+          const name = p.name || [p.city, p.street, p.housenumber].filter(Boolean).join(' ') || p.country || '(不明)';
+          const info = [p.country, p.state, p.city, p.district, p.street, p.housenumber].filter(Boolean).join(' / ');
+          return { lat, lon, name, info, badge:L.address };
+        });
+        if (items.length){ showResults(items); return; }
+      } catch(e){ /* 続行 */ }
+
+      // 2) Nominatim（日本限定・位置バイアス付き）フォールバック
+      try {
+        const url2 = 'https://nominatim.openstreetmap.org/search?' + new URLSearchParams({
+          q,
+          format: 'jsonv2',
+          addressdetails: '1',
+          limit: '15',
+          countrycodes: 'jp',
+          'accept-language': lang+',ja,en',
+          viewbox: [
+            (ref.lon-0.05).toFixed(6), (ref.lat+0.05).toFixed(6),
+            (ref.lon+0.05).toFixed(6), (ref.lat-0.05).toFixed(6)
+          ].join(','),
+          bounded: '1'
+        }).toString();
+        const j2 = await fetchJSON(url2, { headers: { 'Accept': 'application/json' } });
+        const L = I18N[currentLang] || I18N.ja;
+        const items2 = (j2 || []).map(r=>{
+          const lat = parseFloat(r.lat), lon = parseFloat(r.lon);
+          const a = r.address || {};
+          const name = r.display_name || [a.state, a.city || a.town || a.village, a.road, a.house_number].filter(Boolean).join(' ');
+          const info = [a.postcode, a.state, a.city||a.town||a.village, a.road, a.house_number].filter(Boolean).join(' / ');
+          return { lat, lon, name, info, badge:L.address };
+        });
+        showResults(items2);
+      } catch(e2){
+        alert('検索エラー: ' + (e2 && e2.message ? e2.message : e2));
+      }
     }
   </script>
 </body>
