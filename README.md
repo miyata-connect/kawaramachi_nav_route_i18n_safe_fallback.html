@@ -1,0 +1,2 @@
+# kawaramachi_nav_route_i18n_safe_fallback.html
+Multilingual pedestrian navigator for Kawaramachi, Takamatsu
