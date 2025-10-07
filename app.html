@@ -109,7 +109,7 @@
  <div id="stepsBody"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-VuZ8H6HxZ7Q6OQEiQY6m+yt9Y1/1Xx1bCHHBw36r2nM=" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
 <script>
 /* ===== ユーティリティ / i18n ===== */
 const I18N={
@@ -335,7 +335,7 @@ searchBtn.onclick=doSearch; qEl.addEventListener('keydown',e=>{ if(e.key==='Ente
 /* ===== 音声入力（Android向け PTT + 事前権限ウォーム） ===== */
 let recog=null, primed=false;
 (function(){
- const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ const SR=window.SpeechRecognition||window.webkitSpeechrecognition;
  if(!SR){ mic.onclick=()=>alert((I18N[currentLang]||I18N.ja).not_supported); return; }
  recog=new SR(); recog.lang=speechLocale(currentLang); recog.interimResults=false; recog.continuous=false; recog.maxAlternatives=1;
  recog.onresult=e=>{ qEl.value=e.results[0][0].transcript; setTimeout(()=>doSearch(),30); };
