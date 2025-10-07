@@ -3,57 +3,74 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Kawaramachi Nav (Multilingual + Voice + Safe Mode)</title>
-  <!-- Leaflet (CDN) — ブロック時は自動でSAFE MODEへ -->
+  <title>高松・瓦町 多言語徒歩ナビ（音声入力＋音声案内＋SAFE MODE）</title>
+
+  <!-- Leaflet（CDN）。ブロック時は自動でSAFE MODEに切替 -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
   <style>
     html, body, #map { height: 100%; margin: 0; }
-    /* 上部パネル */
-    #panel { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1000;
+
+    /* 上部検索パネル */
+    #panel {
+      position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1000;
       display: flex; gap: 6px; align-items: center; flex-wrap: wrap;
       background: rgba(255,255,255,0.92); border: 1px solid #ccc; border-radius: 10px;
-      padding: 6px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+      padding: 6px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
     #q { flex: 1 1 240px; padding: 8px; font-size: 14px; }
     select, button { padding: 8px 10px; font-size: 14px; border-radius: 8px; border: 1px solid #888; background:#fff; cursor: pointer; }
     button:disabled { opacity: .6; cursor: not-allowed; }
-    /* 検索結果 */
-    #results { position: absolute; top: 64px; left: 8px; max-height: 45%; overflow: auto; z-index: 999;
-      background: white; border: 1px solid #ddd; border-radius: 8px; display: none; min-width: 320px; }
+
+    /* 結果リスト */
+    #results {
+      position: absolute; top: 64px; left: 8px; max-height: 45%; overflow: auto; z-index: 999;
+      background: white; border: 1px solid #ddd; border-radius: 8px; display: none; min-width: 320px;
+    }
     #results .item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
     #results .item:hover { background: #f5f5f5; }
     .badge { font-size: 11px; color: #333; background:#eee; padding: 2px 6px; border-radius: 10px; margin-left: 6px; }
     .group { display:flex; gap:6px; align-items:center; }
 
     /* 下部ナビパネル */
-    #navPanel { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 1050;
+    #navPanel {
+      position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 1050;
       background: rgba(255,255,255,0.95); border: 1px solid #ccc; border-radius: 12px; padding: 8px 12px;
-      display: none; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 260px; }
+      display: none; flex-direction: column; align-items: center; gap: 6px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 260px;
+    }
     #arrow { font-size: 40px; line-height: 1; }
     #distText { font-size: 18px; font-weight: 700; }
     #targetName { font-size: 14px; color: #333; max-width: 70vw; text-align: center; }
     #actions { display:flex; gap:8px; }
 
     /* 右下：道案内手順 */
-    #steps { position: absolute; right: 8px; bottom: 84px; z-index: 1100;
+    #steps {
+      position: absolute; right: 8px; bottom: 84px; z-index: 1100;
       background: rgba(255,255,255,0.95); border:1px solid #ccc; border-radius: 10px; padding:8px;
-      width: 300px; max-height: 45%; overflow:auto; display:none; }
+      width: 300px; max-height: 45%; overflow:auto; display:none;
+    }
     #steps h4 { margin: 0 0 6px 0; font-size: 14px; }
     #steps .step { padding:6px 4px; border-bottom:1px solid #eee; font-size:13px; }
     #steps .step.active { background:#e8f7ff; border-left: 3px solid #2ea8ff; }
 
-    /* SAFE MODE（Leaflet不使用時） */
-    #safeCanvasWrap { position:absolute; inset:0; display:none; background: repeating-conic-gradient(#fafafa 0 25%, #f3f3f3 0 50%); background-size: 24px 24px; }
+    /* SAFE MODE（Leaflet不可の時のCanvas描画） */
+    #safeCanvasWrap { position:absolute; inset:0; display:none;
+      background: repeating-conic-gradient(#fafafa 0 25%, #f3f3f3 0 50%); background-size: 24px 24px; }
     #safeCanvas { width:100%; height:100%; display:block; }
     #safeNote { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); color:#fff; padding:4px 8px; border-radius:8px; font-size:12px; }
 
-    /* トースト（見つからない時など） */
-    #toast { position:absolute; top:70px; left:50%; transform: translateX(-50%);
-      background:rgba(0,0,0,0.75); color:#fff; padding:8px 12px; border-radius:10px; font-size:13px; z-index:2000; display:none; }
+    /* トースト（0件などの軽い通知） */
+    #toast {
+      position:absolute; top:70px; left:50%; transform: translateX(-50%);
+      background:rgba(0,0,0,0.75); color:#fff; padding:8px 12px; border-radius:10px; font-size:13px; z-index:2000; display:none;
+    }
   </style>
 </head>
 <body>
   <div id="toast" role="status" aria-live="polite"></div>
 
+  <!-- 上部検索パネル -->
   <div id="panel" role="search" aria-label="search panel">
     <div class="group">
       <label for="lang" id="label-lang">言語</label>
@@ -94,11 +111,13 @@
   <div id="results" aria-live="polite"></div>
   <div id="map" role="application" aria-label="地図"></div>
 
+  <!-- SAFE MODE -->
   <div id="safeCanvasWrap">
     <canvas id="safeCanvas"></canvas>
     <div id="safeNote">SAFE MODE（タイル非表示）：UIと案内は利用可</div>
   </div>
 
+  <!-- 下部ナビパネル -->
   <div id="navPanel" aria-live="polite">
     <div id="arrow">↑</div>
     <div id="distText">— m</div>
@@ -110,6 +129,7 @@
     </div>
   </div>
 
+  <!-- 右下：道案内手順 -->
   <div id="steps">
     <h4 id="stepsTitle">道案内手順</h4>
     <div id="stepsBody"></div>
@@ -117,21 +137,23 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   <script>
-    /* ===== i18n ===== */
+    /* ========= i18n ========= */
     const I18N = {
       ja: { lang:'言語', mode:'検索モード', radius:'半径', mic:'音声', search:'検索',
             placeholder:'例）うどん / 087-xxx-xxxx / 香川県高松市…', current:'現在地',
             distance:'距離：約 __m__ m', address:'住所', tel:'電話', poi:'施設',
             near:'近くの店舗名', phone:'電話番号', addr:'住所', start:'案内開始',
-            stop:'停止', speak:'読み上げ', arrived:'到着しました', steps:'道案内手順' },
+            stop:'停止', speak:'読み上げ', arrived:'到着しました', steps:'道案内手順',
+            start_say:'出発します', arrived_say:'目的地に到着しました' },
       en: { lang:'Language', mode:'Search mode', radius:'Radius', mic:'Voice', search:'Search',
             placeholder:'e.g., udon / 087-xxx-xxxx / Takamatsu…', current:'Current location',
             distance:'Distance: ~ __m__ m', address:'Address', tel:'Tel', poi:'POI',
             near:'Nearby stores', phone:'Phone number', addr:'Address', start:'Start',
-            stop:'Stop', speak:'Speak', arrived:'Arrived', steps:'Steps' }
+            stop:'Stop', speak:'Speak', arrived:'Arrived', steps:'Steps',
+            start_say:'Navigation started', arrived_say:'You have arrived at your destination' }
     };
 
-    // 地物（最低限の既知ポイント）
+    /* ========= 既知ランドマーク（最小限） ========= */
     const BASE_GEOJSON = {
       "type":"FeatureCollection",
       "features":[
@@ -140,7 +162,7 @@
       ]
     };
 
-    /* ===== util ===== */
+    /* ========= util ========= */
     const toastEl = document.getElementById('toast');
     function showToast(msg){ toastEl.textContent=msg; toastEl.style.display='block'; setTimeout(()=>toastEl.style.display='none', 1600); }
     function langToSpeechLocale(l){ return ({ja:'ja-JP', en:'en-US', ko:'ko-KR', fr:'fr-FR', de:'de-DE', es:'es-ES', zh:'zh-CN'})[l] || 'ja-JP'; }
@@ -149,8 +171,9 @@
     function bearing(lat1, lon1, lat2, lon2){ const φ1=toRad(lat1), φ2=toRad(lat2), λ1=toRad(lon1), λ2=toRad(lon2); const y=Math.sin(λ2-λ1)*Math.cos(φ2); const x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2-λ1); let θ=Math.atan2(y,x)*180/Math.PI; if(θ<0) θ+=360; return θ; }
     function arrowFromDelta(delta){ delta=((delta+540)%360)-180; const ad=Math.abs(delta); if(ad<22.5) return '↑'; if(ad<67.5) return delta>0?'↗︎':'↖︎'; if(ad<112.5) return delta>0?'→':'←'; if(ad<157.5) return delta>0?'↘︎':'↙︎'; return '↓'; }
     function distText(m){ const L=I18N[currentLang]||I18N.ja; return (L.distance||'Distance: ~ __m__ m').replace('__m__', Math.round(m)); }
+    function speakText(text){ if (!('speechSynthesis' in window)) return; const u=new SpeechSynthesisUtterance(text); u.lang=langToSpeechLocale(currentLang); u.rate=1; u.pitch=1; speechSynthesis.cancel(); speechSynthesis.speak(u); }
 
-    /* ===== state ===== */
+    /* ========= state ========= */
     const mapDiv = document.getElementById('map');
     const safeWrap = document.getElementById('safeCanvasWrap');
     const safeCanvas = document.getElementById('safeCanvas');
@@ -190,7 +213,7 @@
     applyLangUI();
     langEl.addEventListener('change', ()=>{ currentLang = langEl.value; localStorage.setItem('kawaramachi_lang', currentLang); applyLangUI(); if (recog) recog.lang = langToSpeechLocale(currentLang); });
 
-    /* ===== Leaflet or SAFE MODE ===== */
+    /* ========= Leaflet or SAFE MODE ========= */
     let SAFE=false, map=null, tile=null, currentMarker=null, routeLine=null;
     function initLeaflet(){
       map = L.map('map');
@@ -224,7 +247,7 @@
     function useSafeMode(){ SAFE=true; mapDiv.style.display='none'; safeWrap.style.display='block'; window.addEventListener('resize', redrawSafe); redrawSafe(); }
     try { if (typeof L === 'undefined') throw new Error('Leaflet not available'); initLeaflet(); } catch(e){ useSafeMode(); }
 
-    /* ===== 位置・検索・ナビ ===== */
+    /* ========= 位置・検索・ナビ ========= */
     let currentLL=null, dest=null, routeSteps=[], routeCoords=[], activeStepIndex=0;
     function setCurrent(lat, lon){
       currentLL = {lat, lon};
@@ -258,6 +281,7 @@
       const steps = r.legs[0].steps.map(s => ({ name:s.name, distance:s.distance, duration:s.duration, maneuver:s.maneuver, location:{lat:s.maneuver.location[1], lon:s.maneuver.location[0]} }));
       return {coords, steps};
     }
+
     function renderSteps(steps){
       function turnLabel(lang, man){
         const type = man && man.type || ''; const mod = man && man.modifier || '';
@@ -298,7 +322,135 @@
     function highlightStep(i){ activeStepIndex=i; Array.from(stepsBody.children).forEach((el,idx)=>el.classList.toggle('active', idx===i)); }
     function nearestStepIndex(lat,lon){ if(!routeSteps.length) return 0; let best=0,bd=1e12; for(let i=0;i<routeSteps.length;i++){ const s=routeSteps[i]; const d=haversine(lat,lon,s.location.lat,s.location.lon); if(d<bd){bd=d;best=i;} } return best; }
 
-    // 検索結果リスト表示（1件なら自動選択、0件は閉じる）
+    // ステップの自然言語（読み上げ用）
+    function stepSpeechText(step){
+      const L=I18N[currentLang]||I18N.ja;
+      const man = step.maneuver || {};
+      const label = (function(){
+        const type = man.type || '', mod = man.modifier || '';
+        if (currentLang==='ja'){
+          if (type==='depart') return '出発します';
+          if (type==='arrive') return 'まもなく到着です';
+          if (type==='turn' || type==='continue'){
+            if (mod==='left') return '次の交差点を左折です';
+            if (mod==='right') return '次の交差点を右折です';
+            if (mod==='slight left') return 'やや左方向です';
+            if (mod==='slight right') return 'やや右方向です';
+            if (mod==='straight' || !mod) return '直進です';
+            if (mod==='uturn') return 'ここでUターンです';
+          }
+          return '道なりに進みます';
+        } else {
+          if (type==='depart') return 'Let\'s go';
+          if (type==='arrive') return 'Approaching destination';
+          if (type==='turn' || type==='continue'){
+            if (mod==='left') return 'Turn left';
+            if (mod==='right') return 'Turn right';
+            if (mod==='slight left') return 'Slight left';
+            if (mod==='slight right') return 'Slight right';
+            if (mod==='straight' || !mod) return 'Go straight';
+            if (mod==='uturn') return 'Make a U-turn';
+          }
+          return 'Continue';
+        }
+      })();
+      const dist = Math.round(step.distance||0);
+      if (dist>0){
+        if (currentLang==='ja') return `${label}。約 ${dist} メートルです。`;
+        return `${label}. about ${dist} meters.`;
+      }
+      return label;
+    }
+
+    /* ========= ライブナビ ========= */
+    let watchId=null, lastStepAnnounced=-1;
+    async function startNavigation(){
+      if (!dest) return alert('目的地を選択してください');
+      startBtn.disabled=true; stopBtn.disabled=false;
+      const Ltxt=I18N[currentLang]||I18N.ja;
+      speakText(Ltxt.start_say || '出発します');
+
+      let lat0,lon0; if (currentLL){ lat0=currentLL.lat; lon0=currentLL.lon; } else { lat0=safeCenter.lat; lon0=safeCenter.lon; }
+      try {
+        const r = await fetchRoute(lat0,lon0,dest.lat,dest.lon);
+        routeCoords=r.coords; routeSteps=r.steps;
+        if (!SAFE){ if (routeLine) map.removeLayer(routeLine); routeLine=L.polyline(routeCoords,{color:'#1976d2',weight:5,opacity:0.9}).addTo(map); }
+        else { redrawSafe(); }
+        renderSteps(routeSteps); highlightStep(0);
+        lastStepAnnounced=-1; // 出発時から読み上げ
+        if (routeSteps.length){ speakText(stepSpeechText(routeSteps[0])); lastStepAnnounced=0; }
+      } catch(e){
+        routeCoords=[]; routeSteps=[];
+        if (!SAFE){ if (routeLine) map.removeLayer(routeLine); routeLine=L.polyline([[lat0,lon0],[dest.lat,dest.lon]],{color:'#2ecc71',weight:4,opacity:0.8}).addTo(map); }
+        else { redrawSafe(); }
+        stepsDiv.style.display='none';
+      }
+
+      if (!navigator.geolocation) return alert('Geolocation未対応');
+      watchId = navigator.geolocation.watchPosition(pos=>{
+        const lat=pos.coords.latitude, lon=pos.coords.longitude; setCurrent(lat,lon);
+        const d=haversine(lat,lon,dest.lat,dest.lon); distLabel.textContent=distText(d);
+
+        // 矢印
+        const target = routeSteps.length ? routeSteps[nearestStepIndex(lat,lon)].location : dest;
+        const br=bearing(lat,lon,target.lat,target.lon); const heading=(pos.coords.heading!=null&&pos.coords.heading>=0)?pos.coords.heading:0;
+        arrowEl.textContent = arrowFromDelta(br - heading);
+
+        // ステップ更新・読み上げ
+        if (routeSteps.length){
+          const idx = nearestStepIndex(lat,lon);
+          if (idx !== activeStepIndex){ highlightStep(idx); }
+          if (idx !== lastStepAnnounced){ speakText(stepSpeechText(routeSteps[idx])); lastStepAnnounced = idx; }
+        }
+
+        // 到着判定（5m）
+        if (d < 5){
+          stopNavigation();
+          const L = I18N[currentLang] || I18N.ja;
+          distLabel.textContent = L.arrived;
+          speakText((L.arrived_say||'到着しました') + '。' + (dest.name||''));
+        }
+        if (SAFE) redrawSafe();
+      }, err=>{ console.warn('watchPosition error',err); }, {enableHighAccuracy:true, maximumAge:1000, timeout:10000});
+    }
+    function stopNavigation(){ if (watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; } startBtn.disabled=false; stopBtn.disabled=true; }
+    startBtn.addEventListener('click', startNavigation);
+    stopBtn.addEventListener('click', stopNavigation);
+    speakBtn.addEventListener('click', ()=>{ if (!dest || !currentLL) return; const d=haversine(currentLL.lat,currentLL.lon,dest.lat,dest.lon); const L=I18N[currentLang]||I18N.ja; speakText((dest.name||'')+'、'+(L.distance||'距離').replace('__m__', Math.round(d))); });
+
+    /* ========= 音声入力 ========= */
+    let recog=null;
+    if ('webkitSpeechRecognition' in window){
+      recog=new webkitSpeechRecognition();
+      recog.lang=langToSpeechLocale(currentLang);
+      recog.interimResults=false; recog.continuous=false;
+      // 音声確定 → 自動検索を実行
+      recog.onresult = e => {
+        qEl.value = e.results[0][0].transcript;
+        setTimeout(()=>doSearch(), 50);
+      };
+    } else { micBtn.disabled=true; micBtn.title='音声入力に非対応 / Speech API unsupported'; }
+    micBtn.addEventListener('click', ()=>{ if(recog) recog.start(); });
+
+    /* ========= 検索（近くの店舗名／電話／住所）========= */
+    searchBtn.addEventListener('click', doSearch);
+    qEl.addEventListener('keydown', e=>{ if (e.key==='Enter') doSearch(); });
+    function getLangTag(){ const m={ja:'ja', en:'en', ko:'ko', fr:'fr', de:'de', es:'es', zh:'zh'}; return m[currentLang] || 'ja'; }
+
+    async function doSearch(){
+      const mode = modeEl.value;
+      const q = qEl.value.trim();
+      const radius = parseInt(radiusEl.value, 10) || 500;
+
+      let lat, lon; if (currentLL){ lat=currentLL.lat; lon=currentLL.lon; } else { lat=safeCenter.lat; lon=safeCenter.lon; }
+
+      try {
+        if (mode==='nearby') return await searchNearby(lat,lon,radius,q);
+        if (mode==='phone')  return await searchPhone(lat,lon,Math.max(radius,800),q);
+        if (mode==='address') return await searchAddress(q);
+      } catch(e){ alert('検索エラー: ' + e); }
+    }
+
     function showResults(items){
       if (!Array.isArray(items)) items = [];
       if (items.length === 1){
@@ -329,79 +481,6 @@
         const info = el.getAttribute('data-info');
         focusResult(lat, lon, name, info, true);
       }));
-    }
-
-    /* ===== Live Navigation ===== */
-    let watchId=null;
-    async function startNavigation(){
-      if (!dest) return alert('目的地を選択してください');
-      startBtn.disabled=true; stopBtn.disabled=false;
-      let lat0,lon0; if (currentLL){ lat0=currentLL.lat; lon0=currentLL.lon; } else { lat0=safeCenter.lat; lon0=safeCenter.lon; }
-      try {
-        const r = await fetchRoute(lat0,lon0,dest.lat,dest.lon);
-        routeCoords=r.coords; routeSteps=r.steps;
-        if (!SAFE){ if (routeLine) map.removeLayer(routeLine); routeLine=L.polyline(routeCoords,{color:'#1976d2',weight:5,opacity:0.9}).addTo(map); }
-        else { redrawSafe(); }
-        renderSteps(routeSteps); highlightStep(0);
-      } catch(e){
-        routeCoords=[]; routeSteps=[];
-        if (!SAFE){ if (routeLine) map.removeLayer(routeLine); routeLine=L.polyline([[lat0,lon0],[dest.lat,dest.lon]],{color:'#2ecc71',weight:4,opacity:0.8}).addTo(map); }
-        else { redrawSafe(); }
-        stepsDiv.style.display='none';
-      }
-      if (!navigator.geolocation) return alert('Geolocation未対応');
-      watchId = navigator.geolocation.watchPosition(pos=>{
-        const lat=pos.coords.latitude, lon=pos.coords.longitude; setCurrent(lat,lon);
-        const d=haversine(lat,lon,dest.lat,dest.lon); distLabel.textContent=distText(d);
-        const target = routeSteps.length ? routeSteps[nearestStepIndex(lat,lon)].location : dest;
-        const br=bearing(lat,lon,target.lat,target.lon); const heading=(pos.coords.heading!=null&&pos.coords.heading>=0)?pos.coords.heading:0;
-        arrowEl.textContent = arrowFromDelta(br - heading);
-        if (d < 5){
-          stopNavigation();
-          const L = I18N[currentLang] || I18N.ja;
-          distLabel.textContent = L.arrived;
-          speakText((L.arrived||'') + '。' + (dest.name||''));
-        }
-        if (SAFE) redrawSafe();
-      }, err=>{ console.warn('watchPosition error',err); }, {enableHighAccuracy:true, maximumAge:1000, timeout:10000});
-    }
-    function stopNavigation(){ if (watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; } startBtn.disabled=false; stopBtn.disabled=true; }
-    startBtn.addEventListener('click', startNavigation);
-    stopBtn.addEventListener('click', stopNavigation);
-
-    /* ===== 音声 & 読み上げ ===== */
-    function speakText(text){ if (!('speechSynthesis' in window)) return; const u=new SpeechSynthesisUtterance(text); u.lang=langToSpeechLocale(currentLang); speechSynthesis.cancel(); speechSynthesis.speak(u); }
-    let recog=null;
-    if ('webkitSpeechRecognition' in window){
-      recog=new webkitSpeechRecognition();
-      recog.lang=langToSpeechLocale(currentLang);
-      recog.interimResults=false; recog.continuous=false;
-      // ★音声確定 → 自動検索
-      recog.onresult = e => {
-        qEl.value = e.results[0][0].transcript;
-        setTimeout(()=>doSearch(), 50);
-      };
-    } else { micBtn.disabled=true; micBtn.title='音声入力に非対応 / Speech API unsupported'; }
-    micBtn.addEventListener('click', ()=>{ if(recog) recog.start(); });
-    speakBtn.addEventListener('click', ()=>{ if (!dest || !currentLL) return; const d=haversine(currentLL.lat,currentLL.lon,dest.lat,dest.lon); const L=I18N[currentLang]||I18N.ja; speakText((dest.name||'')+'、'+(L.distance||'距離').replace('__m__', Math.round(d))); });
-
-    /* ===== 検索（近くの店舗名／電話／住所）===== */
-    searchBtn.addEventListener('click', doSearch);
-    qEl.addEventListener('keydown', e=>{ if (e.key==='Enter') doSearch(); });
-    function getLangTag(){ const m={ja:'ja', en:'en', ko:'ko', fr:'fr', de:'de', es:'es', zh:'zh'}; return m[currentLang] || 'ja'; }
-
-    async function doSearch(){
-      const mode = modeEl.value;
-      const q = qEl.value.trim();
-      const radius = parseInt(radiusEl.value, 10) || 500;
-
-      let lat, lon; if (currentLL){ lat=currentLL.lat; lon=currentLL.lon; } else { lat=safeCenter.lat; lon=safeCenter.lon; }
-
-      try {
-        if (mode==='nearby') return await searchNearby(lat,lon,radius,q);
-        if (mode==='phone')  return await searchPhone(lat,lon,Math.max(radius,800),q);
-        if (mode==='address') return await searchAddress(q);
-      } catch(e){ alert('検索エラー: ' + e); }
     }
 
     async function searchNearby(lat, lon, radius, keyword){
