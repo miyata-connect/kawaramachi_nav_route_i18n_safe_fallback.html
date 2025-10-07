@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kawaramachi PoC (Safe Mode Fallback)</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+  <style>
+    html, body, #map { height: 100%; margin: 0; }
+    #panel { position: absolute; top: 8px; left: 8px; right: 8px; z-index: 1000; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; background: rgba(255,255,255,0.92); border: 1px solid #ccc; border-radius: 10px; padding: 6px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    #q { flex: 1 1 240px; padding: 8px; font-size: 14px; }
+    select, button { padding: 8px 10px; font-size: 14px; border-radius: 8px; border: 1px solid #888; background:#fff; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: not-allowed; }
+    #results { position: absolute; top: 64px; left: 8px; max-height: 45%; overflow: auto; z-index: 999; background: white; border: 1px solid #ddd; border-radius: 8px; display: none; min-width: 320px; }
+    #results .item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
+    #results .item:hover { background: #f5f5f5; }
+    .badge { font-size: 11px; color: #333; background:#eee; padding: 2px 6px; border-radius: 10px; margin-left: 6px; }
+    .popup-title { font-weight: 700; }
+    .group { display:flex; gap:6px; align-items:center; }
+
+    #navPanel { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); z-index: 1050; background: rgba(255,255,255,0.95); border: 1px solid #ccc; border-radius: 12px; padding: 8px 12px; display: none; flex-direction: column; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); min-width: 260px; }
+    #arrow { font-size: 40px; line-height: 1; }
+    #distText { font-size: 18px; font-weight: 700; }
+    #targetName { font-size: 14px; color: #333; max-width: 70vw; text-align: center; }
+    #actions { display:flex; gap:8px; }
+
+    #steps { position: absolute; right: 8px; bottom: 84px; z-index: 1100; background: rgba(255,255,255,0.95); border:1px solid #ccc; border-radius: 10px; padding:8px; width: 300px; max-height: 45%; overflow:auto; display:none; }
+    #steps h4 { margin: 0 0 6px 0; font-size: 14px; }
+    #steps .step { padding:6px 4px; border-bottom:1px solid #eee; font-size:13px; }
+    #steps .step.active { background:#e8f7ff; border-left: 3px solid #2ea8ff; }
+
+    /* SAFE MODE canvas */
+    #safeCanvasWrap { position:absolute; inset:0; display:none; background: repeating-conic-gradient(#fafafa 0 25%, #f3f3f3 0 50%); background-size: 24px 24px; }
+    #safeCanvas { width:100%; height:100%; display:block; }
+    #safeNote { position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); color:#fff; padding:4px 8px; border-radius:8px; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div id="panel" role="search" aria-label="search panel">
+    <div class="group">
+      <label for="lang" id="label-lang">言語</label>
+      <select id="lang" title="Language">
+        <option value="ja">日本語</option>
+        <option value="en">English</option>
+        <option value="ko">한국어</option>
+        <option value="fr">Français</option>
+        <option value="de">Deutsch</option>
+        <option value="es">Español</option>
+        <option value="zh">中文</option>
+      </select>
+    </div>
+
+    <div class="group">
+      <label for="mode" id="label-mode">検索モード</label>
+      <select id="mode" title="検索モード" aria-label="検索モード">
+        <option value="nearby">近くの店舗名</option>
+        <option value="phone">電話番号</option>
+        <option value="address">住所</option>
+      </select>
+    </div>
+
+    <input id="q" type="text" placeholder="例）うどん / 087-xxx-xxxx / 香川県高松市…" aria-label="検索語句" />
+    <div class="group">
+      <label for="radius" id="label-radius">半径</label>
+      <select id="radius" title="検索半径" aria-label="検索半径">
+        <option value="300">300m</option>
+        <option value="500" selected>500m</option>
+        <option value="800">800m</option>
+        <option value="1200">1200m</option>
+      </select>
+    </div>
+    <button id="mic" title="音声入力">🎤</button>
+    <button id="searchBtn" title="検索する">検索</button>
+  </div>
+
+  <div id="results" aria-live="polite"></div>
+  <div id="map" role="application" aria-label="地図"></div>
+
+  <div id="safeCanvasWrap">
+    <canvas id="safeCanvas"></canvas>
+    <div id="safeNote">SAFE MODE（タイル非表示）：UIと案内は利用可</div>
+  </div>
+
+  <div id="navPanel" aria-live="polite">
+    <div id="arrow">↑</div>
+    <div id="distText">— m</div>
+    <div id="targetName"></div>
+    <div id="actions">
+      <button id="startNav">案内開始</button>
+      <button id="stopNav" disabled>停止</button>
+      <button id="speak">読み上げ</button>
+    </div>
+  </div>
+
+  <div id="steps">
+    <h4 id="stepsTitle">道案内手順</h4>
+    <div id="stepsBody"></div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script>
+    const I18N = {
+      ja: { lang:'言語', mode:'検索モード', radius:'半径', mic:'音声', search:'検索', placeholder:'例）うどん / 087-xxx-xxxx / 香川県高松市…', current:'現在地', distance:'距離：約 __m__ m', address:'住所', tel:'電話', poi:'施設', near:'近くの店舗名', phone:'電話番号', addr:'住所', start:'案内開始', stop:'停止', speak:'読み上げ', arrived:'到着しました', steps:'道案内手順' },
+      en: { lang:'Language', mode:'Search mode', radius:'Radius', mic:'Voice', search:'Search', placeholder:'e.g., udon / 087-xxx-xxxx / Takamatsu…', current:'Current location', distance:'Distance: ~ __m__ m', address:'Address', tel:'Tel', poi:'POI', near:'Nearby stores', phone:'Phone number', addr:'Address', start:'Start', stop:'Stop', speak:'Speak', arrived:'Arrived', steps:'Steps' }
+    };
+    const baseData = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"id": "KAWARAMACHI_STATION", "name_ja": "ことでん 瓦町駅（駅ビル）", "name_en": "Kotoden Kawaramachi Station", "kind": "station"}, "geometry": {"type": "Point", "coordinates": [134.05264, 34.33917]}}, {"type": "Feature", "properties": {"id": "CHUO_PARK_CENTER", "name_ja": "高松市立中央公園（中心付近）", "name_en": "Takamatsu Chuo Park (center)", "kind": "park"}, "geometry": {"type": "Point", "coordinates": [134.04667, 34.34139]}}]};
+
+    // --- Safe mode primitives ---
+    let SAFE = false;
+    const safeWrap = document.getElementById('safeCanvasWrap');
+    const safeCanvas = document.getElementById('safeCanvas');
+    const ctxLazy = () => safeCanvas.getContext('2d');
+    let safeCenter = {lat:34.3398, lon:134.0500}; // Kawaramachi area fallback
+    let safeZoom = 17;
+    function proj(lat, lon) { // naive mercator to pixels
+      const z = Math.pow(2, safeZoom);
+      const x = (lon + 180) / 360 * 256 * z;
+      const y = (1 - Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180)) / Math.PI) / 2 * 256 * z;
+      return {x,y};
+    }
+    function inv(x, y) {
+      const z = Math.pow(2, safeZoom);
+      const lon = x / (256*z) * 360 - 180;
+      const n = Math.PI - 2*Math.PI*y/(256*z);
+      const lat = 180/Math.PI * Math.atan(0.5*(Math.exp(n)-Math.exp(-n)));
+      return {lat,lon};
+    }
+    function redrawSafe() {
+      const w = safeCanvas.width = safeWrap.clientWidth;
+      const h = safeCanvas.height= safeWrap.clientHeight;
+      const c = proj(safeCenter.lat, safeCenter.lon);
+      const ctx = ctxLazy(); ctx.clearRect(0,0,w,h);
+      // grid-ish background is CSS on wrapper
+
+      // draw route
+      if (routeCoords.length) {
+        ctx.lineWidth = 5; ctx.globalAlpha = .9; ctx.strokeStyle = '#1976d2';
+        ctx.beginPath();
+        routeCoords.forEach((ll,i)=>{
+          const p = proj(ll[0], ll[1]);
+          const sx = Math.round(w/2 + (p.x - c.x));
+          const sy = Math.round(h/2 + (p.y - c.y));
+          if(i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+        });
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      } else if (dest && currentLL){
+        // straight line
+        const p1 = proj(currentLL.lat, currentLL.lon);
+        const p2 = proj(dest.lat, dest.lon);
+        ctx.strokeStyle = '#2ecc71'; ctx.lineWidth=4; ctx.globalAlpha=.8;
+        ctx.beginPath();
+        ctx.moveTo(Math.round(w/2 + (p1.x - c.x)), Math.round(h/2 + (p1.y - c.y)));
+        ctx.lineTo(Math.round(w/2 + (p2.x - c.x)), Math.round(h/2 + (p2.y - c.y)));
+        ctx.stroke(); ctx.globalAlpha=1;
+      }
+
+      // draw points
+      if (currentLL) {
+        const p = proj(currentLL.lat, currentLL.lon);
+        const x = Math.round(w/2 + (p.x - c.x));
+        const y = Math.round(h/2 + (p.y - c.y));
+        ctx.fillStyle = '#111'; ctx.beginPath(); ctx.arc(x,y,6,0,Math.PI*2); ctx.fill();
+      }
+      if (dest) {
+        const p = proj(dest.lat, dest.lon);
+        const x = Math.round(w/2 + (p.x - c.x));
+        const y = Math.round(h/2 + (p.y - c.y));
+        ctx.fillStyle = '#e53935'; ctx.beginPath(); ctx.arc(x,y,6,0,Math.PI*2); ctx.fill();
+      }
+    }
+
+    // --- Common UI/state ---
+    const langEl = document.getElementById('lang');
+    const modeEl = document.getElementById('mode');
+    const radiusEl = document.getElementById('radius');
+    const qEl = document.getElementById('q');
+    const micBtn = document.getElementById('mic');
+    const searchBtn = document.getElementById('searchBtn');
+    const resultsDiv = document.getElementById('results');
+    const navPanel = document.getElementById('navPanel');
+    const startBtn = document.getElementById('startNav');
+    const stopBtn  = document.getElementById('stopNav');
+    const speakBtn = document.getElementById('speak');
+    const distLabel= document.getElementById('distText');
+    const arrowEl  = document.getElementById('arrow');
+    const targetNameEl = document.getElementById('targetName');
+    const stepsDiv = document.getElementById('steps');
+    const stepsBody= document.getElementById('stepsBody');
+    const stepsTitle=document.getElementById('stepsTitle');
+
+    function langToSpeechLocale(l){ return ({ja:'ja-JP', en:'en-US'})[l] || 'ja-JP'; }
+    let currentLang = localStorage.getItem('kawaramachi_lang') || (navigator.language||'ja').slice(0,2);
+    if (!(currentLang in I18N)) currentLang = 'ja';
+    langEl.value = currentLang;
+
+    function applyLangUI(){
+      const L=I18N[currentLang]||I18N.ja;
+      document.getElementById('label-lang').textContent=L.lang;
+      document.getElementById('label-mode').textContent=L.mode;
+      document.getElementById('label-radius').textContent=L.radius;
+      micBtn.title=L.mic; searchBtn.textContent=L.search; qEl.placeholder=L.placeholder;
+      modeEl.options[0].textContent=L.near; modeEl.options[1].textContent=L.phone; modeEl.options[2].textContent=L.addr;
+      startBtn.textContent=L.start; stopBtn.textContent=L.stop; speakBtn.textContent=L.speak;
+      stepsTitle.textContent=L.steps;
+    }
+    applyLangUI();
+    langEl.addEventListener('change', ()=>{
+      currentLang = langEl.value; localStorage.setItem('kawaramachi_lang', currentLang); applyLangUI();
+      if (recog) recog.lang = langToSpeechLocale(currentLang);
+    });
+
+    function toRad(x){return x*Math.PI/180;}
+    function haversine(lat1, lon1, lat2, lon2){ const R=6371000; const dLat=toRad(lat2-lat1), dLon=toRad(lon2-lon1); const a=Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2; return 2*R*Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); }
+    function bearing(lat1, lon1, lat2, lon2){ const φ1=toRad(lat1), φ2=toRad(lat2), λ1=toRad(lon1), λ2=toRad(lon2); const y=Math.sin(λ2-λ1)*Math.cos(φ2); const x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2-λ1); let θ=Math.atan2(y,x)*180/Math.PI; if(θ<0) θ+=360; return θ; }
+    function arrowFromDelta(delta){ delta=((delta+540)%360)-180; const ad=Math.abs(delta); if(ad<22.5) return '↑'; if(ad<67.5) return delta>0?'↗︎':'↖︎'; if(ad<112.5) return delta>0?'→':'←'; if(ad<157.5) return delta>0?'↘︎':'↙︎'; return '↓'; }
+    function distText(m){ const L=I18N[currentLang]||I18N.ja; return (L.distance||'Distance: ~ __m__ m').replace('__m__', Math.round(m)); }
+
+    // Leaflet OR safe mode init
+    let map=null, tile=null, currentMarker=null, routeLine=null;
+    function initLeaflet(){
+      map = L.map('map');
+      tile = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:20, attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+      const gj = L.geoJSON(baseData).addTo(map);
+      map.fitBounds(gj.getBounds().pad(0.2));
+      L.control.scale({imperial:false,maxWidth:150}).addTo(map);
+    }
+    function useSafeMode(){
+      SAFE=true;
+      document.getElementById('map').style.display='none';
+      safeWrap.style.display='block';
+      window.addEventListener('resize', redrawSafe);
+      redrawSafe();
+    }
+    try {
+      if (typeof L === 'undefined') throw new Error('Leaflet not available');
+      initLeaflet();
+    } catch(e){
+      useSafeMode();
+    }
+
+    // Current location
+    let currentLL=null;
+    function setCurrent(lat, lon){
+      currentLL = {lat, lon};
+      if (!SAFE){
+        if (currentMarker) map.removeLayer(currentMarker);
+        const LSTR=(I18N[currentLang]||I18N.ja).current;
+        currentMarker = L.marker([lat,lon], {title:LSTR}).addTo(map).bindPopup(LSTR);
+      } else {
+        safeCenter = {lat, lon}; redrawSafe();
+      }
+    }
+    if (navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(pos=>{
+        setCurrent(pos.coords.latitude, pos.coords.longitude);
+        if (!SAFE) map.setView([pos.coords.latitude, pos.coords.longitude], 17);
+        else { safeZoom=17; redrawSafe(); }
+      });
+    }
+
+    // Results list
+    function showResults(items){
+      resultsDiv.innerHTML = items.map((it) => {
+        const safeName = (it.name||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const safeInfo = (it.info||'').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        return `
+          <div class="item" data-lat="${it.lat}" data-lon="${it.lon}" data-name="${safeName}" data-info="${safeInfo}">
+            <div><b>${safeName}</b>${it.badge?'<span class="badge">'+it.badge+'</span>':''}</div>
+            <div style="font-size:12px;color:#555">${safeInfo}</div>
+          </div>`;
+      }).join('');
+      resultsDiv.style.display = items.length ? 'block' : 'none';
+      Array.from(resultsDiv.querySelectorAll('.item')).forEach(el => el.addEventListener('click', () => {
+        const lat = parseFloat(el.getAttribute('data-lat'));
+        const lon = parseFloat(el.getAttribute('data-lon'));
+        const name = el.getAttribute('data-name');
+        const info = el.getAttribute('data-info');
+        focusResult(lat, lon, name, info, true);
+      }));
+    }
+
+    // Focus & navigation
+    let dest=null, routeSteps=[], routeCoords=[], activeStepIndex=0;
+    function focusResult(lat, lon, name, info, showNav){
+      dest = {lat, lon, name};
+      targetNameEl.textContent = name||'';
+      if (!SAFE){
+        const m=L.marker([lat,lon]).addTo(map).bindPopup('<div class="popup-title">'+name+'</div>'+ (info||'')); m.openPopup();
+        map.setView([lat,lon], 18);
+        if (currentMarker){ const cl=currentMarker.getLatLng(); if (routeLine) map.removeLayer(routeLine); routeLine=L.polyline([[cl.lat,cl.lng],[lat,lon]], {color:'#2ecc71', weight:4, opacity:0.8}).addTo(map); distLabel.textContent = distText(haversine(cl.lat,cl.lng,lat,lon)); }
+      } else {
+        redrawSafe();
+      }
+      if (showNav) openNavPanel(name);
+    }
+    function openNavPanel(name){
+      navPanel.style.display='flex'; stepsDiv.style.display='none'; startBtn.disabled=false; stopBtn.disabled=true;
+    }
+
+    async function fetchRoute(lat1,lon1,lat2,lon2){
+      const url = `https://router.project-osrm.org/route/v1/foot/${lon1},${lat1};${lon2},${lat2}?overview=full&geometries=geojson&steps=true`;
+      const res = await fetch(url, {headers:{'Accept':'application/json'}});
+      if (!res.ok) throw new Error('OSRM response not OK');
+      const data = await res.json(); if (!data.routes || !data.routes.length) throw new Error('No routes');
+      const r = data.routes[0];
+      const coords = r.geometry.coordinates.map(([x,y])=>[y,x]);
+      const steps = r.legs[0].steps.map(s => ({ name:s.name, distance:s.distance, duration:s.duration, maneuver:s.maneuver, location:{lat:s.maneuver.location[1], lon:s.maneuver.location[0]} }));
+      return {coords, steps};
+    }
+    function renderSteps(steps){
+      function turnLabel(lang, man){
+        const type = man && man.type || ''; const mod = man && man.modifier || '';
+        if (lang === 'ja'){
+          if (type === 'depart') return '出発';
+          if (type === 'arrive') return '到着';
+          if (type === 'roundabout') return 'ラウンドアバウト';
+          if (type === 'merge') return '合流';
+          if (type === 'fork') return '分岐';
+          if (type === 'end of road') return '道の終わり';
+          if (type === 'new name') return '道なり';
+          if (type === 'notification') return 'お知らせ';
+          if (type === 'exit roundabout') return 'ラウンドアバウトを出る';
+          if (type === 'exit rotary') return 'ロータリーを出る';
+          if (type === 'rotary') return 'ロータリー';
+          if (type === 'turn' || type === 'continue'){
+            if (mod === 'left') return '左折'; if (mod === 'right') return '右折';
+            if (mod === 'slight left') return 'やや左'; if (mod === 'slight right') return 'やや右';
+            if (mod === 'sharp left') return '鋭角に左'; if (mod === 'sharp right') return '鋭角に右';
+            if (mod === 'uturn') return 'Uターン';
+            if (mod === 'straight' || mod === '') return '直進'; return '進行';
+          }
+          return type || '進行';
+        } else {
+          if (type === 'depart') return 'depart'; if (type === 'arrive') return 'arrive';
+          if (type === 'turn' || type === 'continue'){ if (mod) return mod; return 'forward'; }
+          return type || 'forward';
+        }
+      }
+      stepsBody.innerHTML = steps.map((s,i)=>{
+        const icon = turnLabel(currentLang, s.maneuver || {});
+        const distStr = Math.round(s.distance) + ' m';
+        const nameStr = (s.name || '');
+        return `<div class="step" id="step-${i}">▶ ${icon} : ${nameStr ? nameStr + ' ' : ''}(${distStr})</div>`;
+      }).join('');
+      stepsDiv.style.display = 'block';
+    }
+    function highlightStep(i){ activeStepIndex=i; Array.from(stepsBody.children).forEach((el,idx)=>el.classList.toggle('active', idx===i)); }
+    function nearestStepIndex(lat,lon){ if(!routeSteps.length) return 0; let best=0,bd=1e12; for(let i=0;i<routeSteps.length;i++){ const s=routeSteps[i]; const d=haversine(lat,lon,s.location.lat,s.location.lon); if(d<bd){bd=d;best=i;} } return best; }
+
+    // Live nav
+    let watchId=null;
+    async function startNavigation(){
+      if (!dest) return alert('目的地を選択してください');
+      startBtn.disabled=true; stopBtn.disabled=false;
+      let lat0,lon0;
+      if (currentLL){ lat0=currentLL.lat; lon0=currentLL.lon; } else { lat0=safeCenter.lat; lon0=safeCenter.lon; }
+      try {
+        const r = await fetchRoute(lat0,lon0,dest.lat,dest.lon);
+        routeCoords=r.coords; routeSteps=r.steps;
+        if (!SAFE){
+          if (routeLine) map.removeLayer(routeLine);
+          routeLine=L.polyline(routeCoords,{color:'#1976d2',weight:5,opacity:0.9}).addTo(map);
+        } else {
+          redrawSafe();
+        }
+        renderSteps(routeSteps); highlightStep(0);
+      } catch(e){
+        routeCoords=[]; routeSteps=[];
+        if (!SAFE){
+          if (routeLine) map.removeLayer(routeLine);
+          routeLine=L.polyline([[lat0,lon0],[dest.lat,dest.lon]],{color:'#2ecc71',weight:4,opacity:0.8}).addTo(map);
+        } else {
+          redrawSafe();
+        }
+        stepsDiv.style.display='none';
+      }
+      if (!navigator.geolocation) return alert('Geolocation未対応');
+      watchId = navigator.geolocation.watchPosition(pos=>{
+        const lat=pos.coords.latitude, lon=pos.coords.longitude; setCurrent(lat,lon);
+        const d=haversine(lat,lon,dest.lat,dest.lon); distLabel.textContent=distText(d);
+        const target = routeSteps.length ? routeSteps[nearestStepIndex(lat,lon)].location : dest;
+        const br=bearing(lat,lon,target.lat,target.lon); const heading=(pos.coords.heading!=null&&pos.coords.heading>=0)?pos.coords.heading:0;
+        arrowEl.textContent = arrowFromDelta(br - heading);
+        if (d < 5){
+          stopNavigation();
+          const L = I18N[currentLang] || I18N.ja;
+          distLabel.textContent = L.arrived;
+          speakText((L.arrived||'') + '。' + (dest.name||''));
+        }
+        if (SAFE) redrawSafe();
+      }, err=>{ console.warn('watchPosition error',err); }, {enableHighAccuracy:true, maximumAge:1000, timeout:10000});
+    }
+    function stopNavigation(){ if (watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; } startBtn.disabled=false; stopBtn.disabled=true; }
+    startBtn.addEventListener('click', startNavigation);
+    stopBtn.addEventListener('click', stopNavigation);
+
+    // Voice
+    function speakText(text){ if (!('speechSynthesis' in window)) return; const u=new SpeechSynthesisUtterance(text); u.lang=langToSpeechLocale(currentLang); speechSynthesis.cancel(); speechSynthesis.speak(u); }
+    let recog=null; if ('webkitSpeechRecognition' in window){ recog=new webkitSpeechRecognition(); recog.lang=langToSpeechLocale(currentLang); recog.interimResults=false; recog.continuous=false; recog.onresult=e=>{ qEl.value=e.results[0][0].transcript; }; } else { micBtn.disabled=true; micBtn.title='音声入力に非対応 / Speech API unsupported'; }
+    micBtn.addEventListener('click', ()=>{ if(recog) recog.start(); });
+
+    // Search
+    searchBtn.addEventListener('click', doSearch);
+    qEl.addEventListener('keydown', e=>{ if (e.key==='Enter') doSearch(); });
+    function getLangTag(){ const m={ja:'ja',en:'en'}; return m[currentLang]||'ja'; }
+    async function doSearch(){
+      const mode=modeEl.value; const q=qEl.value.trim(); const radius=parseInt(radiusEl.value,10)||500;
+      let lat,lon; if (currentLL){lat=currentLL.lat; lon=currentLL.lon;} else {lat=safeCenter.lat; lon=safeCenter.lon;}
+      try {
+        if (mode==='nearby') return await searchNearby(lat,lon,radius,q);
+        if (mode==='phone')  return await searchPhone(lat,lon,Math.max(radius,800),q);
+        if (mode==='address') return await searchAddress(q);
+      } catch(e){ alert('検索エラー: '+e); }
+    }
+    async function searchNearby(lat, lon, radius, keyword){
+      const around=radius; const nameFilter = keyword ? `[name~"{keyword}",i]` : '';
+      const query=`[out:json][timeout:25];(node(around:{around},{lat},{lon}){nameFilter}[~"^(shop|amenity)$"~".*"];way(around:{around},{lat},{lon}){nameFilter}[~"^(shop|amenity)$"~".*"];);out center 60;`
+        .replace(/{around}/g,around).replace(/{lat}/g,lat).replace(/{lon}/g,lon).replace(/{nameFilter}/g,nameFilter).replace(/{keyword}/g,(keyword||'').replace(/"/g,'\"'));
+      const url='https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query);
+      const js=await (await fetch(url)).json();
+      const tagLang=getLangTag(); const L=I18N[currentLang]||I18N.ja;
+      const items=(js.elements||[]).map(el=>{
+        const center=el.center || (el.type==='node'?{lat:el.lat,lon:el.lon}:null); if(!center) return null;
+        const t=el.tags||{}; const name=t['name:'+tagLang]||t.name||'(名称未設定)'; const info=[t['addr:full'],t['name:en'],t['addr:street']].filter(Boolean).join(' / ');
+        const badge=t.shop||t.amenity||L.poi; return {lat:center.lat,lon:center.lon,name,info,badge};
+      }).filter(Boolean);
+      showResults(items.slice(0,60));
+    }
+    async function searchPhone(lat, lon, radius, phoneRaw){
+      const digits=(phoneRaw||'').replace(/[^0-9+]/g,''); if(!digits){ alert('電話番号を入力してください'); return; }
+      const around=radius;
+      const query=`[out:json][timeout:25];(node(around:{around},{lat},{lon})[phone~"{digits}"];node(around:{around},{lat},{lon})["contact:phone"~"{digits}"];way(around:{around},{lat},{lon})[phone~"{digits}"];way(around:{around},{lat},{lon})["contact:phone"~"{digits}"];);out center 40;`
+        .replace(/{around}/g,around).replace(/{lat}/g,lat).replace(/{lon}/g,lon).replace(/{digits}/g,digits);
+      const js=await (await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query))).json();
+      const nameLang=getLangTag(); const L=I18N[currentLang]||I18N.ja;
+      const items=(js.elements||[]).map(el=>{
+        const center=el.center || (el.type==='node'?{lat:el.lat,lon:el.lon}:null); if(!center) return null;
+        const t=el.tags||{}; const name=t['name:'+nameLang]||t.name||'(名称未設定)'; const info=[t.phone,t['contact:phone']].filter(Boolean).join(' / ');
+        return {lat:center.lat,lon:center.lon,name,info,badge:L.tel};
+      }).filter(Boolean);
+      showResults(items.slice(0,40));
+    }
+    async function searchAddress(q){
+      if (!q){ alert('住所を入力してください'); return; }
+      const params=new URLSearchParams({ q:q, format:'jsonv2', addressdetails:'1', limit:'10', countrycodes:'jp', 'accept-language': currentLang+',ja,en' });
+      const js=await (await fetch('https://nominatim.openstreetmap.org/search?'+params.toString())).json();
+      const L=I18N[currentLang]||I18N.ja;
+      const items=js.map(r=>({ lat:parseFloat(r.lat), lon:parseFloat(r.lon), name:r.display_name, info:(r.address||{}).road?((r.address.road||'')+' '+(r.address.house_number||'')):'', badge:L.address }));
+      showResults(items);
+    }
+  </script>
+</body>
+</html>
