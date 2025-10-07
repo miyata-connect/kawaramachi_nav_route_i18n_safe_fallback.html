@@ -5,13 +5,16 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>高松瓦町多言語歩行者ナビ</title>
 
-  <!-- 本体へ即転送（同階層の app.html） -->
-  <meta http-equiv="refresh" content="0; url=app.html?v=search-hard-micfix" />
-  <link rel="canonical" href="app.html" />
-  <script>window.location.replace('app.html?v=search-hard-micfix');</script>
+  <!-- 同じフォルダ内の app.html にだけ相対遷移 -->
+  <meta http-equiv="refresh" content="0;url=./app.html?v=geo-stable" />
+  <link rel="canonical" href="./app.html" />
+  <script>
+    // もしメタがブロックされてもJSで同階層へ。絶対URLは使わない。
+    location.replace('./app.html?v=geo-stable');
+  </script>
 </head>
 <body style="font-family:system-ui,-apple-system,Segoe UI,Roboto,'Noto Sans JP',sans-serif;text-align:center;margin-top:3em">
   <h2>高松瓦町多言語歩行者ナビ</h2>
-  <p>自動で地図へ移動しない場合は <a href="app.html?v=search-hard-micfix">こちらをクリック</a>。</p>
+  <p>自動で地図へ移動しない場合は <a href="./app.html?v=geo-stable">こちらをクリック</a>。</p>
 </body>
 </html>
