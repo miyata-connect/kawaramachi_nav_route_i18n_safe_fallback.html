@@ -5,11 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>高松・瓦町 多言語徒歩ナビ</title>
 
-<!-- Leaflet（jsDelivr・SRI）-->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
-  integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="anonymous">
+<!-- Leaflet（SRIなしで確実に読み込む） -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
   html,body,#map{height:100%;margin:0}
+  #map{ background:#f3f3f3 } /* タイル未読時も描画が分かる */
   #panel{
     position:absolute; top:8px; left:8px; right:8px; z-index:1000;
     display:grid; grid-template-columns:1fr auto auto auto; gap:6px; align-items:center;
@@ -98,8 +98,7 @@
   <div id="stepsBody"></div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
-  integrity="sha256-VuZ8H6HxZ7Q6OQEiQY6m+yt9Y1/1Xx1bCHHBw36r2nM=" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 /* ===== i18n & utils ===== */
 const I18N={
@@ -128,10 +127,11 @@ const applyLang=()=>{const L=I18N[currentLang]; searchBtn.textContent=L.search; 
 
 /* ===== 地図（タイル自動フォールバック） ===== */
 let map=L.map('map');
-const tileCandidates=[
-  { url:'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', opt:{subdomains:'abcd',maxZoom:20, attribution:'&copy; OpenStreetMap &copy; CARTO'} },
-  { url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt:{maxZoom:20, attribution:'&copy; OpenStreetMap contributors'} },
-  { url:'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', opt:{subdomains:'abc',maxZoom:19, attribution:'&copy; OpenStreetMap France, HOT'} }
+const tileCandidates = [
+  { url: 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', opt: { maxZoom: 18, attribution: '© GSI, 国土地理院' } },
+  { url: 'https://tile.openstreetmap.jp/{z}/{x}/{y}.png', opt: { maxZoom: 19, attribution: '© OpenStreetMap contributors, OSM Japan' } },
+  { url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', opt: { maxZoom: 20, attribution: '© OpenStreetMap contributors' } },
+  { url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', opt: { subdomains: 'abcd', maxZoom: 20, attribution: '© OpenStreetMap, © CARTO' } }
 ];
 function attachTileWithFallback(cands,i=0){
   if(i>=cands.length){ toast('タイル読み込みに失敗'); return null; }
@@ -141,6 +141,7 @@ function attachTileWithFallback(cands,i=0){
 }
 attachTileWithFallback(tileCandidates);
 const DEF=[34.33917,134.05264]; map.setView(DEF,17);
+map.whenReady(()=>setTimeout(()=>map.invalidateSize(true),0));
 
 let currentMarker=null, currentLL=null, routeLine=null;
 function setCurrent(lat,lon){ currentLL={lat,lon}; if(currentMarker) map.removeLayer(currentMarker); const Ls=(I18N[currentLang]||I18N.ja).current; currentMarker=L.marker([lat,lon],{title:Ls}).addTo(map).bindPopup(Ls); }
@@ -152,7 +153,7 @@ async function initGeo(){
   try{
     const perm=await navigator.permissions.query({name:'geolocation'});
     if(perm.state==='denied'){ fallback(); return; }
-  }catch(_){/* 権限API非対応はスルー */}
+  }catch(_){}
   navigator.geolocation.getCurrentPosition(
     p=>{ setCurrent(p.coords.latitude,p.coords.longitude); map.setView([p.coords.latitude,p.coords.longitude],17); },
     _e=>{ fallback(); },
@@ -247,6 +248,7 @@ function showResults(items){
 }
 function focus(lat,lon,name,info,open){
   dest={lat,lon,name}; const m=L.marker([lat,lon]).addTo(map).bindPopup('<b>'+name+'</b>'+(info?'<br>'+info:'')); m.openPopup(); map.setView([lat,lon],18);
+  const distEl=document.getElementById('distText');
   if(currentMarker){const cl=currentMarker.getLatLng(); if(routeLine) map.removeLayer(routeLine);
     routeLine=L.polyline([[cl.lat,cl.lng],[lat,lon]],{color:'#2ecc71',weight:4,opacity:.8}).addTo(map);
     distEl.textContent=(I18N[currentLang].distance||'Distance: ~ __m__ m').replace('__m__',Math.round(hav(cl.lat,cl.lng,lat,lon)));
