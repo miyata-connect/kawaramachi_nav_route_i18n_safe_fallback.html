@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>WALK NAV</title>
 
-<!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -14,13 +13,12 @@
     --bg: rgba(255,255,255,.96);
     --shadow: 0 10px 25px rgba(0,0,0,.15);
     --r: 14px;
-    /* 検索結果の開始位置は JS で実測して更新 */
-    --resultsTop: 120px;
+    --resultsTop: 120px; /* JSが実測して更新 */
   }
   html,body{height:100%;margin:0}
   #map{position:fixed;inset:0}
 
-  /* ── 上部 UI（圧縮レイアウト） ───────────────────────── */
+  /* ── 検索パネル ─────────────────────────── */
   #panel{
     position:fixed;
     left:max(8px,env(safe-area-inset-left));
@@ -45,7 +43,7 @@
     #lang{grid-column:1 / -1}
   }
 
-  /* 現在地＆追従（ズームと被らない固定位置） */
+  /* 右上の固定ボタン（ズームとかぶらない） */
   .fixed-controls{
     position:fixed;right:max(10px,env(safe-area-inset-right));
     top:calc(66px + env(safe-area-inset-top));
@@ -68,7 +66,8 @@
   }
   #results ul{list-style:none;margin:0;padding:0}
   #results li{
-    padding:10px 12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;gap:8px
+    padding:10px 12px;border-top:1px solid #e5e7eb;display:flex;justify-content:space-between;gap:8px;
+    cursor:pointer;
   }
   #results li:first-child{border-top:none}
   #results small{color:#6b7280}
@@ -81,7 +80,7 @@
     padding:8px 12px;z-index:1000;font-size:14px;display:none;max-width:92vw;
   }
 
-  /* 進行方向マーカー（回転） */
+  /* 進行方向ピン */
   .heading-pin{
     width:24px;height:24px;border-radius:50%;
     background:#2563eb;border:3px solid #fff;box-shadow:0 0 0 2px rgba(37,99,235,.35);
@@ -93,7 +92,6 @@
     filter:drop-shadow(0 1px 1px rgba(0,0,0,.4));
   }
 
-  /* ルート線 */
   .route-shadow{filter:drop-shadow(0 1px 1px rgba(0,0,0,.35))}
 </style>
 </head>
@@ -126,7 +124,7 @@
 
 <script>
 (function(){
-  // ========= 基本 =========
+  // ========= 地図 =========
   const map = L.map('map',{zoomControl:true,attributionControl:true}).setView([34.342,134.046],16);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20,attribution:'&copy; OpenStreetMap'}).addTo(map);
 
@@ -139,13 +137,11 @@
 
   const ORS_PROXY='https://ors-proxy.miyata-connect-jp.workers.dev/proxy';
 
-  // ========= 検索結果の“かぶり”防止：検索窓の実高でオフセット計算 =========
+  // ========= 検索パネルの実高で結果をずらす =========
   function updateResultsOffset(){
     const r = panelEl.getBoundingClientRect();
-    const top = Math.round(r.bottom + 8); // 検索窓(実高)の下 + 余白
-    document.documentElement.style.setProperty('--resultsTop', top + 'px');
+    document.documentElement.style.setProperty('--resultsTop', (Math.round(r.bottom)+8) + 'px');
   }
-  // 初期化 & あらゆるタイミングで再計算
   ['load','resize','orientationchange'].forEach(ev=>window.addEventListener(ev,updateResultsOffset));
   langEl.addEventListener('change',updateResultsOffset);
   new ResizeObserver(updateResultsOffset).observe(panelEl);
@@ -157,7 +153,6 @@
   // ========= 現在地 & heading =========
   let meLatLng=null, meMarker=null, headingDeg=null, follow=true;
   const MeIcon=L.divIcon({className:'',html:'<div class="heading-pin"></div>',iconSize:[24,24],iconAnchor:[12,12]});
-
   function setMeMarker(latlng){
     if(!meMarker){ meMarker=L.marker(latlng,{icon:MeIcon}).addTo(map); }
     else{ meMarker.setLatLng(latlng); }
@@ -167,8 +162,7 @@
     if(!meMarker) return;
     const el = meMarker.getElement();
     if(!el) return;
-    const deg = (headingDeg==null)?0:headingDeg;
-    el.style.transform = `rotate(${deg}deg)`;
+    el.style.transform = `rotate(${(headingDeg??0)}deg)`;
   }
   function bearing(from, to){
     const φ1=from.lat*Math.PI/180, φ2=to.lat*Math.PI/180;
@@ -177,7 +171,6 @@
     const x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2-λ1);
     return (Math.atan2(y,x)*180/Math.PI+360)%360;
   }
-
   if(navigator.geolocation){
     navigator.geolocation.watchPosition(p=>{
       meLatLng = L.latLng(p.coords.latitude,p.coords.longitude);
@@ -187,18 +180,14 @@
       maybeRerouteOnMove();
     }, err=>console.warn(err), {enableHighAccuracy:true,maximumAge:5000,timeout:10000});
   }
-
-  locateEl.addEventListener('click',()=>{
-    if(meLatLng){ map.flyTo(meLatLng,18,{duration:.6}); }
-    else toast('現在地を取得中…');
-  });
+  locateEl.addEventListener('click',()=>{ meLatLng? map.flyTo(meLatLng,18,{duration:.6}) : toast('現在地を取得中…'); });
   followEl.addEventListener('click',()=>{
     follow=!follow; followEl.setAttribute('aria-pressed', String(follow));
     followEl.textContent = follow ? '🧭 追従ON' : '🧭 追従OFF';
     if(follow && meLatLng) map.panTo(meLatLng);
   });
 
-  // ========= 音声入力（BCP-47 言語） =========
+  // ========= 音声入力（UIの言語をそのまま使用） =========
   let recog=null;
   micEl.addEventListener('click',()=>{
     const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -206,17 +195,17 @@
     if(!recog){
       recog=new SR(); recog.interimResults=false; recog.maxAlternatives=1;
       recog.addEventListener('result',e=>{
-        const txt=e.results[0][0].transcript.trim(); qEl.value=txt; doSearch();
+        qEl.value=e.results[0][0].transcript.trim(); doSearch();
       });
       recog.addEventListener('error',e=>toast('音声入力エラー: '+e.error));
     }
     try{ recog.lang=langEl.value||'ja-JP'; recog.start(); }catch(_){}
   });
 
-  // ========= 検索（上位5件まで、近い順） =========
+  // ========= 検索（近い順 上位5件） =========
   async function geocodeTop5(term, centerLatLng, langTag){
     const lat=centerLatLng.lat, lon=centerLatLng.lng;
-    const R=800; // 収集半径(内部) 〜800m
+    const R=800;
     const dLat=R/111320, dLon=R/(111320*Math.cos(lat*Math.PI/180));
     const url=new URL('https://nominatim.openstreetmap.org/search');
     url.searchParams.set('format','jsonv2');
@@ -228,6 +217,8 @@
     url.searchParams.set('bounded','1');
     const res=await fetch(url,{headers:{'Accept':'application/json'}});
     const arr=await res.json();
+
+    // 電話番号っぽい時はOverpassも併用
     const digits=term.replace(/[^\d]/g,'');
     let overpassArr=[];
     if(digits.length>=7){
@@ -241,34 +232,29 @@
             way(around:${R},${lat},${lon})["contact:phone"~"${digits}"];
             relation(around:${R},${lat},${lon})["phone"~"${digits}"];
             relation(around:${R},${lat},${lon})["contact:phone"~"${digits}"];
-          ); out center 30;
-        `;
+          ); out center 30;`;
         const r=await fetch('https://overpass-api.de/api/interpreter',{
           method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
           body:new URLSearchParams({data:q})
         });
         const j=await r.json();
-        overpassArr = (j.elements||[]).map(el=>{
+        overpassArr=(j.elements||[]).map(el=>{
           const y=el.lat||el.center?.lat, x=el.lon||el.center?.lon;
           if(!y||!x) return null;
-          return { lat:y, lon:x, display_name: el.tags?.name || el.tags?.brand || '目的地(電話)', via:'overpass' };
+          return { lat:y, lon:x, display_name: el.tags?.name || el.tags?.brand || '目的地(電話)' };
         }).filter(Boolean);
       }catch(e){ console.warn('overpass',e); }
     }
     const center=L.latLng(lat,lon);
-    const merged=[...arr.map(a=>({lat:parseFloat(a.lat),lon:parseFloat(a.lon),display_name:a.display_name,via:'nominatim'})),...overpassArr];
+    const merged=[...arr.map(a=>({lat:+a.lat,lon:+a.lon,display_name:a.display_name})),...overpassArr];
     const uniq=new Map();
-    merged.forEach(p=>{
-      const key=p.lat.toFixed(6)+','+p.lon.toFixed(6);
-      if(!uniq.has(key)) uniq.set(key,p);
-    });
-    const list=[...uniq.values()].map(p=>{
-      p._d=map.distance(center,[p.lat,p.lon]); return p;
-    }).sort((a,b)=>a._d-b._d).slice(0,5);
+    merged.forEach(p=>{ const k=p.lat.toFixed(6)+','+p.lon.toFixed(6); if(!uniq.has(k)) uniq.set(k,p); });
+    const list=[...uniq.values()].map(p=>{ p._d=map.distance(center,[p.lat,p.lon]); return p; })
+      .sort((a,b)=>a._d-b._d).slice(0,5);
     return list;
   }
 
-  // ========= ORS ルート =========
+  // ========= 経路（ORS） =========
   let dstMarker=null, routeLine=null, routeShadow=null, lastRouteTo=null, lastRouteAt=0;
 
   async function routeWalk(from, to, langTag){
@@ -288,8 +274,6 @@
     routeLine=L.polyline(latlngs,{color:'#2563eb',weight:5,opacity:.95}).addTo(map);
     map.fitBounds(routeLine.getBounds(),{padding:[80,40]});
   }
-
-  // ルート逸脱検出 → 25m超でリルート / 20秒ごとに更新
   function distanceToPolylineMeters(latlng, latlngs){
     if(!latlngs||latlngs.length<2) return Infinity;
     const p=map.latLngToLayerPoint(latlng);
@@ -319,7 +303,7 @@
     }
   }
 
-  // ========= 検索 → 上位5件リスト → タップで経路 =========
+  // ========= 検索 → タップで案内（try/catchで確実に動く） =========
   async function doSearch(){
     const term=qEl.value.trim(); if(!term){toast('キーワードを入力');return;}
     const center=meLatLng || map.getCenter();
@@ -332,24 +316,37 @@
           <span>${p.display_name}</span>
           <small>${(p._d/1000).toFixed(2)}km</small>
         </li>`).join('');
-      updateResultsOffset();              // ★ ここで実高反映
+      updateResultsOffset();
       resultsEl.style.display='block';
 
       resultsUL.querySelectorAll('li').forEach(li=>{
         li.addEventListener('click', async ()=>{
-          const i=+li.getAttribute('data-i'); const p=list[i];
           resultsEl.style.display='none';
+          const i=+li.getAttribute('data-i'); const p=list[i];
           const to=L.latLng(p.lat,p.lon);
-          if(!dstMarker) dstMarker=L.marker(to,{title:'目的地'}).addTo(map);
-          else dstMarker.setLatLng(to).bindPopup(p.display_name||'目的地');
-          if(meLatLng && (headingDeg==null)){ headingDeg=bearing(meLatLng,to); rotateHeading(); }
-          if(meLatLng){
-            const r=await routeWalk(meLatLng,to,langEl.value);
-            drawRoute(r.latlngs);
-            lastRouteTo=to; lastRouteAt=Date.now();
-            toast(`徒歩 約${Math.round(r.dur/60)}分 / ${(r.dist/1000).toFixed(2)}km`);
-          }else{
-            map.flyTo(to,18);
+
+          try{
+            // 目的地マーカーは必ず表示
+            if(!dstMarker) dstMarker=L.marker(to,{title:'目的地'}).addTo(map);
+            else dstMarker.setLatLng(to);
+            dstMarker.bindPopup(p.display_name||'目的地');
+
+            lastRouteTo=to;
+
+            if(meLatLng){
+              const r=await routeWalk(meLatLng,to,langEl.value);
+              drawRoute(r.latlngs);
+              lastRouteAt=Date.now();
+              toast(`徒歩 約${Math.round(r.dur/60)}分 / ${(r.dist/1000).toFixed(2)}km`);
+            }else{
+              map.flyTo(to,18,{duration:.6});
+              toast('現在地未取得のため目的地のみ表示しました');
+            }
+          }catch(e){
+            console.error(e);
+            // ORSに失敗しても目的地へ移動はする
+            map.flyTo(to,18,{duration:.6});
+            toast('ルート取得に失敗: '+(e.message||e));
           }
         });
       });
@@ -359,10 +356,10 @@
   qEl.addEventListener('keydown',e=>{ if(e.key==='Enter') doSearch(); });
   closeResultsEl.addEventListener('click',()=>{ resultsEl.style.display='none'; });
 
-  // 初期配置を一度計算
+  // 初期配置
   updateResultsOffset();
 
-  // 初期 q= で検索
+  // 初期 q= があれば検索
   const sp=new URLSearchParams(location.search);
   if(sp.get('q')){ qEl.value=sp.get('q'); setTimeout(()=>{ updateResultsOffset(); doSearch(); },300); }
 })();
