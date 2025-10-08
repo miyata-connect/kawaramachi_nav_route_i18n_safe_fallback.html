@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>高松・瓦町 多言語徒歩ナビ</title>
+<title>高松・瓦町 多言語徒歩ナビ（ワンファイル版）</title>
 
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
@@ -130,7 +130,7 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* 保険（CDN切替） */
+/* 予備（Leaflet CDN切替） */
 if (!window.L) { var s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js'; document.head.appendChild(s); }
 
 /* ===== i18n ===== */
@@ -504,6 +504,7 @@ function focus(lat,lon,name,info,open){
   }
   if(open) openNav(name);
 }
+function openNav(name){ targetEl.textContent=name||''; navPanel.style.display='flex'; document.getElementById('startNav').disabled=false; document.getElementById('stopNav').disabled=true; }
 
 /* ==== マスター検索 ==== */
 const doSearch=async()=>{
@@ -533,7 +534,7 @@ const doSearch=async()=>{
 };
 searchBtn.onclick=doSearch; qEl.addEventListener('keydown',e=>{ if(e.key==='Enter') doSearch(); });
 
-/* ===== 音声入力（修正版：再クリックで確実に再開・二重発火防止） ===== */
+/* ===== 音声入力（安定版） ===== */
 let recog = null;
 (function(){
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -542,63 +543,39 @@ let recog = null;
     : 'このブラウザは音声認識に未対応です。Chrome(HTTPS)で開いてください。';
 
   if (!SR) {
-    mic.disabled = true;
-    mic.title = unsupportedMsg;
-    mic.textContent = '🎤×';
-    mic.classList.remove('rec');
-    return;
+    mic.disabled = true; mic.title = unsupportedMsg; mic.textContent = '🎤×'; mic.classList.remove('rec'); return;
   }
+  recog = new SR(); recog.lang = speechLocale(currentLang); recog.interimResults=false; recog.continuous=false; recog.maxAlternatives=1;
 
-  recog = new SR();
-  recog.lang = speechLocale(currentLang);
-  recog.interimResults = false;
-  recog.continuous = false;
-  recog.maxAlternatives = 1;
+  let active=false, starting=false;
+  const setIdle=()=>{active=false; starting=false; mic.classList.remove('rec');};
 
-  let active = false;
-  let starting = false;
-
-  const setIdle = () => { active=false; starting=false; mic.classList.remove('rec'); };
-
-  recog.onresult = (e) => {
-    try {
-      qEl.value = e.results[0][0].transcript;
-      setTimeout(() => doSearch(), 20);
-    } catch(_){}
-  };
-  recog.onstart = () => { active = true; mic.classList.add('rec'); };
-  recog.onend   = () => { setIdle(); };
-  recog.onerror = (e) => {
+  recog.onresult=e=>{ try{ qEl.value=e.results[0][0].transcript; setTimeout(()=>doSearch(),20);}catch{} };
+  recog.onstart =()=>{active=true; mic.classList.add('rec');};
+  recog.onend   =()=>{setIdle();};
+  recog.onerror =e=>{
     setIdle();
-    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
-      alert('マイクの権限がブロックされています。\nアドレスバーの🔒→権限→マイクを「許可」にしてください。');
-    } else if (e.error === 'no-speech' || e.error === 'audio-capture') {
-      toast('音声が取得できませんでした');
-    } else {
-      toast('音声エラー: ' + e.error);
-    }
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){ alert('マイク権限がブロックされています。🔒→権限→マイクを「許可」に。'); }
+    else if(e.error==='no-speech'||e.error==='audio-capture'){ toast('音声が取得できませんでした'); }
+    else { toast('音声エラー: '+e.error); }
   };
 
-  async function prime() {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
-    try { const s=await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t=>t.stop()); return true; }
-    catch { return false; }
+  async function prime(){ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia) return true;
+    try{const s=await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t=>t.stop()); return true;}catch{return false;}
   }
 
-  mic.addEventListener('click', async (ev) => {
+  mic.addEventListener('click', async (ev)=>{
     ev.preventDefault();
-    if (starting) return;
+    if(starting) return;
     recog.lang = speechLocale(currentLang);
+    if(active){ try{recog.stop();}catch{} return; }
+    starting=true; mic.classList.add('rec');
+    const ok=await prime();
+    try{ if(!ok) throw new Error('permission'); recog.start(); }
+    catch(e){ setIdle(); toast('音声開始に失敗: '+(e&&e.message?e.message:'不明')); }
+  }, {passive:false});
 
-    if (active) { try { recog.stop(); } catch(_) {} return; }
-
-    starting = true; mic.classList.add('rec');
-    const ok = await prime();
-    try { if (!ok) throw new Error('permission'); recog.start(); }
-    catch (e) { setIdle(); toast('音声開始に失敗: ' + (e && e.message ? e.message : '不明')); }
-  }, { passive: false });
-
-  langSel.addEventListener('change', () => { if (recog) recog.lang = speechLocale(currentLang); });
+  langSel.addEventListener('change', ()=>{ if(recog) recog.lang=speechLocale(currentLang); });
 })();
 
 /* ===== 画面にJSエラーを表示（真っ白対策） ===== */
