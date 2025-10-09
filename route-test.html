@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>ORS Proxy ルートテスト</title>
+  <style>
+    body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;margin:16px;line-height:1.5}
+    fieldset{border:1px solid #ddd;border-radius:10px;padding:12px;margin-bottom:12px}
+    label{display:block;margin:6px 0 2px}
+    input,select,button,textarea{font:inherit;padding:8px;border:1px solid #ccc;border-radius:8px}
+    input{width:140px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+    button{cursor:pointer}
+    #out{white-space:pre-wrap;background:#0b1020;color:#d7e6ff;padding:12px;border-radius:10px;overflow:auto;max-height:50vh}
+    .ok{color:#198754}.ng{color:#d6336c}
+  </style>
+</head>
+<body>
+  <h1>Cloudflare Workers 経由 ORS ルート取得テスト</h1>
+
+  <fieldset>
+    <legend>入力</legend>
+    <div class="row">
+      <div>
+        <label>開始 Lon, Lat</label>
+        <input id="lon1" value="134.046" />
+        <input id="lat1" value="34.342" />
+      </div>
+      <div>
+        <label>目的地 Lon, Lat</label>
+        <input id="lon2" value="134.049" />
+        <input id="lat2" value="34.341" />
+      </div>
+      <div>
+        <label>プロフィール</label>
+        <select id="profile">
+          <option value="foot-walking" selected>foot-walking</option>
+          <option value="driving-car">driving-car</option>
+          <option value="cycling-regular">cycling-regular</option>
+        </select>
+      </div>
+      <div>
+        <label>言語</label>
+        <select id="lang">
+          <option value="ja" selected>ja</option>
+          <option value="en">en</option>
+        </select>
+      </div>
+      <button id="btn">ルート取得</button>
+    </div>
+    <small>※ このページは GitHub Pages（origin: <code>https://miyata-connect.github.io</code>）から、あなたの Worker を CORS で呼びます。</small>
+  </fieldset>
+
+  <div id="status">準備中…</div>
+  <div id="out"></div>
+
+  <script>
+    const workerBase = "https://ors-proxy.miyata-connect-jp.workers.dev";
+
+    const el = (id)=>document.getElementById(id);
+    const status = (msg, ok=null)=>{
+      const s = el('status'); s.textContent = msg;
+      s.className = ok===null ? "" : (ok ? "ok" : "ng");
+    };
+
+    async function run() {
+      const lon1 = parseFloat(el('lon1').value);
+      const lat1 = parseFloat(el('lat1').value);
+      const lon2 = parseFloat(el('lon2').value);
+      const lat2 = parseFloat(el('lat2').value);
+      const profile = el('profile').value;
+      const language = el('lang').value;
+
+      const url = `${workerBase}/proxy?profile=${encodeURIComponent(profile)}`;
+      const body = {
+        coordinates: [[lon1, lat1],[lon2, lat2]],
+        instructions: true,
+        language
+      };
+
+      status("送信中…");
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          mode: "cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body)
+        });
+
+        const text = await res.text();
+        // 可能なら整形表示
+        let pretty = text;
+        try { pretty = JSON.stringify(JSON.parse(text), null, 2); } catch {}
+        el('out').textContent = pretty;
+        status(`HTTP ${res.status} / ${res.ok ? "成功" : "失敗"}`, res.ok);
+      } catch (e) {
+        status("送信エラー: " + (e?.message || e), false);
+        el('out').textContent = "";
+      }
+    }
+
+    el('btn').addEventListener('click', run);
+    status("準備OK。ボタンを押してください。");
+  </script>
+</body>
+</html>
