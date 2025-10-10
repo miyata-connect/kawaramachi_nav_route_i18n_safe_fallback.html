@@ -19,7 +19,7 @@
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .search{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid #243150;border-radius:12px;padding:6px 8px;flex:1;min-width:260px}
   .search input{background:transparent;border:none;outline:none;color:var(--fg);width:100%;font-size:16px}
-  .icon-btn{background:var(--btn);border:1px solid #22304e;color:var(--fg);border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
+  .icon-btn{background:var(--btn);border:1px solid #22304e;color:var(--fg);border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer;white-space:nowrap}
   .icon-btn:disabled{opacity:.6;cursor:not-allowed}
   #mic{font-size:20px;padding:12px 14px;min-width:44px;min-height:44px;border-radius:12px}
 
@@ -28,6 +28,8 @@
   .num,select{appearance:none;background:#0f1a31;border:1px solid #22304e;border-radius:10px;color:var(--fg);padding:8px 10px;font-size:14px}
   .num{width:120px}
   .primary{background:var(--accent);border-color:#2b7fcc;color:#031225}
+
+  .sm{font-size:13px;padding:6px 8px;border-radius:9px}
 
   .hintRow{color:var(--muted);font-size:14px;margin-top:8px}
   .status{margin-top:6px;color:#cfe2ff;font-size:14px}
@@ -40,7 +42,6 @@
   .muted{color:var(--muted)}
   .listHead{padding:8px 12px;border-bottom:1px solid #1a2745;color:#cfe2ff}
 
-  /* JSで高さを上書きするが、初期描画保険として最小値を入れておく */
   #map{height:55vh;min-height:320px;background:#0a1120}
 
   .floating{position:fixed;right:14px;bottom:20px;z-index:500;display:flex;flex-direction:column;gap:10px}
@@ -100,21 +101,27 @@
       <button id="clearBtn" class="icon-btn">クリア</button>
     </div>
 
-    <!-- 記憶地点（現在地を保存ボタンはここに配置） -->
+    <!-- 記憶地点（1行に集約：目的地を保存／設定／削除） -->
     <div class="row" style="margin-top:8px">
-      <div class="group" style="flex:1">
+      <div class="group" style="flex:1;min-width:220px">
         <div class="label">記憶地点（この端末に保存）</div>
         <select id="saved" style="min-width:220px;flex:1">
           <option value="">（未選択）</option>
         </select>
       </div>
-      <button id="saveHereBtn" class="icon-btn" title="現在地に名前を付けて保存">現在地を保存</button>
-      <button id="useSavedBtn" class="icon-btn" title="選択した記憶地点を目的地に設定">目的地に設定</button>
-      <button id="delSavedBtn" class="icon-btn" title="選択した記憶地点を削除">選択した記憶地点を削除</button>
+      <div class="row" style="gap:6px">
+        <button id="saveDestBtn" class="icon-btn sm" title="現在の目的地を保存">目的地を保存</button>
+        <button id="useSavedBtn" class="icon-btn sm" title="選択した記憶地点を目的地に設定">目的地に設定</button>
+        <button id="delSavedBtn" class="icon-btn sm" title="選択した記憶地点を削除">削除</button>
+      </div>
     </div>
 
-    <!-- ヒント・ステータス -->
-    <div class="hintRow">地図を長押しすると目的地に設定できます</div>
+    <!-- 参考：現在地を保存（小さめ） -->
+    <div class="row" style="margin-top:6px">
+      <button id="saveHereBtn" class="icon-btn sm" title="現在地に名前を付けて保存">現在地を保存</button>
+      <div class="hintRow">地図を長押しすると目的地に設定できます</div>
+    </div>
+
     <div id="statusText" class="status">準備完了。目的地を設定してください</div>
 
     <!-- 検索結果 -->
@@ -135,12 +142,12 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
 <script>
-/* ================== 定数 ================== */
+/* ====== 設定 ====== */
 const WORKER_URL = 'https://ors-proxy.miyata-connect-jp.workers.dev';
 const ORS_ENDPOINT = WORKER_URL + '/proxy';
 const LANG_SPEECH = { ja:'ja-JP', en:'en-US', zh:'zh-CN', ko:'ko-KR' };
 
-/* ================== 要素 & 状態 ================== */
+/* ====== 要素 & 状態 ====== */
 const $ = s => document.querySelector(s);
 const status = t => $('#statusText').textContent = t;
 
@@ -150,7 +157,7 @@ let lastPos = null, watchId = null;
 let announcedTurnIdx = -1, passedWarned = false;
 let selectDestMode = false, audioCtx;
 
-/* ========== 画面高さに合わせて地図をリサイズ ========== */
+/* ====== 高さ調整（地図の再計算） ====== */
 function setMapHeight(){
   const header = document.getElementById('appHeader');
   if(!header) return;
@@ -167,9 +174,9 @@ function invalidateMapSoon(){
 window.addEventListener('resize', invalidateMapSoon);
 window.addEventListener('orientationchange', invalidateMapSoon);
 
-/* ================== 初期化 ================== */
+/* ====== 地図初期化 ====== */
 function initMap(){
-  setMapHeight(); // ← 先に枠の高さを確保
+  setMapHeight();
   map = L.map('map', {zoomControl:false});
   L.control.zoom({ position:'bottomleft' }).addTo(map);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
@@ -196,11 +203,10 @@ function initMap(){
   map.on('click', e=>{ if(selectDestMode){ setDestination(e.latlng); selectDestMode=false; status('目的地を設定しました'); }});
   map.on('contextmenu', e=>{ setDestination(e.latlng); status('目的地を設定しました'); });
 
-  // DOM変動でヘッダーの高さが変わるときにも追従
   new ResizeObserver(invalidateMapSoon).observe(document.getElementById('appHeader'));
 }
 
-/* ================== 位置・UIユーティリティ ================== */
+/* ====== 位置ユーティリティ ====== */
 function metersBetween(a,b){
   const R=6371000, dLat=(b.lat-a.lat)*Math.PI/180, dLon=(b.lng-a.lng)*Math.PI/180;
   const lat1=a.lat*Math.PI/180, lat2=b.lat*Math.PI/180;
@@ -274,7 +280,7 @@ function setDestination(latlng){
   $('#lon2').value=latlng.lng.toFixed(6); $('#lat2').value=latlng.lat.toFixed(6);
 }
 
-/* ================== ルート ================== */
+/* ====== ルート ====== */
 async function requestRoute(){
   const profile = $('#profile').value, lang=$('#lang').value||'ja';
   const start = getStart(), goal=getGoal();
@@ -337,45 +343,77 @@ function maybeWarnAndGuide(){
   }
 }
 
-/* ================== 検索（上位5件） ================== */
+/* ====== 検索（ヒット率改善：Photon → Nominatim フォールバック） ====== */
 function buildListHeader(text){ return `<div class="listHead">${text}</div>`; }
+function uniqByLatLon(items){
+  const seen=new Set(); const out=[];
+  for(const it of items){
+    const key = `${(+it.lon).toFixed(5)},${(+it.lat).toFixed(5)}`;
+    if(!seen.has(key)){ seen.add(key); out.push(it); }
+  } return out;
+}
+async function searchPhoton(q, lang){
+  const bias = (lastPos ? `&lat=${lastPos.lat}&lon=${lastPos.lng}` : '');
+  const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}${bias}&lang=${encodeURIComponent(lang)}&limit=30`;
+  const res=await fetch(url,{headers:{'Accept':'application/json'}});
+  const data=await res.json();
+  const arr=(data?.features||[]).map(f=>{
+    const [lon,lat]=f.geometry.coordinates, p=f.properties||{};
+    const name=[p.name,p.street,p.housenumber,p.city,p.country].filter(Boolean).join(' ') || p.label || '(名称不明)';
+    return {name,lon,lat,kind:p.osm_value||p.osm_key||''};
+  });
+  return arr;
+}
+async function searchNominatim(q, lang){
+  const headers={'Accept':'application/json','Accept-Language':lang};
+  const bbox = lastPos ? `&viewbox=${lastPos.lng-0.2},${lastPos.lat+0.2},${lastPos.lng+0.2},${lastPos.lat-0.2}&bounded=1` : '';
+  const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=30&addressdetails=1&extratags=1&namedetails=1&q=${encodeURIComponent(q)}${bbox}`;
+  const res=await fetch(url,{headers});
+  const data=await res.json();
+  const arr=(data||[]).map(r=>{
+    const name=r.display_name || r.name || '(名称不明)';
+    return {name,lon:+r.lon,lat:+r.lat,kind:r.category||r.type||''};
+  });
+  return arr;
+}
 async function doSearch(){
   const q=$('#q').value.trim();
   const langVal=$('#lang').value||'ja';
+  const phoneLike=/[\d-+]{6,}/.test(q);
   $('#list').style.display='block';
   $('#list').innerHTML=buildListHeader('検索結果')+'<div class="item muted">検索中…</div>';
-  invalidateMapSoon(); // 高さ再計算
+  invalidateMapSoon();
 
   try{
-    const bias = (lastPos ? `&lat=${lastPos.lat}&lon=${lastPos.lng}` : '');
-    const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(q||'poi')}${bias}&lang=${encodeURIComponent(langVal)}&limit=20`;
-    const res=await fetch(url,{headers:{'Accept':'application/json'}}); const data=await res.json();
-
-    let feats=data?.features||[];
-    if(lastPos){
-      feats = feats.map(f=>{
-        const [lon,lat]=f.geometry.coordinates;
-        const d = metersBetween({lat:lastPos.lat,lng:lastPos.lng},{lat, lng:lon});
-        return {...f, __dist:d};
-      }).sort((a,b)=>a.__dist-b.__dist).slice(0,5);
+    // 1) Photon
+    let results = q ? await searchPhoton(q, langVal) : [];
+    // 2) 電話番号や日本語で弱い時は Nominatim をマージ
+    if(phoneLike || results.length < 3){
+      const extra = await searchNominatim(q || 'poi', langVal);
+      results = uniqByLatLon(results.concat(extra));
     }else{
-      feats = feats.slice(0,5);
+      results = uniqByLatLon(results);
     }
 
-    if(!feats.length){
+    // 近い順に並べ、上位5件
+    if(lastPos){
+      results.forEach(r=> r.__dist = metersBetween(lastPos,{lat:r.lat,lng:r.lon}));
+      results.sort((a,b)=> (a.__dist||1e12)-(b.__dist||1e12));
+    }
+    results = results.slice(0,5);
+
+    if(!results.length){
       $('#list').innerHTML=buildListHeader('検索結果')+'<div class="item muted">該当なし</div>';
+      status('該当なし');
       return;
     }
 
     const head = buildListHeader(lastPos ? '近い順（上位5件）' : '検索結果（上位5件）');
-    $('#list').innerHTML = head + feats.map(f=>{
-      const p=f.properties||{};
-      const name=[p.name,p.street,p.housenumber,p.city,p.country].filter(Boolean).join(' ') || p.label || '(名称不明)';
-      const [lon,lat]=f.geometry.coordinates;
-      const dist = (f.__dist!=null)? ` — 約${Math.round(f.__dist)}m` : '';
-      return `<div class="item" data-lat="${lat}" data-lon="${lon}">
-        <div>${name}</div>
-        <div class="muted">${(p.osm_value||p.osm_key||'')}　<span>${lon.toFixed(5)}, ${lat.toFixed(5)}${dist}</span></div>
+    $('#list').innerHTML = head + results.map(r=>{
+      const dist = (r.__dist!=null)? ` — 約${Math.round(r.__dist)}m` : '';
+      return `<div class="item" data-lat="${r.lat}" data-lon="${r.lon}">
+        <div>${r.name}</div>
+        <div class="muted">${r.kind||''}　<span>${r.lon.toFixed(5)}, ${r.lat.toFixed(5)}${dist}</span></div>
       </div>`;
     }).join('');
 
@@ -393,7 +431,7 @@ async function doSearch(){
   }
 }
 
-/* ================== 音声入力 ================== */
+/* ====== 音声入力 ====== */
 (function setupMic(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition, mic=$('#mic');
   if(!SR){ mic.style.display='none'; return; }
@@ -407,7 +445,7 @@ async function doSearch(){
   rec.onerror=e=>status('音声入力エラー：'+(e.error||''));
 })();
 
-/* ================== ボタン類 ================== */
+/* ====== ボタン ====== */
 $('#routeBtn').addEventListener('click', requestRoute);
 $('#rerouteBtn').addEventListener('click', requestRoute);
 
@@ -433,7 +471,7 @@ $('#guideBtn').addEventListener('click', ()=>{
   }
 });
 
-/* ================== 記憶地点 ================== */
+/* ====== 記憶地点 ====== */
 const LS_KEY='cw_nav_saved_places_v1';
 function loadSavedPlaces(){
   const arr = JSON.parse(localStorage.getItem(LS_KEY)||'[]');
@@ -444,18 +482,26 @@ function loadSavedPlaces(){
     sel.appendChild(opt);
   });
 }
-function savePlaceHere(){
-  if(!lastPos){ alert('現在地が取得できていません'); return; }
-  const name = prompt('現在地に名前を付けて保存します。名称を入力してください：','マイ地点');
-  if(!name) return;
+function savePlace(name, lat, lon){
   const arr = JSON.parse(localStorage.getItem(LS_KEY)||'[]');
-  arr.push({name, lat:lastPos.lat, lon:lastPos.lng, savedAt:Date.now()});
+  arr.push({name, lat, lon, savedAt:Date.now()});
   localStorage.setItem(LS_KEY, JSON.stringify(arr));
   loadSavedPlaces();
-  status(`「${name}」を保存しました`);
 }
-$('#saveHereBtn').addEventListener('click', savePlaceHere);
-
+$('#saveHereBtn').addEventListener('click', ()=>{
+  if(!lastPos){ alert('現在地が取得できていません'); return; }
+  const name = prompt('現在地に名前を付けて保存します：','マイ地点');
+  if(!name) return;
+  savePlace(name, lastPos.lat, lastPos.lng);
+  status(`「${name}」を保存しました`);
+});
+$('#saveDestBtn').addEventListener('click', ()=>{
+  const g=getGoal(); if(!g){ alert('目的地が未設定です'); return; }
+  const name = prompt('目的地に名前を付けて保存します：','目的地');
+  if(!name) return;
+  savePlace(name, g.lat, g.lng);
+  status(`目的地「${name}」を保存しました`);
+});
 $('#useSavedBtn').addEventListener('click', ()=>{
   const arr = JSON.parse(localStorage.getItem(LS_KEY)||'[]');
   const idx = $('#saved').value; if(idx===''){ alert('記憶地点を選択してください'); return; }
@@ -465,7 +511,6 @@ $('#useSavedBtn').addEventListener('click', ()=>{
   status(`目的地を「${p.name}」に設定しました`);
   $('#list').style.display='none'; invalidateMapSoon();
 });
-
 $('#delSavedBtn').addEventListener('click', ()=>{
   const arr = JSON.parse(localStorage.getItem(LS_KEY)||'[]');
   const idx = $('#saved').value; if(idx===''){ alert('削除する記憶地点を選択してください'); return; }
@@ -476,11 +521,10 @@ $('#delSavedBtn').addEventListener('click', ()=>{
   loadSavedPlaces(); status(`「${p?.name||'地点'}」を削除しました`);
 });
 
-/* ================== 起動 ================== */
+/* ====== 起動 ====== */
 (function boot(){
   loadSavedPlaces();
   initMap();
-  // デモ用：目的地が空のときだけ値を入れる
   if(!$('#lon2').value && !$('#lat2').value){ $('#lon2').value='134.049'; $('#lat2').value='34.341'; }
 })();
 </script>
