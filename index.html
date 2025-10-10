@@ -5,11 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Cloudflare Workers ナビ</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin>
-
 <style>
   :root{
-    --bg:#0b1220;--panel:#121a2b;--fg:#e8eefc;--muted:#98a4c5;--accent:#3ea8ff;
-    --btn:#18233b;
+    --bg:#0b1220;--panel:#121a2b;--fg:#e8eefc;--muted:#98a4c5;--accent:#3ea8ff;--btn:#18233b;
   }
   *{box-sizing:border-box}
   html,body{height:100%}
@@ -42,7 +40,8 @@
   .muted{color:var(--muted)}
   .listHead{padding:8px 12px;border-bottom:1px solid #1a2745;color:#cfe2ff}
 
-  #map{height:58dvh;min-height:380px}
+  /* JSで高さを上書きするが、初期描画保険として最小値を入れておく */
+  #map{height:55vh;min-height:320px;background:#0a1120}
 
   .floating{position:fixed;right:14px;bottom:20px;z-index:500;display:flex;flex-direction:column;gap:10px}
   .fab{background:#0e162c;border:1px solid #22304e;color:var(--fg);border-radius:14px;padding:10px 14px;font-weight:700;cursor:pointer;min-width:120px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.35)}
@@ -54,7 +53,7 @@
 </style>
 </head>
 <body>
-  <header>
+  <header id="appHeader">
     <h1>Cloudflare Workers ナビ</h1>
 
     <!-- 検索 -->
@@ -101,17 +100,17 @@
       <button id="clearBtn" class="icon-btn">クリア</button>
     </div>
 
-    <!-- 記憶地点（ここに“現在地を保存”を移動） -->
+    <!-- 記憶地点（現在地を保存ボタンはここに配置） -->
     <div class="row" style="margin-top:8px">
       <div class="group" style="flex:1">
-        <div class="label">記憶地点</div>
+        <div class="label">記憶地点（この端末に保存）</div>
         <select id="saved" style="min-width:220px;flex:1">
           <option value="">（未選択）</option>
         </select>
       </div>
-      <button id="saveHereBtn" class="icon-btn" title="現在地を保存">現在地を保存</button>
-      <button id="useSavedBtn" class="icon-btn">目的地に設定</button>
-      <button id="delSavedBtn" class="icon-btn">削除</button>
+      <button id="saveHereBtn" class="icon-btn" title="現在地に名前を付けて保存">現在地を保存</button>
+      <button id="useSavedBtn" class="icon-btn" title="選択した記憶地点を目的地に設定">目的地に設定</button>
+      <button id="delSavedBtn" class="icon-btn" title="選択した記憶地点を削除">選択した記憶地点を削除</button>
     </div>
 
     <!-- ヒント・ステータス -->
@@ -136,11 +135,14 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
 <script>
+/* ================== 定数 ================== */
 const WORKER_URL = 'https://ors-proxy.miyata-connect-jp.workers.dev';
 const ORS_ENDPOINT = WORKER_URL + '/proxy';
-const SEARCH_URL = 'https://photon.komoot.io/api/';
-
 const LANG_SPEECH = { ja:'ja-JP', en:'en-US', zh:'zh-CN', ko:'ko-KR' };
+
+/* ================== 要素 & 状態 ================== */
+const $ = s => document.querySelector(s);
+const status = t => $('#statusText').textContent = t;
 
 let map, youMarker, accCircle, destMarker, routeLine;
 let routePoints = [], routeSteps = [];
@@ -148,9 +150,57 @@ let lastPos = null, watchId = null;
 let announcedTurnIdx = -1, passedWarned = false;
 let selectDestMode = false, audioCtx;
 
-const $ = s => document.querySelector(s);
-const status = t => $('#statusText').textContent = t;
+/* ========== 画面高さに合わせて地図をリサイズ ========== */
+function setMapHeight(){
+  const header = document.getElementById('appHeader');
+  if(!header) return;
+  const bottom = header.getBoundingClientRect().bottom;
+  let h = Math.floor(window.innerHeight - bottom);
+  if(!Number.isFinite(h) || h < 240) h = Math.max(240, Math.round(window.innerHeight*0.45));
+  const el = document.getElementById('map');
+  el.style.height = h + 'px';
+}
+function invalidateMapSoon(){
+  setMapHeight();
+  if(map){ setTimeout(()=> map.invalidateSize(true), 100); }
+}
+window.addEventListener('resize', invalidateMapSoon);
+window.addEventListener('orientationchange', invalidateMapSoon);
 
+/* ================== 初期化 ================== */
+function initMap(){
+  setMapHeight(); // ← 先に枠の高さを確保
+  map = L.map('map', {zoomControl:false});
+  L.control.zoom({ position:'bottomleft' }).addTo(map);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
+
+  const fallback = {lat:34.342000,lng:134.046000};
+  map.setView([fallback.lat,fallback.lng], 16);
+  setTimeout(()=> map.invalidateSize(), 150);
+
+  if('geolocation' in navigator){
+    navigator.geolocation.getCurrentPosition(p=>{
+      const {latitude,longitude,accuracy}=p.coords;
+      lastPos={lat:latitude,lng:longitude,accuracy};
+      setStartFields(lastPos);
+      showYou(lastPos);
+      map.setView([latitude,longitude], 17);
+      invalidateMapSoon();
+    },()=>{ status('現在地は許可されませんでした（フォールバック表示）'); invalidateMapSoon(); },
+    {enableHighAccuracy:true,timeout:8000,maximumAge:30000});
+  }else{
+    status('位置情報に未対応の端末（フォールバック表示）');
+    invalidateMapSoon();
+  }
+
+  map.on('click', e=>{ if(selectDestMode){ setDestination(e.latlng); selectDestMode=false; status('目的地を設定しました'); }});
+  map.on('contextmenu', e=>{ setDestination(e.latlng); status('目的地を設定しました'); });
+
+  // DOM変動でヘッダーの高さが変わるときにも追従
+  new ResizeObserver(invalidateMapSoon).observe(document.getElementById('appHeader'));
+}
+
+/* ================== 位置・UIユーティリティ ================== */
 function metersBetween(a,b){
   const R=6371000, dLat=(b.lat-a.lat)*Math.PI/180, dLon=(b.lng-a.lng)*Math.PI/180;
   const lat1=a.lat*Math.PI/180, lat2=b.lat*Math.PI/180;
@@ -194,38 +244,6 @@ function speak(text, lang){
   window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
 }
 
-initMap();
-function initMap(){
-  map = L.map('map', {zoomControl:false});
-  L.control.zoom({ position:'bottomleft' }).addTo(map);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
-
-  const fallback = {lat:34.342000,lng:134.046000};
-  map.setView([fallback.lat,fallback.lng], 16);
-  setTimeout(()=> map.invalidateSize(), 150);
-
-  if('geolocation' in navigator){
-    navigator.geolocation.getCurrentPosition(p=>{
-      const {latitude,longitude,accuracy}=p.coords;
-      lastPos={lat:latitude,lng:longitude,accuracy};
-      setStartFields(lastPos);
-      showYou(lastPos);
-      map.setView([latitude,longitude], 17);
-      setTimeout(()=> map.invalidateSize(), 100);
-    },()=>{ status('現在地は許可されませんでした（フォールバック表示）'); },
-    {enableHighAccuracy:true,timeout:8000,maximumAge:30000});
-  }else{
-    status('位置情報に未対応の端末（フォールバック表示）');
-  }
-
-  map.on('click', e=>{ if(selectDestMode){ setDestination(e.latlng); selectDestMode=false; status('目的地を設定しました'); }});
-  map.on('contextmenu', e=>{ setDestination(e.latlng); status('目的地を設定しました'); });
-
-  window.addEventListener('resize', ()=> setTimeout(()=> map.invalidateSize(), 100));
-
-  loadSavedPlaces();
-}
-
 function showYou(pos){
   if(!youMarker){
     youMarker=L.marker([pos.lat,pos.lng],{title:'現在地'}).addTo(map);
@@ -235,21 +253,17 @@ function showYou(pos){
     accCircle.setLatLng([pos.lat,pos.lng]).setRadius(pos.accuracy||20);
   }
 }
-
 function ensureWatch(){
   if(watchId!=null) return;
   if(!('geolocation' in navigator)){ status('この端末は位置情報に未対応'); return; }
   watchId = navigator.geolocation.watchPosition(p=>{
     lastPos={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy};
-    showYou(lastPos);
-    if(!$('#lat1').value || !$('#lon1').value) setStartFields(lastPos);
+    showYou(lastPos); if(!$('#lat1').value || !$('#lon1').value) setStartFields(lastPos);
     maybeWarnAndGuide();
   }, err=> status('位置取得に失敗: '+err.message),
   {enableHighAccuracy:true,maximumAge:3000,timeout:10000});
 }
-function clearWatch(){
-  if(watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
-}
+function clearWatch(){ if(watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; } }
 
 function setStartFields(latlng){ $('#lat1').value=latlng.lat.toFixed(6); $('#lon1').value=latlng.lng.toFixed(6); }
 function setDestination(latlng){
@@ -260,6 +274,7 @@ function setDestination(latlng){
   $('#lon2').value=latlng.lng.toFixed(6); $('#lat2').value=latlng.lat.toFixed(6);
 }
 
+/* ================== ルート ================== */
 async function requestRoute(){
   const profile = $('#profile').value, lang=$('#lang').value||'ja';
   const start = getStart(), goal=getGoal();
@@ -291,7 +306,6 @@ function getGoal(){
   if(Number.isFinite(lat)&&Number.isFinite(lon)) return {lat,lng:lon};
   if(destMarker) return destMarker.getLatLng(); return null;
 }
-
 function nextTurnPoint(){
   if(!routeSteps.length) return null;
   for(let i=0;i<routeSteps.length;i++){
@@ -323,15 +337,14 @@ function maybeWarnAndGuide(){
   }
 }
 
-/*** 検索（Photon）— 近い順 上位5件 ***/
-const LANG_SPEECH = { ja:'ja-JP', en:'en-US', zh:'zh-CN', ko:'ko-KR' }; // 参照用
+/* ================== 検索（上位5件） ================== */
 function buildListHeader(text){ return `<div class="listHead">${text}</div>`; }
-
 async function doSearch(){
   const q=$('#q').value.trim();
   const langVal=$('#lang').value||'ja';
   $('#list').style.display='block';
   $('#list').innerHTML=buildListHeader('検索結果')+'<div class="item muted">検索中…</div>';
+  invalidateMapSoon(); // 高さ再計算
 
   try{
     const bias = (lastPos ? `&lat=${lastPos.lat}&lon=${lastPos.lng}` : '');
@@ -372,6 +385,7 @@ async function doSearch(){
         setDestination({lat,lng:lon});
         map.setView([lat,lon],17);
         $('#list').style.display='none';
+        invalidateMapSoon();
       });
     });
   }catch(e){
@@ -379,15 +393,13 @@ async function doSearch(){
   }
 }
 
-/*** 音声入力 ***/
+/* ================== 音声入力 ================== */
 (function setupMic(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition, mic=$('#mic');
   if(!SR){ mic.style.display='none'; return; }
   const rec=new SR();
   const setRecLang=()=> rec.lang = LANG_SPEECH[$('#lang').value||'ja'] || 'ja-JP';
-  setRecLang();
-  $('#lang').addEventListener('change', setRecLang);
-
+  setRecLang(); $('#lang').addEventListener('change', setRecLang);
   rec.interimResults=false; rec.maxAlternatives=1;
 
   mic.addEventListener('click',()=>{ try{rec.start();}catch{} status('音声を聞き取っています…'); });
@@ -395,41 +407,34 @@ async function doSearch(){
   rec.onerror=e=>status('音声入力エラー：'+(e.error||''));
 })();
 
-/*** ボタン ***/
+/* ================== ボタン類 ================== */
 $('#routeBtn').addEventListener('click', requestRoute);
 $('#rerouteBtn').addEventListener('click', requestRoute);
 
 $('#clearBtn').addEventListener('click', ()=>{
   if(routeLine){ routeLine.remove(); routeLine=null; }
   routePoints=[]; routeSteps=[]; announcedTurnIdx=-1; passedWarned=false;
-  $('#q').value='';
-  $('#list').style.display='none';
-  $('#list').innerHTML='';
-  status('クリアしました。目的地を設定してください');
+  $('#q').value=''; $('#list').style.display='none'; $('#list').innerHTML='';
+  status('クリアしました。目的地を設定してください'); invalidateMapSoon();
 });
-
 $('#locBtn').addEventListener('click', ()=>{ ensureWatch(); if(lastPos) map.setView([lastPos.lat,lastPos.lng],18); });
 $('#dstBtn').addEventListener('click', ()=>{ selectDestMode=true; status('地図をタップして目的地を設定'); setTimeout(()=>{selectDestMode=false},7000); });
 $('#searchBtn').addEventListener('click', doSearch);
 $('#q').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); doSearch(); } });
 
-/*** 案内開始/停止 ***/
+/* 案内開始/停止 */
 $('#guideBtn').addEventListener('click', ()=>{
   if(watchId==null){
-    ensureWatch();
-    $('#guideBtn').textContent='案内停止';
-    status('案内を開始しました');
-    if(lastPos) map.setView([lastPos.lat,lastPos.lng],18);
+    ensureWatch(); $('#guideBtn').textContent='案内停止';
+    status('案内を開始しました'); if(lastPos) map.setView([lastPos.lat,lastPos.lng],18);
   }else{
-    clearWatch();
-    $('#guideBtn').textContent='案内開始';
+    clearWatch(); $('#guideBtn').textContent='案内開始';
     status('案内を停止しました');
   }
 });
 
-/*** 現在地を保存（ローカル） & 記憶地点の利用 ***/
+/* ================== 記憶地点 ================== */
 const LS_KEY='cw_nav_saved_places_v1';
-
 function loadSavedPlaces(){
   const arr = JSON.parse(localStorage.getItem(LS_KEY)||'[]');
   const sel=$('#saved'); sel.innerHTML='<option value="">（未選択）</option>';
@@ -458,18 +463,24 @@ $('#useSavedBtn').addEventListener('click', ()=>{
   setDestination({lat:p.lat,lng:p.lon});
   map.setView([p.lat,p.lon],17);
   status(`目的地を「${p.name}」に設定しました`);
-  $('#list').style.display='none';
+  $('#list').style.display='none'; invalidateMapSoon();
 });
 
 $('#delSavedBtn').addEventListener('click', ()=>{
   const arr = JSON.parse(localStorage.getItem(LS_KEY)||'[]');
   const idx = $('#saved').value; if(idx===''){ alert('削除する記憶地点を選択してください'); return; }
-  const p = arr.splice(+idx,1)[0]; localStorage.setItem(LS_KEY, JSON.stringify(arr));
+  const p = arr[+idx];
+  if(!confirm(`選択した記憶地点「${p?.name||'地点'}」を削除します。よろしいですか？`)) return;
+  arr.splice(+idx,1);
+  localStorage.setItem(LS_KEY, JSON.stringify(arr));
   loadSavedPlaces(); status(`「${p?.name||'地点'}」を削除しました`);
 });
 
-/*** デモ用目的地（空のときだけ） ***/
-(function preset(){
+/* ================== 起動 ================== */
+(function boot(){
+  loadSavedPlaces();
+  initMap();
+  // デモ用：目的地が空のときだけ値を入れる
   if(!$('#lon2').value && !$('#lat2').value){ $('#lon2').value='134.049'; $('#lat2').value='34.341'; }
 })();
 </script>
