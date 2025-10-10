@@ -46,10 +46,11 @@ h1{margin:4px 0 14px;font-size:28px;letter-spacing:.04em;font-weight:800;text-sh
 .leaflet-top.leaflet-left{top:14px !important;left:14px !important}
 
 #status{margin:10px 0 2px;font-weight:700;color:#eaf2ff}
-#results{margin-top:8px;background:#0f2142;border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:6px;max-height:220px;overflow:auto}
+#results{margin-top:8px;background:#0f2142;border:1px solid rgba(255,255,255,.16);border-radius:12px;padding:6px;max-height:240px;overflow:auto}
 .rItem{padding:10px;border-radius:10px;cursor:pointer}
 .rItem:hover{background:#122b54}
-.rAddr{color:#aecdff;font-size:12px}
+.rName{font-weight:800}
+.rMeta{color:#aecdff;font-size:12px}
 
 /* 方位計（小型・右上） */
 #cmp{position:absolute;top:10px;right:10px;z-index:460;display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none}
@@ -119,7 +120,7 @@ h1{margin:4px 0 14px;font-size:28px;letter-spacing:.04em;font-weight:800;text-sh
     <div id="status">準備完了。目的地を設定してください</div>
   </div>
 
-  <!-- 開始地点の保存／呼出し（復活） -->
+  <!-- 開始地点の保存／呼出し -->
   <div class="card">
     <div class="label">開始地点の記憶（この端末に保存）</div>
     <div class="group3">
@@ -242,17 +243,14 @@ function geolocOptions(){ return {enableHighAccuracy:true, timeout:15000, maximu
 
 function filterPosition(pos){
   const {latitude:lat, longitude:lon, accuracy} = pos.coords;
-  // 1) 悪い精度は捨てる
   if(accuracy && accuracy > ACC_LIMIT) return null;
-  // 2) 急激ジャンプ抑制
   const now=pos.timestamp||Date.now();
   if(lastLL){
     const jump = map.distance(lastLL, L.latLng(lat,lon));
     const dt = (now-lastTs)/1000;
-    if(jump>JUMP_M && dt<2) return null; // 2秒以内に50m以上は無効
+    if(jump>JUMP_M && dt<2) return null;
   }
   lastTs=now; lastLL=L.latLng(lat,lon);
-  // 3) 指数移動平均で平滑化
   if(filtLat==null){filtLat=lat;filtLon=lon;}else{
     filtLat = EMA_ALPHA*lat + (1-EMA_ALPHA)*filtLat;
     filtLon = EMA_ALPHA*lon + (1-EMA_ALPHA)*filtLon;
@@ -318,7 +316,6 @@ function startGuidance(){
     const f=filterPosition(p); if(!f) return; lastPos=p;
     const ll=[f.lat,f.lon];
     if(!startMarker) startMarker=L.marker(ll).addTo(map); else startMarker.setLatLng(ll);
-    // オフルート判定
     try{
       const dist = distanceToPolylineMeters(L.latLng(f.lat,f.lon), routeLine);
       if(dist>OFF_ROUTE_M){
@@ -355,19 +352,58 @@ function clearAll(){
 }
 clearBtn.addEventListener('click',clearAll);
 
-/* ====== 検索（現在地周辺 上位5件） ====== */
+/* ====== 検索（近隣 5 件：距離ソート） ====== */
+function toRad(v){return v*Math.PI/180;}
+function haversineMeters(a,b){const R=6371000;const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);const lat1=toRad(a.lat), lat2=toRad(b.lat);
+  const s1=Math.sin(dLat/2), s2=Math.sin(dLon/2);const h=s1*s1+Math.cos(lat1)*Math.cos(lat2)*s2*s2;return 2*R*Math.asin(Math.sqrt(h));}
+function fmtDist(m){return m<1000?`${Math.round(m)}m`:`${(m/1000).toFixed(1)}km`; }
+
 async function doSearch(){
+  const text=(qEl.value||'').trim();
+  if(!text){ resultsEl.hidden=true; resultsEl.innerHTML=''; return; }
+  // 現在地が未取得なら一度捕まえる
+  if(!startLatEl.value || !startLonEl.value){ try{ await setStartToCurrent(false); }catch{} }
+
+  const baseLat=parseFloat(startLatEl.value)||0, baseLon=parseFloat(startLonEl.value)||0;
   try{
-    const text=(qEl.value||'').trim(); if(!text){resultsEl.hidden=true;resultsEl.innerHTML='';return;}
-    const lat=parseFloat(startLatEl.value)||0, lon=parseFloat(startLonEl.value)||0;
-    const d=0.03; const viewbox=[lon-d,lat+d,lon+d,lat-d].join(',');
-    const url=`https://nominatim.openstreetmap.org/search?format=json&limit=5&accept-language=ja&bounded=1&viewbox=${encodeURIComponent(viewbox)}&q=${encodeURIComponent(text)}`;
+    // まず広めに 20 件取る（bounded は使わない）
+    const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&extratags=1&limit=20&accept-language=ja&q=${encodeURIComponent(text)}`;
     const res=await fetch(url,{headers:{'User-Agent':'miyata-connect-github-io-navi'}});
-    const data=await res.json();
-    resultsEl.innerHTML=data.map(r=>`<div class="rItem" data-lon="${r.lon}" data-lat="${r.lat}"><div><b>${r.display_name.split(',')[0]}</b></div><div class="rAddr">${r.display_name}</div></div>`).join('')||'<div class="rItem">該当なし</div>';
+    const raw=await res.json();
+
+    // 重複（同一座標）を丸めて排除
+    const uniq = [];
+    const keyset = new Set();
+    for(const r of raw){
+      const lat=Number(r.lat), lon=Number(r.lon);
+      const k=`${lat.toFixed(5)},${lon.toFixed(5)}`;
+      if(!keyset.has(k)){ keyset.add(k); uniq.push({...r, lat, lon}); }
+    }
+
+    // 距離計算して近い順に並べ替え → 上位 5 件
+    const withD = uniq.map(r=>({r, d:haversineMeters({lat:baseLat,lon:baseLon},{lat:r.lat,lon:r.lon})}))
+                      .sort((a,b)=>a.d-b.d)
+                      .slice(0,5);
+
+    resultsEl.innerHTML = withD.length
+      ? withD.map(({r,d})=>`
+         <div class="rItem" data-lon="${r.lon}" data-lat="${r.lat}">
+           <div class="rName">${(r.display_name||'').split(',')[0]} <span class="rMeta">（${fmtDist(d)}）</span></div>
+           <div class="rMeta">${r.display_name||''}</div>
+         </div>`).join('')
+      : '<div class="rItem">該当なし</div>';
+
     resultsEl.hidden=false;
-    [...resultsEl.querySelectorAll('.rItem')].forEach(el=>el.addEventListener('click',()=>{const lon=el.dataset.lon,lat=el.dataset.lat; setDestination(lon,lat,true); resultsEl.hidden=true;}));
-  }catch(e){console.warn(e);}
+    [...resultsEl.querySelectorAll('.rItem')].forEach(el=>el.addEventListener('click',()=>{
+      const lon=el.dataset.lon, lat=el.dataset.lat;
+      setDestination(lon,lat,true);
+      resultsEl.hidden=true;
+    }));
+  }catch(e){
+    console.warn(e);
+    resultsEl.hidden=false;
+    resultsEl.innerHTML='<div class="rItem">検索に失敗しました</div>';
+  }
 }
 searchBtn.addEventListener('click',doSearch);
 
@@ -394,7 +430,7 @@ function deleteSaved(){ const items=JSON.parse(localStorage.getItem('savedPlaces
   if(!confirm(`「${items[idx].name}」を削除しますか？`)) return; items.splice(idx,1); localStorage.setItem('savedPlaces',JSON.stringify(items)); loadSaved(); }
 saveBtn.addEventListener('click',saveCurrentDest); applySavedBtn.addEventListener('click',applySaved); delSavedBtn.addEventListener('click',deleteSaved);
 
-/* ====== 記憶地点（開始地点／復活） ====== */
+/* ====== 記憶地点（開始地点） ====== */
 function loadSavedStarts(){ const items=JSON.parse(localStorage.getItem('savedStarts')||'[]');
   savedStartSelect.innerHTML=items.map((it,i)=>`<option value="${i}">${it.name}（${it.lon.toFixed(4)}, ${it.lat.toFixed(4)}）</option>`).join(''); }
 function saveCurrentStart(){
@@ -423,10 +459,10 @@ function decodePolyline(str){ let index=0,lat=0,lng=0,coordinates=[]; while(inde
   do{b=str.charCodeAt(index++)-63; result|=(b&0x1f)<<shift; shift+=5;}while(b>=0x20); const dlat=((result&1)?~(result>>1):(result>>1)); lat+=dlat;
   shift=0;result=0; do{b=str.charCodeAt(index++)-63; result|=(b&0x1f)<<shift; shift+=5;}while(b>=0x20); const dlng=((result&1)?~(result>>1):(result>>1)); lng+=dlng;
   coordinates.push([lat/1e5,lng/1e5]); } return coordinates; }
-function toRad(v){return v*Math.PI/180;}
-function haversine(a,b){const R=6371000; const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lng-a.lng); const lat1=toRad(a.lat), lat2=toRad(b.lat);
+function toRad2(v){return v*Math.PI/180;}
+function haversine(a,b){const R=6371000; const dLat=toRad2(b.lat-a.lat), dLon=toRad2(b.lng-a.lng); const lat1=toRad2(a.lat), lat2=toRad2(b.lat);
   const s1=Math.sin(dLat/2), s2=Math.sin(dLon/2); const h=s1*s1+Math.cos(lat1)*Math.cos(lat2)*s2*s2; return 2*R*Math.asin(Math.sqrt(h));}
-function pointToSegmentDistance(p,a,b){const φ=toRad((a.lat+b.lat)/2); const x=v=>v.lng*Math.cos(φ); const A={x:x(a),y:a.lat},B={x:x(b),y:b.lat},P={x:x(p),y:p.lat};
+function pointToSegmentDistance(p,a,b){const φ=toRad2((a.lat+b.lat)/2); const x=v=>v.lng*Math.cos(φ); const A={x:x(a),y:a.lat},B={x:x(b),y:b.lat},P={x:x(p),y:p.lat};
   const ABx=B.x-A.x,ABy=B.y-A.y; const t=Math.max(0,Math.min(1,((P.x-A.x)*ABx+(P.y-A.y)*ABy)/(ABx*ABx+ABy*ABy)));
   const proj={lat:A.y+ABy*t,lng:(A.x+ABx*t)/Math.cos(φ)}; return haversine({lat:p.lat,lng:p.lng},proj);}
 function distanceToPolylineMeters(latlng,poly){const pts=poly.getLatLngs(); let min=Infinity; for(let i=1;i<pts.length;i++){const d=pointToSegmentDistance(latlng,pts[i-1],pts[i]); if(d<min) min=d;} return min;}
