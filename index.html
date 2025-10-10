@@ -43,6 +43,8 @@ h1{margin:0 0 10px 0;font-size:20px}
 #map{height:55vh;min-height:320px;background:#0a1120;position:relative}
 #mapCover{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   background:rgba(6,10,20,.85);color:#cfe2ff;z-index:450;font-size:16px}
+
+/* 浮動ボタン */
 .floating{position:fixed;right:14px;bottom:20px;z-index:500;display:flex;flex-direction:column;gap:10px}
 .fab{background:#0e162c;border:1px solid var(--line);color:var(--fg);border-radius:14px;
   padding:10px 14px;font-weight:700;cursor:pointer;min-width:120px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.35)}
@@ -51,6 +53,39 @@ h1{margin:0 0 10px 0;font-size:20px}
 .leaflet-control-zoom{border-radius:12px;box-shadow:0 6px 16px rgba(0,0,0,.35)}
 .leaflet-control-zoom a{width:34px;height:34px;line-height:34px;font-size:18px}
 .leaflet-control-attribution{margin-bottom:96px;margin-right:8px;font-size:11px}
+
+/* ★ コンパス（方位計） */
+#compassCtl{
+  position:absolute;top:10px;right:10px;z-index:460;
+  width:68px;height:68px;border-radius:50%;
+  background:#0e162c;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 10px 24px rgba(0,0,0,.35);user-select:none;cursor:pointer;
+}
+#compassFace{
+  position:relative;width:56px;height:56px;border-radius:50%;
+  border:1px solid #2a3a5e;background:#0b1220;
+}
+.dir{position:absolute;font-size:11px;color:#9fb0d6;letter-spacing:.05em}
+.dir.n{top:2px;left:50%;transform:translateX(-50%)}
+.dir.s{bottom:2px;left:50%;transform:translateX(-50%)}
+.dir.e{right:4px;top:50%;transform:translateY(-50%)}
+.dir.w{left:4px;top:50%;transform:translateY(-50%)}
+/* 針（デバイス方位が取れれば回転、無ければ上向き） */
+#needle{
+  position:absolute;top:6px;left:50%;width:3px;height:22px;background:#ff5757;
+  transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg);border-radius:2px;
+  box-shadow:0 0 6px rgba(255,80,80,.4);
+}
+#needleTail{
+  position:absolute;bottom:6px;left:50%;width:3px;height:12px;background:#35a8ff;
+  transform-origin:50% 0%;transform:translateX(-50%) rotate(0deg);border-radius:2px;opacity:.9
+}
+#compassBadge{
+  position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);
+  font-size:11px;color:#cfe2ff;background:#0f1a31;padding:1px 6px;border-radius:8px;border:1px solid var(--line)
+}
+
 @media (max-width:480px){
   .fab{min-width:110px}
   .num{width:110px}
@@ -138,7 +173,22 @@ h1{margin:0 0 10px 0;font-size:20px}
 </header>
 
 <!-- 地図 -->
-<div id="map"><div id="mapCover">現在地を取得しています…</div></div>
+<div id="map">
+  <div id="mapCover">現在地を取得しています…</div>
+
+  <!-- ★方位計（地図右上） -->
+  <div id="compassCtl" title="タップで方位センサーON/OFF">
+    <div id="compassFace">
+      <div class="dir n">N</div>
+      <div class="dir e">E</div>
+      <div class="dir s">S</div>
+      <div class="dir w">W</div>
+      <div id="needle"></div>
+      <div id="needleTail"></div>
+    </div>
+    <div id="compassBadge">方位OFF</div>
+  </div>
+</div>
 
 <!-- 浮動ボタン -->
 <div class="floating">
@@ -151,40 +201,24 @@ h1{margin:0 0 10px 0;font-size:20px}
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
 <script>
 /* ========= 設定 ========= */
-const WORKER_URL='https://ors-proxy.miyata-connect-jp.workers.dev'; // ←あなたのWorkerに合わせて変更
+const WORKER_URL='https://ors-proxy.miyata-connect-jp.workers.dev'; // ←必要なら変更
 const ORS_ENDPOINT=WORKER_URL+'/proxy';
 const LANG_SPEECH={ja:'ja-JP',en:'en-US',zh:'zh-CN',ko:'ko-KR'};
 
-/* オフルートと案内閾値 */
-const OFF_THRESH=5;   // 逸脱判定 5m
-const ON_THRESH=3;    // 復帰 3m
-const REROUTE_COOLDOWN=15000;
-
-// 連発防止 & 初動安定
-const WARMUP_MS            = 8000;
-const ONROUTE_CONSEC       = 2;
-const OFFROUTE_CONSEC      = 2;
-const REROUTE_MIN_GAP_MS   = 25000;
-const SNAP_TOL_AT_START_M  = 12;
-const MIN_MOVE_BEFORE_RER  = 4;
-const MIN_SPEED_FOR_REROUTE= 0.4;
-
-// 案内タイミング
-const FAR_TURN=30;
-const NEAR_TURN=8;
-const AT_TURN=5;
+/* オフルート/案内閾値など */
+const OFF_THRESH=5, ON_THRESH=3, REROUTE_COOLDOWN=15000;
+const WARMUP_MS=8000, ONROUTE_CONSEC=2, OFFROUTE_CONSEC=2, REROUTE_MIN_GAP_MS=25000;
+const SNAP_TOL_AT_START_M=12, MIN_MOVE_BEFORE_RER=4, MIN_SPEED_FOR_REROUTE=0.4;
+const FAR_TURN=30, NEAR_TURN=8, AT_TURN=5;
 
 /* ========= 要素 & 状態 ========= */
 const $=s=>document.querySelector(s);
 const status=t=>$('#statusText').textContent=t;
-
 let map,youMarker,accCircle,destMarker,routeLine;
 let routePoints=[],routeSteps=[];
 let lastPos=null,watchId=null,isGuiding=false;
 let stepStage={},lastNearestIdx=0,onRoute=false,lastRerouteAt=0;
 let selectDestMode=false,audioCtx;
-
-// 安定用
 let warmupUntil=0,onCnt=0,offCnt=0,lastTickAt=0,lastTickPos=null,distanceSinceStart=0;
 
 /* ========= レイアウト ========= */
@@ -258,6 +292,33 @@ function setDestination(latlng,autoGuide=false){
   status('目的地を設定しました');
   if(autoGuide){ autoRouteAndGuide(); }
 }
+
+/* ========= 方位計（デバイス方位） ========= */
+let headingEnabled=false;
+async function toggleHeading(){
+  if(headingEnabled){
+    window.removeEventListener('deviceorientation',onDeviceOrientation);
+    headingEnabled=false; $('#compassBadge').textContent='方位OFF'; status('方位センサーをOFFにしました');
+    return;
+  }
+  // iOS Safari は明示許可が必要
+  if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+    try{
+      const perm = await DeviceOrientationEvent.requestPermission();
+      if (perm !== 'granted'){ status('方位センサーは許可されませんでした'); return; }
+    }catch(e){ status('方位センサー要求に失敗'); return; }
+  }
+  window.addEventListener('deviceorientation',onDeviceOrientation);
+  headingEnabled=true; $('#compassBadge').textContent='方位ON'; status('方位センサーをONにしました');
+}
+function onDeviceOrientation(e){
+  let alpha = e.alpha;
+  if (typeof e.webkitCompassHeading === 'number') alpha = e.webkitCompassHeading; // iOS: 0=北
+  if (alpha == null) return;
+  $('#needle').style.transform = `translateX(-50%) rotate(${alpha}deg)`;
+  $('#needleTail').style.transform = `translateX(-50%) rotate(${alpha}deg)`;
+}
+$('#compassCtl').addEventListener('click',toggleHeading);
 
 /* ========= ルート ========= */
 function decodePolyline(str,precision=5){
@@ -396,7 +457,6 @@ function turnSpeech(step){
 }
 
 /* ========= ガイダンス ========= */
-// ★NEW: 案内開始直後に「最初の指示」を即アナウンス
 function announceFirstInstruction(){
   if(!lastPos || routePoints.length<2) return;
   const near=nearestOnRoute(lastPos,routePoints);
@@ -410,8 +470,6 @@ function announceFirstInstruction(){
 
 function guideTick(){
   if (!lastPos || routePoints.length < 2) return;
-
-  // 速度・移動距離の推定
   const now = Date.now();
   let speed = 0;
   if (lastTickPos && lastTickAt) {
@@ -425,27 +483,19 @@ function guideTick(){
 
   const near = nearestOnRoute(lastPos, routePoints);
 
-  // 開始直後ウォームアップ：リルート禁止
   if (now < warmupUntil) {
     if (near.dist <= ON_THRESH) onCnt++;
     status('案内準備中… ルートに沿って進んでください');
     return;
   }
 
-  // 連続サンプルで on/off 判定
-  if (near.dist <= ON_THRESH) {
-    onCnt++; offCnt = 0;
-    if (onCnt >= ONROUTE_CONSEC) onRoute = true;
-  } else if (near.dist >= OFF_THRESH) {
-    offCnt++; onCnt = 0;
-  }
+  if (near.dist <= ON_THRESH) { onCnt++; offCnt = 0; if (onCnt >= ONROUTE_CONSEC) onRoute = true; }
+  else if (near.dist >= OFF_THRESH) { offCnt++; onCnt = 0; }
 
-  // ルートに乗る前は余裕
   if (!onRoute && distanceSinceStart < MIN_MOVE_BEFORE_RER && near.dist < SNAP_TOL_AT_START_M) {
     status('ルート付近です。案内に従って進んでください');
   }
 
-  // 外れ判定とリルート
   const canReroute =
     (offCnt >= OFFROUTE_CONSEC) &&
     onRoute &&
@@ -463,7 +513,6 @@ function guideTick(){
     return;
   }
 
-  // 次の案内
   const next=nextTurnFromIndex(near.idx);
   if(next){
     const dist=metersBetween(lastPos,next.latlng);
@@ -475,7 +524,6 @@ function guideTick(){
 }
 
 async function guideStart(opts={forcePreview:true}){
-  // 現在地を一度取得（未取得なら）
   if(!lastPos && 'geolocation' in navigator){
     try{
       const p=await new Promise((ok,ng)=>navigator.geolocation.getCurrentPosition(ok,ng,{enableHighAccuracy:true,timeout:8000}));
@@ -485,24 +533,20 @@ async function guideStart(opts={forcePreview:true}){
   }
   const ok=await ensureRouteReady(); if(!ok) return false;
 
-  // 初期化：揺れ吸収カウンタ
   warmupUntil = Date.now() + WARMUP_MS;
-  onCnt = 0; offCnt = 0;
+  onCnt = offCnt = 0;
   distanceSinceStart = 0;
-  lastTickPos = null;
-  lastTickAt = 0;
+  lastTickPos = null; lastTickAt = 0;
 
   ensureWatch();
   isGuiding=true; $('#guideBtn').textContent='案内停止';
 
-  // 俯瞰→現在地 or そのまま
   if(opts.forcePreview) previewRouteThenCenter(); else if(lastPos) map.setView([lastPos.lat,lastPos.lng],18);
 
-  // 開始のアナウンス → ★直後に最初の指示を即アナウンス
   speak('案内を開始します',$('#lang').value);
   announceFirstInstruction();
 
-  guideTick(); // 即1回
+  guideTick();
   status('案内を開始しました');
   return true;
 }
