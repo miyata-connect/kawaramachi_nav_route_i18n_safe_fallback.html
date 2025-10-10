@@ -152,14 +152,14 @@ const LANG_SPEECH={ja:'ja-JP',en:'en-US',zh:'zh-CN',ko:'ko-KR'};
 /* オフルートと案内の閾値（要件） */
 const OFF_THRESH=5;   // 逸脱判定 5m
 const ON_THRESH=3;    // 復帰 3m
-const REROUTE_COOLDOWN=15000; // 従来のクールダウン（互換で残す）
+const REROUTE_COOLDOWN=15000; // 旧仕様のクールダウン（下の最短間隔とmaxで使う）
 
 // ★NEW: 初動の揺れ吸収＆連発防止
 const WARMUP_MS            = 8000;   // 案内開始後8秒はリルートしない
-const ONROUTE_CONSEC       = 2;      // 2連続でON_THRESH以内ならonRouteに入る
-const OFFROUTE_CONSEC      = 2;      // 2連続でOFF_THRESH超過したら外れた扱い
-const REROUTE_MIN_GAP_MS   = 25000;  // 連続リルート最短間隔
-const SNAP_TOL_AT_START_M  = 12;     // 開始直後は12m以内を許容（ルート付近）
+const ONROUTE_CONSEC       = 2;      // 2連続でON_THRESH以内ならonRoute
+const OFFROUTE_CONSEC      = 2;      // 2連続でOFF_THRESH超過したら外れ
+const REROUTE_MIN_GAP_MS   = 25000;  // 連続リルート間隔
+const SNAP_TOL_AT_START_M  = 12;     // 開始直後は12m以内を許容
 const MIN_MOVE_BEFORE_RER  = 4;      // 合計移動距離が4m未満ならリルートしない
 const MIN_SPEED_FOR_REROUTE= 0.4;    // 0.4m/s未満（ほぼ停止）はリルートしない
 
@@ -220,7 +220,7 @@ function initMap(){
   }
 
   map.on('click',e=>{ if(selectDestMode){ setDestination(e.latlng,true); selectDestMode=false; }});
-  map.on('contextmenu',e=> setDestination(e.latlng,true));
+  map.on('contextmenu',e=> setDestination(e.latlng,true)); // 長押し代替（PC）
   new ResizeObserver(invalidateMapSoon).observe(document.getElementById('appHeader'));
 }
 function showYou(pos){
@@ -325,7 +325,7 @@ function metersBetween(a,b){
 }
 function pointToSegDist(p,a,b){
   const x0=p.lng,y0=p.lat,x1=a.lng,y1=a.lat,x2=b.lng,y2=b.lat;
-  const A={x:x0-x1,y:y0-y1},B={x=x2-x1,y=y2-y1};
+  const A={x:x0-x1,y:y0-y1},B={x:x2-x1,y:y2-y1};
   const t=Math.max(0,Math.min(1,(A.x*B.x+A.y*B.y)/(B.x*B.x+B.y*B.y)));
   const proj={lng:x1+t*B.x,lat:y1+t*B.y};
   return metersBetween({lat:y0,lng:x0},{lat:proj.lat,lng:proj.lng});
@@ -519,3 +519,4 @@ $('#delSavedBtn').addEventListener('click',()=>{ const arr=JSON.parse(localStora
 </script>
 </body>
 </html>
+```0
