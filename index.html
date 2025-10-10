@@ -56,9 +56,12 @@ button.danger{background:var(--danger);border:none;font-weight:700}
 .result:focus-visible{box-shadow:0 0 0 3px rgba(74,163,255,.45)}
 .result small{color:#a9bed5}
 .badge{display:inline-block;background:rgba(255,255,255,.08);padding:3px 8px;border-radius:999px;margin-left:6px}
-.results .body{max-height:44vh;overflow:auto;margin-top:8px}
+.results .body{
+  max-height:44vh;overflow:auto;margin-top:8px;
+  -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
+}
 
-/* 地名保存モーダル */
+/* 地名登録モーダル */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:1000}
 .modal .box{background:var(--panel);border-radius:16px;max-width:520px;width:92vw;padding:16px;box-shadow:0 18px 40px rgba(0,0,0,.5)}
 .modal .title{font-weight:800;margin-bottom:8px}
@@ -82,7 +85,7 @@ button.danger{background:var(--danger);border:none;font-weight:700}
     </div>
     <div class="row" style="margin-top:8px">
       <button id="clearHistory" class="ghost">履歴をクリア</button>
-      <span class="hint">検索後は近場5件を表示 → 候補タップで目的地に設定 → ルート取得 → 案内開始</span>
+      <span class="hint">検索後は近場5件を表示。候補をタップすると目的地に設定→ルート→案内を自動実行します。</span>
     </div>
   </div>
 
@@ -192,7 +195,7 @@ button.danger{background:var(--danger);border:none;font-weight:700}
 <script>
 /* ===== 設定 ===== */
 const WORKER_ORIGIN='https://ors-proxy.miyata-connect-jp.workers.dev/proxy'; // ORS (Workers)
-const OSRM_ORIGIN='https://router.project-osrm.org';                          // OSRM public
+const OSRM_ORIGIN='https://router.project-osrm.org';                          // OSRM fallback
 let profile='foot-walking';
 
 /* ===== 要素 ===== */
@@ -349,15 +352,11 @@ async function searchNearby(){
 
   els.msg.textContent='検索中…';
   const items = await mergedSearch(raw, lat, lon);
-  showResults(items); // 必ず5件表示（あれば）
 
-  // 最上位で自動案内
-  if(items.length){
-    await selectCandidate(items[0]);
-    els.msg.textContent='最上位候補で案内を開始しました（他の候補はリストから選べます）';
-  }else{
-    els.msg.textContent='近隣に候補が見つかりません';
-  }
+  // 5件を表示（あるだけ）。ここでは目的地セット/案内をしない
+  showResults(items);
+  if(items.length){ els.msg.textContent='候補が見つかりました。リストから目的地を選んでください。'; }
+  else{ els.msg.textContent='近隣に候補が見つかりません'; }
 
   saveHistory(raw);
 }
@@ -439,17 +438,16 @@ function showResults(items){
     div.innerHTML=`<div><strong>${i+1}. ${escapeHtml(it.name)}</strong></div>
       <small>${(it.dist/1000).toFixed(2)} km　${escapeHtml(it.addr||'')}
       <span class="badge">${it.lat.toFixed(5)}, ${it.lon.toFixed(5)}</span></small>`;
-    const handler=async()=>{ await selectCandidate(it); };
+    const handler=async()=>{
+      setDest(it.lon,it.lat);
+      map.flyTo([it.lat,it.lon],17);
+      const j=await getRoute();
+      if(j){ startNavigation(); }
+    };
     div.addEventListener('click',handler);
     div.addEventListener('keydown',e=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); handler(); }});
     els.resultList.appendChild(div);
   });
-}
-async function selectCandidate(it){
-  setDest(it.lon,it.lat);
-  map.flyTo([it.lat,it.lon],17);
-  const res = await getRoute();
-  if(res){ startNavigation(); }
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
@@ -491,7 +489,10 @@ function doSave(){
 function setFromSaved(){
   const idx=Number(els.savedList.value); const arr=loadSaves();
   if(Number.isNaN(idx)||arr[idx]==null){ els.msg.textContent='地点を選んでください'; return; }
-  selectCandidate(arr[idx]); // そのまま案内開始まで
+  // 保存地点を選ぶ→案内開始
+  const it=arr[idx];
+  setDest(it.lon,it.lat); map.flyTo([it.lat,it.lon],17);
+  getRoute().then(j=>{ if(j) startNavigation(); });
 }
 function delSaved(){
   const idx=Number(els.savedList.value); const arr=loadSaves();
