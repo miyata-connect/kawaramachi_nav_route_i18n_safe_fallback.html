@@ -7,15 +7,17 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin>
 <style>
 :root{
-  --bg:#0b1220;--panel:#111a2c;--fg:#eaf1ff;--muted:#9fb0d6;
-  --accent:#35a8ff;--btn:#18233b;--line:#22304e;
+  --bg:#0b1220;--panel:#101a31;--fg:#eaf1ff;--muted:#9fb0d6;
+  --accent:#35a8ff;--btn:#162242;--line:#22304e;--danger:#ff5757;
 }
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--fg);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif}
-header{position:sticky;top:0;z-index:600;background:linear-gradient(180deg,var(--bg),#0d1730 70%);padding:10px 12px 8px;border-bottom:1px solid var(--line)}
-h1{margin:0 0 10px 0;font-size:20px}
+
+header{position:sticky;top:0;z-index:600;background:linear-gradient(180deg,var(--bg),#0e1933 70%);padding:10px 12px 8px;border-bottom:1px solid var(--line)}
+h1{margin:0 0 10px;font-size:20px}
+
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .search{display:flex;align-items:center;gap:6px;background:var(--panel);
   border:1px solid var(--line);border-radius:12px;padding:6px 8px;flex:1;min-width:260px}
@@ -24,6 +26,7 @@ h1{margin:0 0 10px 0;font-size:20px}
   border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer;white-space:nowrap}
 .icon-btn:disabled{opacity:.6;cursor:not-allowed}
 #mic{font-size:20px;padding:12px 14px;min-width:44px;min-height:44px;border-radius:12px}
+
 .group{display:flex;align-items:center;gap:6px;background:#0f1a31;border:1px solid var(--line);
   border-radius:12px;padding:6px 8px}
 .label{color:var(--muted);font-size:12px;margin-right:2px;white-space:nowrap}
@@ -32,14 +35,17 @@ h1{margin:0 0 10px 0;font-size:20px}
 .num{width:120px}
 .primary{background:var(--accent);border-color:#2b7fcc;color:#031225}
 .sm{font-size:13px;padding:6px 8px;border-radius:9px}
+
 .hintRow{color:var(--muted);font-size:14px;margin-top:6px}
 .status{margin-top:8px;color:#cfe2ff;font-size:14px}
+
 .list{background:#0f172a;border:1px solid var(--line);border-radius:12px;max-height:40vh;overflow:auto;display:none}
 .listHead{padding:8px 12px;border-bottom:1px solid #1a2745;color:#cfe2ff}
 .item{padding:10px 12px;border-top:1px solid #1a2745;cursor:pointer}
 .item:first-child{border-top:none}
 .item:hover{background:#121f3b}
 .muted{color:var(--muted)}
+
 #map{height:55vh;min-height:320px;background:#0a1120;position:relative}
 #mapCover{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   background:rgba(6,10,20,.85);color:#cfe2ff;z-index:450;font-size:16px}
@@ -54,38 +60,38 @@ h1{margin:0 0 10px 0;font-size:20px}
 .leaflet-control-zoom a{width:34px;height:34px;line-height:34px;font-size:18px}
 .leaflet-control-attribution{margin-bottom:96px;margin-right:8px;font-size:11px}
 
-/* ★ コンパス（方位計） */
-#compassCtl{
+/* ★常時ONの見やすい方位計 */
+#compass{
   position:absolute;top:10px;right:10px;z-index:460;
-  width:68px;height:68px;border-radius:50%;
-  background:#0e162c;border:1px solid var(--line);
-  display:flex;align-items:center;justify-content:center;
-  box-shadow:0 10px 24px rgba(0,0,0,.35);user-select:none;cursor:pointer;
+  width:88px;height:88px;border-radius:50%;
+  background:radial-gradient(ellipse at center,#0c1530 0%,#0c1530 60%,#0a1228 100%);
+  border:1px solid #2a3a5e;box-shadow:0 10px 24px rgba(0,0,0,.35);
+  display:flex;align-items:center;justify-content:center;user-select:none;pointer-events:none;
 }
-#compassFace{
-  position:relative;width:56px;height:56px;border-radius:50%;
-  border:1px solid #2a3a5e;background:#0b1220;
+#ring{
+  position:absolute;inset:6px;border-radius:50%;
+  border:2px solid #22355f;box-shadow:inset 0 0 10px rgba(0,0,0,.5);
 }
-.dir{position:absolute;font-size:11px;color:#9fb0d6;letter-spacing:.05em}
-.dir.n{top:2px;left:50%;transform:translateX(-50%)}
-.dir.s{bottom:2px;left:50%;transform:translateX(-50%)}
-.dir.e{right:4px;top:50%;transform:translateY(-50%)}
-.dir.w{left:4px;top:50%;transform:translateY(-50%)}
-/* 針（デバイス方位が取れれば回転、無ければ上向き） */
-#needle{
-  position:absolute;top:6px;left:50%;width:3px;height:22px;background:#ff5757;
-  transform-origin:50% 100%;transform:translateX(-50%) rotate(0deg);border-radius:2px;
-  box-shadow:0 0 6px rgba(255,80,80,.4);
-}
-#needleTail{
-  position:absolute;bottom:6px;left:50%;width:3px;height:12px;background:#35a8ff;
-  transform-origin:50% 0%;transform:translateX(-50%) rotate(0deg);border-radius:2px;opacity:.9
-}
-#compassBadge{
-  position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);
+.tick{position:absolute;width:2px;height:10px;background:#3a4f7a;top:6px;left:50%;transform-origin:50% 38px}
+.tick.big{height:14px;background:#85a3e6}
+.dir{position:absolute;font-size:12px;color:#d7e4ff;font-weight:700;letter-spacing:.05em;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.dir.n{top:8px;left:50%;transform:translateX(-50%)}
+.dir.s{bottom:8px;left:50%;transform:translateX(-50%);color:#9fb0d6}
+.dir.e{right:8px;top:50%;transform:translateY(-50%);color:#cbd8ff}
+.dir.w{left:8px;top:50%;transform:translateY(-50%);color:#cbd8ff}
+
+#needle{position:absolute;left:50%;top:12px;width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:36px solid var(--danger);
+  transform:translateX(-50%) rotate(0deg);transform-origin:50% 40px;filter:drop-shadow(0 0 6px rgba(255,80,80,.45))}
+#tail{position:absolute;left:50%;bottom:12px;width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:24px solid #35a8ff;
+  transform:translateX(-50%) rotate(0deg);transform-origin:50% -28px;opacity:.95}
+
+#headingLabel{
+  position:absolute;bottom:-18px;left:50%;transform:translateX(-50%);
   font-size:11px;color:#cfe2ff;background:#0f1a31;padding:1px 6px;border-radius:8px;border:1px solid var(--line)
 }
+#headingLabel.bad{background:#3a1b1b;border-color:#6e2a2a;color:#ffd4d4}
 
+/* 調整 */
 @media (max-width:480px){
   .fab{min-width:110px}
   .num{width:110px}
@@ -176,17 +182,28 @@ h1{margin:0 0 10px 0;font-size:20px}
 <div id="map">
   <div id="mapCover">現在地を取得しています…</div>
 
-  <!-- ★方位計（地図右上） -->
-  <div id="compassCtl" title="タップで方位センサーON/OFF">
-    <div id="compassFace">
-      <div class="dir n">N</div>
-      <div class="dir e">E</div>
-      <div class="dir s">S</div>
-      <div class="dir w">W</div>
-      <div id="needle"></div>
-      <div id="needleTail"></div>
-    </div>
-    <div id="compassBadge">方位OFF</div>
+  <!-- ★常時ONコンパス（スイッチ無し） -->
+  <div id="compass" aria-hidden="true">
+    <div id="ring"></div>
+    <!-- 8方位のティック（大） -->
+    <div class="tick big" style="transform:translateX(-50%) rotate(0deg)"></div>
+    <div class="tick big" style="transform:translateX(-50%) rotate(45deg)"></div>
+    <div class="tick big" style="transform:translateX(-50%) rotate(90deg)"></div>
+    <div class="tick big" style="transform:translateX(-50%) rotate(135deg)"></div>
+    <div class="tick big" style="transform:translateX(-50%) rotate(180deg)"></div>
+    <div class="tick big" style="transform:translateX(-50%) rotate(225deg)"></div>
+    <div class="tick big" style="transform:translateX(-50%) rotate(270deg)"></div>
+    <div class="tick big" style="transform:translateX(-50%) rotate(315deg)"></div>
+    <!-- 針 -->
+    <div id="needle"></div>
+    <div id="tail"></div>
+    <!-- 方位文字 -->
+    <div class="dir n">N</div>
+    <div class="dir e">E</div>
+    <div class="dir s">S</div>
+    <div class="dir w">W</div>
+    <!-- 数値表示 -->
+    <div id="headingLabel" class="">方位未取得</div>
   </div>
 </div>
 
@@ -205,7 +222,7 @@ const WORKER_URL='https://ors-proxy.miyata-connect-jp.workers.dev'; // ←必要
 const ORS_ENDPOINT=WORKER_URL+'/proxy';
 const LANG_SPEECH={ja:'ja-JP',en:'en-US',zh:'zh-CN',ko:'ko-KR'};
 
-/* オフルート/案内閾値など */
+/* オフルート/案内閾値など（5m仕様） */
 const OFF_THRESH=5, ON_THRESH=3, REROUTE_COOLDOWN=15000;
 const WARMUP_MS=8000, ONROUTE_CONSEC=2, OFFROUTE_CONSEC=2, REROUTE_MIN_GAP_MS=25000;
 const SNAP_TOL_AT_START_M=12, MIN_MOVE_BEFORE_RER=4, MIN_SPEED_FOR_REROUTE=0.4;
@@ -293,32 +310,55 @@ function setDestination(latlng,autoGuide=false){
   if(autoGuide){ autoRouteAndGuide(); }
 }
 
-/* ========= 方位計（デバイス方位） ========= */
-let headingEnabled=false;
-async function toggleHeading(){
-  if(headingEnabled){
-    window.removeEventListener('deviceorientation',onDeviceOrientation);
-    headingEnabled=false; $('#compassBadge').textContent='方位OFF'; status('方位センサーをOFFにしました');
-    return;
+/* ========= 常時ON 方位計 ========= */
+let headingReady=false, headingDeg=0;
+function setHeading(deg){
+  headingDeg = (deg+360)%360;
+  const rot = `translateX(-50%) rotate(${headingDeg}deg)`;
+  document.getElementById('needle').style.transform = rot;
+  document.getElementById('tail').style.transform   = rot;
+  const lab = document.getElementById('headingLabel');
+  lab.textContent = `N ${Math.round(headingDeg)}°`;
+  lab.classList.remove('bad');
+}
+function headingUnavailable(){
+  const lab = document.getElementById('headingLabel');
+  lab.textContent='方位未取得';
+  lab.classList.add('bad');
+}
+function tryStartHeading(){
+  // 既に取得中なら抜ける
+  if (headingReady) return;
+  function bind(){
+    window.addEventListener('deviceorientation', onDeviceOrientation);
+    headingReady = true;
   }
-  // iOS Safari は明示許可が必要
+  // iOS: ユーザー操作が必要
   if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    try{
-      const perm = await DeviceOrientationEvent.requestPermission();
-      if (perm !== 'granted'){ status('方位センサーは許可されませんでした'); return; }
-    }catch(e){ status('方位センサー要求に失敗'); return; }
+    // 最初のユーザー操作で自動要求（UIにスイッチは出さない）
+    const once = ()=>{
+      DeviceOrientationEvent.requestPermission().then(state=>{
+        if(state==='granted'){ bind(); }
+        else { headingUnavailable(); }
+      }).catch(()=> headingUnavailable());
+      window.removeEventListener('pointerdown', once, {capture:true});
+      window.removeEventListener('keydown', once, {capture:true});
+    };
+    window.addEventListener('pointerdown', once, {capture:true, once:true});
+    window.addEventListener('keydown', once,  {capture:true, once:true});
+  }else{
+    // Android/デスクトップ等はそのまま開始
+    bind();
   }
-  window.addEventListener('deviceorientation',onDeviceOrientation);
-  headingEnabled=true; $('#compassBadge').textContent='方位ON'; status('方位センサーをONにしました');
 }
 function onDeviceOrientation(e){
   let alpha = e.alpha;
   if (typeof e.webkitCompassHeading === 'number') alpha = e.webkitCompassHeading; // iOS: 0=北
-  if (alpha == null) return;
-  $('#needle').style.transform = `translateX(-50%) rotate(${alpha}deg)`;
-  $('#needleTail').style.transform = `translateX(-50%) rotate(${alpha}deg)`;
+  if (alpha == null || Number.isNaN(alpha)) { headingUnavailable(); return; }
+  setHeading(alpha);
 }
-$('#compassCtl').addEventListener('click',toggleHeading);
+// 起動時に即試行（iOSは初回タップまで保留される）
+tryStartHeading();
 
 /* ========= ルート ========= */
 function decodePolyline(str,precision=5){
@@ -388,7 +428,7 @@ function previewRouteThenCenter(){
   }
 }
 
-/* ========= 公共交通（Google Directions を Worker 経由） ========= */
+/* ========= 公共交通（Worker経由のGoogle Directions） ========= */
 async function requestTransit(){
   const lang=$('#lang').value||'ja';
   const goal=getGoal();
@@ -467,7 +507,6 @@ function announceFirstInstruction(){
   speak(text,$('#lang').value);
   status('最初の案内：'+text);
 }
-
 function guideTick(){
   if (!lastPos || routePoints.length < 2) return;
   const now = Date.now();
@@ -623,7 +662,14 @@ $('#useSavedBtn').addEventListener('click',()=>{ const arr=JSON.parse(localStora
 $('#delSavedBtn').addEventListener('click',()=>{ const arr=JSON.parse(localStorage.getItem(LS_KEY)||'[]'); const idx=$('#saved').value; if(idx===''){alert('削除する記憶地点を選択してください');return;} const p=arr[+idx]; if(!confirm(`選択した記憶地点「${p?.name||'地点'}」を削除します。よろしいですか？`)) return; arr.splice(+idx,1); localStorage.setItem(LS_KEY,JSON.stringify(arr)); loadSavedPlaces(); status(`「${p?.name||'地点'}」を削除しました`); });
 
 /* ========= 起動 ========= */
-(function boot(){ loadSavedPlaces(); initMap(); })();
+(function boot(){
+  loadSavedPlaces(); 
+  initMap();
+  // iOSの許可を得るまで「方位未取得」を出す（常時ON UI）
+  headingUnavailable();
+  // ユーザーが最初に触れたら自動で方位許可を要求（スイッチは出さない）
+  tryStartHeading();
+})();
 </script>
 </body>
 </html>
