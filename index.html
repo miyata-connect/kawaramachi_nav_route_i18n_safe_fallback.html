@@ -17,7 +17,7 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
 .card{background:var(--panel);border-radius:14px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,.28)}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .grow{flex:1 1 200px}
-input,button{border-radius:12px;border:1px solid rgba(255,255,255,.08);
+input,button,select{border-radius:12px;border:1px solid rgba(255,255,255,.08);
   background:var(--panel2);color:var(--text);padding:12px 14px;font-size:16px;outline:none}
 input::placeholder{color:#8aa2bc}
 button.primary{background:var(--primary);border:none;font-weight:700}
@@ -29,23 +29,19 @@ button.danger{background:var(--danger);border:none;font-weight:700}
 .mapwrap{position:relative}
 #map{height:64vh;border-radius:16px;overflow:hidden}
 
-/* コンパス：地図の左上（ズームは左下） */
-.compass{position:absolute;left:10px;top:10px;z-index:450;width:74px;height:74px;border-radius:50%;
-  background: radial-gradient(ellipse at center,#0b1624 0%,#0a1320 60%,#07121e 100%);
-  border:1px solid rgba(255,255,255,.15);box-shadow:0 6px 16px rgba(0,0,0,.35);
-  display:flex;align-items:center;justify-content:center;pointer-events:none}
-.compass .dial{position:absolute;width:60px;height:60px;border-radius:50%;border:1px solid rgba(255,255,255,.1)}
-.compass .north{position:absolute;top:6px;color:#f6d365;font-size:10px;letter-spacing:.1em}
-.compass .arrow{width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-bottom:20px solid #ff5c5c;
-  transform-origin:50% 18px;filter:drop-shadow(0 6px 8px rgba(0,0,0,.35));
-  transition:transform .3s cubic-bezier(.2,.7,.2,1)}
-.compass .label{position:absolute;bottom:6px;font-size:10px;color:#b8cce2}
+/* ===== コンパス（SVG版：中心回転） ===== */
+.compass{position:absolute;left:16px;top:16px;z-index:450;width:82px;height:82px;
+  border-radius:50%;box-shadow:0 6px 16px rgba(0,0,0,.35);pointer-events:none}
+.compass svg{display:block;width:100%;height:100%}
+.compass text{font-size:10px;fill:#f6d365;letter-spacing:.1em}
+#needle{transform-box:fill-box;transform-origin:37px 37px;transition:transform .28s cubic-bezier(.2,.7,.2,1)}
+#needle polygon{fill:#ff5c5c;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}
 
 /* Leaflet zoom を左下へ */
 .leaflet-control-zoom{left:10px!important;right:auto!important;bottom:10px!important;top:auto!important}
 
-/* FAB（地図の右下に“地図内絶対配置”） */
-.fab-col{position:absolute;right:12px;bottom:12px;z-index:460;display:flex;flex-direction:column;gap:8px}
+/* FAB（地図の右下に固定） */
+.fab-col{position:absolute;right:12px;bottom:20px;z-index:460;display:flex;flex-direction:column;gap:10px}
 .fab-col button{min-width:126px;padding:10px 12px;font-weight:700;box-shadow:0 10px 20px rgba(0,0,0,.35)}
 
 /* 検索結果 */
@@ -57,7 +53,7 @@ button.danger{background:var(--danger);border:none;font-weight:700}
 
 @media (max-width:640px){
   #map{height:68vh}
-  .fab-col button{min-width:120px;padding:9px 11px;font-size:15px}
+  .fab-col button{min-width:118px;padding:9px 11px;font-size:15px}
 }
 </style>
 </head>
@@ -94,6 +90,7 @@ button.danger{background:var(--danger);border:none;font-weight:700}
         </div>
       </div>
     </div>
+
     <div class="row" style="margin-top:10px">
       <button id="modeWalk"  class="primary">徒歩</button>
       <button id="modeWheel" class="ghost">車椅子</button>
@@ -101,16 +98,50 @@ button.danger{background:var(--danger);border:none;font-weight:700}
       <button id="getRoute" class="primary">ルート取得</button>
       <button id="clear" class="ghost">クリア</button>
     </div>
+
+    <!-- ★ 地点登録（復活） -->
+    <div class="row" style="margin-top:12px">
+      <div class="grow">
+        <div class="hint">記憶地点（この端末に保存）</div>
+        <div class="row">
+          <input id="saveName" class="grow" placeholder="地点名（例: 自宅・公園）"/>
+          <button id="saveHere" class="ok">現在地を保存</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <select id="savedList" class="grow"></select>
+          <button id="setFromSaved" class="primary">目的地に設定</button>
+          <button id="delSaved" class="danger">削除</button>
+        </div>
+      </div>
+    </div>
+
     <div id="msg" class="hint" style="margin-top:6px;">準備完了。目的地を設定してください</div>
   </div>
 
-  <!-- 地図（コンパス＆FABはこの中） -->
+  <!-- 地図 -->
   <div class="card mapwrap" style="margin-top:12px">
     <div id="map"></div>
-    <div class="compass" id="compass">
-      <div class="dial"></div><div class="north">N</div>
-      <div class="arrow" id="compassArrow"></div><div class="label">進行方向</div>
+
+    <!-- SVGコンパス（鋭角/中心回転） -->
+    <div class="compass" aria-hidden="true">
+      <svg viewBox="0 0 74 74">
+        <defs>
+          <radialGradient id="g1" cx="50%" cy="50%" r="60%">
+            <stop offset="0%"  stop-color="#0b1624"/>
+            <stop offset="60%" stop-color="#0a1320"/>
+            <stop offset="100%" stop-color="#07121e"/>
+          </radialGradient>
+        </defs>
+        <circle cx="37" cy="37" r="36" fill="url(#g1)" stroke="rgba(255,255,255,.15)"/>
+        <text x="37" y="12" text-anchor="middle">N</text>
+        <!-- 針（鋭角）：頂点(37,16) / 台座(34,48)-(40,48)  -->
+        <g id="needle">
+          <polygon points="37,16 34,48 40,48"/>
+        </g>
+        <text x="37" y="66" text-anchor="middle" fill="#b8cce2">進行方向</text>
+      </svg>
     </div>
+
     <div class="fab-col">
       <button id="navStart" class="ok">案内開始</button>
       <button id="gotoStart" class="primary">現在地</button>
@@ -131,11 +162,11 @@ button.danger{background:var(--danger);border:none;font-weight:700}
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* ====== 設定 ====== */
-const WORKER_ORIGIN = 'https://ors-proxy.miyata-connect-jp.workers.dev/proxy'; // ←自分のWorkers URLに変更OK
-let profile = 'foot-walking';
+/* ===== 設定 ===== */
+const WORKER_ORIGIN='https://ors-proxy.miyata-connect-jp.workers.dev/proxy'; // ←必要なら自分のURLへ
+let profile='foot-walking';
 
-/* ====== 要素 ====== */
+/* ===== 要素 ===== */
 const $=id=>document.getElementById(id);
 const els={
   q:$('q'), mic:$('mic'), search:$('search'), clearHistory:$('clearHistory'),
@@ -144,19 +175,21 @@ const els={
   modeWalk:$('modeWalk'), modeWheel:$('modeWheel'),
   getRoute:$('getRoute'), clear:$('clear'), msg:$('msg'),
   navStart:$('navStart'), gotoStart:$('gotoStart'), gotoDest:$('gotoDest'), reroute:$('reroute'),
-  compassArrow:$('compassArrow')
+  needle:document.getElementById('needle'),
+  saveName:$('saveName'), saveHere:$('saveHere'), savedList:$('savedList'),
+  setFromSaved:$('setFromSaved'), delSaved:$('delSaved')
 };
 
-/* ====== 地図 ====== */
+/* ===== 地図 ===== */
 const map=L.map('map',{zoomControl:false}).setView([34.342,134.046],16);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20}).addTo(map);
 L.control.zoom({position:'bottomleft'}).addTo(map);
 
 const routeGroup=L.layerGroup().addTo(map);
 let currentMarker=null, destMarker=null, routeLine=null;
-let watchId=null, filteredHeading=null, lastCompassUpdate=0;
+let watchId=null, filteredHeading=null, lastHeadingTs=0;
 
-/* ====== util ====== */
+/* ===== util ===== */
 const toNum=v=>{const n=Number(v);return Number.isFinite(n)?n:null};
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 function setStart(lon,lat){ els.startLon.value=lon??''; els.startLat.value=lat??''; }
@@ -172,16 +205,16 @@ function updateCurrent(latlng){
   else currentMarker.setLatLng(latlng);
 }
 
-/* ====== 方位計：ローパス＋スロットリング＋量子化 ====== */
-function updateCompass(raw){
-  const now=Date.now(); if(now-lastCompassUpdate<300) return; lastCompassUpdate=now;
-  const alpha=0.9; if(filteredHeading==null) filteredHeading=raw;
-  filteredHeading=alpha*filteredHeading+(1-alpha)*raw;
+/* ===== コンパス：ローパス + スロットリング + 2°量子化 ===== */
+function updateCompass(deg){
+  const now=Date.now(); if(now-lastHeadingTs<280) return; lastHeadingTs=now;
+  const a=0.9; if(filteredHeading==null) filteredHeading=deg;
+  filteredHeading=a*filteredHeading+(1-a)*deg;
   const q=Math.round(filteredHeading/2)*2;
-  els.compassArrow.style.transform=`rotate(${q}deg)`;
+  els.needle.style.transform=`rotate(${q}deg)`;
 }
 
-/* ====== 位置情報 ====== */
+/* ===== 位置情報 ===== */
 function initGeolocation(){
   if(!navigator.geolocation){ els.msg.textContent='この端末は位置情報に未対応です'; return; }
   navigator.geolocation.getCurrentPosition(pos=>{
@@ -201,15 +234,14 @@ function initGeolocation(){
   },()=>{}, {enableHighAccuracy:true,maximumAge:3000,timeout:10000});
 }
 
-/* ====== 目的地：長押し設定 ====== */
+/* ===== 目的地：長押し設定 ===== */
 map.on('contextmenu',e=>{ setDest(e.latlng.lng,e.latlng.lat); els.msg.textContent='目的地を設定しました'; });
 
-/* ====== ルート ====== */
+/* ===== ルート ===== */
 async function getRoute(){
   const slon=toNum(els.startLon.value), slat=toNum(els.startLat.value);
   const dlon=toNum(els.destLon.value), dlat=toNum(els.destLat.value);
   if([slon,slat,dlon,dlat].some(v=>v===null)){ els.msg.textContent='座標が不足しています'; return; }
-
   els.msg.textContent='ルート取得中…';
   const body={coordinates:[[slon,slat],[dlon,dlat]],instructions:true,language:'ja',
               profile:profile,geometry:true,geometry_format:'geojson'};
@@ -229,36 +261,60 @@ function drawRouteGeoJSON(j){
   routeLine=L.polyline(latlngs,{color:'#39b6ff',weight:6,opacity:.9}).addTo(routeGroup);
 }
 
-/* ====== 検索（Photon＋フォールバック） ====== */
+/* ===== 検索：Photon + Nominatim フォールバック ===== */
 async function searchNearby(){
   const raw=els.q.value.trim(); if(!raw){ els.msg.textContent='検索ワードを入力してください'; return; }
 
-  // バイアス：開始座標 → 無ければ地図中心
+  // バイアス：開始座標 → なければ地図中心
   let lat=toNum(els.startLat.value), lon=toNum(els.startLon.value);
   if(lat===null||lon===null){ const c=map.getCenter(); lat=c.lat; lon=c.lng; }
 
-  const queries=buildQueries(raw);
   els.msg.textContent='検索中…';
-  let items=[];
-  for(const q of queries){
-    items=await photonQuery({q,lat,lon,limit:20});
-    items=items.filter(notWaterish).sort((a,b)=>a.dist-b.dist).slice(0,5);
-    if(items.length) break;
-  }
+  const items = await mergedSearch(raw, lat, lon);
   showResults(items);
   saveHistory(raw);
   els.msg.textContent=items.length?'候補を表示しました':'近隣に候補が見つかりません';
 }
 
+async function mergedSearch(raw,lat,lon){
+  const queries=buildQueries(raw);
+  let pool=[];
+  for(const q of queries){
+    const a=await photonQuery({q,lat,lon,limit:50});
+    pool=pool.concat(a);
+    if(pool.length>=5) break;
+  }
+  if(pool.length<3){
+    // 近傍 20km 四方でフォールバック
+    const box=degBox(lat,lon,20_000);
+    for(const q of queries){
+      const b=await nominatimQuery({q,box,limit:40});
+      pool=pool.concat(b);
+      if(pool.length>=5) break;
+    }
+  }
+  pool=pool.filter(notWaterish)
+           .sort((a,b)=>a.dist-b.dist);
+  // 重複排除（座標を丸め）
+  const seen=new Set();
+  const uniq=[];
+  for(const it of pool){
+    const key=it.name+'@'+it.lat.toFixed(5)+','+it.lon.toFixed(5);
+    if(!seen.has(key)){ seen.add(key); uniq.push(it); }
+    if(uniq.length>=5) break;
+  }
+  return uniq;
+}
 function buildQueries(raw){
   const list=[raw];
-  if(/マルナカ/i.test(raw)) list.push('マルナカ スーパー','Marunaka','Marunaka supermarket');
-  list.push(raw+' 店',raw+' 近く',raw+' 周辺');
+  if(/マルナカ/i.test(raw)){ list.push('マルナカ スーパー','Marunaka','Marunaka supermarket'); }
+  list.push(raw+' スーパー', raw+' 店', raw+' 近く', raw+' 周辺');
   return Array.from(new Set(list));
 }
-async function photonQuery({q,lat,lon,limit=20}){
+async function photonQuery({q,lat,lon,limit=30}){
   const url=new URL('https://photon.komoot.io/api/');
-  url.searchParams.set('q',q); url.searchParams.set('lang','ja'); url.searchParams.set('lat',lat); url.searchParams.set('lon',lon);
+  url.searchParams.set('q',q); url.searchParams.set('lang','ja');
+  url.searchParams.set('lat',lat); url.searchParams.set('lon',lon);
   url.searchParams.set('limit',String(limit));
   try{
     const r=await fetch(url.toString()); const js=await r.json();
@@ -267,15 +323,39 @@ async function photonQuery({q,lat,lon,limit=20}){
       const p=f.properties,c=f.geometry.coordinates; // [lon,lat]
       const ll=L.latLng(c[1],c[0]);
       return {name:p.name||p.street||p.city||'名称不明',addr:[p.city,p.street,p.housenumber].filter(Boolean).join(' '),
-              lon:c[0],lat:c[1],dist:here.distanceTo(ll),osm_value:(p.osm_value||'').toLowerCase()};
+              lon:c[0],lat:c[1],dist:here.distanceTo(ll),src:'photon',kind:(p.osm_value||'').toLowerCase()};
     });
   }catch{return []}
+}
+async function nominatimQuery({q,box,limit=30}){
+  const url=new URL('https://nominatim.openstreetmap.org/search');
+  url.searchParams.set('q',q);
+  url.searchParams.set('format','jsonv2');
+  url.searchParams.set('accept-language','ja');
+  url.searchParams.set('bounded','1');
+  url.searchParams.set('viewbox',`${box.w},${box.n},${box.e},${box.s}`);
+  url.searchParams.set('limit',String(limit));
+  try{
+    const r=await fetch(url.toString(),{headers:{'User-Agent':'cf-workers-nav-demo'}});
+    const js=await r.json();
+    const here=L.latLng((box.n+box.s)/2,(box.e+box.w)/2);
+    return js.map(o=>{
+      const ll=L.latLng(Number(o.lat),Number(o.lon));
+      return {name:o.display_name.split(',')[0]||'名称不明',addr:o.display_name,lon:Number(o.lon),lat:Number(o.lat),
+              dist:here.distanceTo(ll),src:'nominatim',kind:(o.class||'')+'/'+(o.type||'')};
+    });
+  }catch{return []}
+}
+function degBox(lat,lon,meters){
+  const dLat=meters/111320; // おおよそ
+  const dLon=meters/(40075000*Math.cos(lat*Math.PI/180)/360);
+  return {n:lat+dLat,s:lat-dLat,e:lon+dLon,w:lon-dLon};
 }
 function notWaterish(it){
   const water=/(池|沼|湖|川|沢|用水|ダム|海|潟)/;
   if(water.test(it.name)||water.test(it.addr)) return false;
-  const bad=['water','reservoir','basin','river','lake','sea','dam','wetland'];
-  return !bad.some(v=>it.osm_value.includes(v));
+  const bad=['water','reservoir','basin','river','lake','sea','dam','wetland','waterway'];
+  return !bad.some(v=>String(it.kind).includes(v));
 }
 function showResults(items){
   els.results.style.display='block'; els.resultList.innerHTML='';
@@ -293,9 +373,9 @@ function showResults(items){
     els.resultList.appendChild(div);
   });
 }
-function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
-/* ====== 履歴 ====== */
+/* ===== 履歴 ===== */
 const HISTORY_KEY='mc_search_history';
 const loadHistory=()=>{try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]')}catch{return []}};
 function saveHistory(q){ if(!q) return; const arr=loadHistory().filter(x=>x!==q); arr.unshift(q);
@@ -306,7 +386,35 @@ function clearHistory(){
   els.msg.textContent='履歴をクリアしました';
 }
 
-/* ====== 音声 ====== */
+/* ===== 地点保存 ===== */
+const SAVE_KEY='mc_saved_places';
+function loadSaves(){ try{return JSON.parse(localStorage.getItem(SAVE_KEY)||'[]')}catch{return []} }
+function saveSaves(arr){ localStorage.setItem(SAVE_KEY,JSON.stringify(arr)); refreshSaveList(); }
+function refreshSaveList(){
+  const arr=loadSaves(); els.savedList.innerHTML='';
+  const opt=document.createElement('option'); opt.value=''; opt.textContent='（未選択）'; els.savedList.appendChild(opt);
+  arr.forEach((p,i)=>{ const o=document.createElement('option'); o.value=String(i); o.textContent=`${p.name} ー ${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`; els.savedList.appendChild(o); });
+}
+function saveHere(){
+  const name=(els.saveName.value||'地点').trim();
+  let lat=toNum(els.startLat.value), lon=toNum(els.startLon.value);
+  if(lat===null||lon===null && currentMarker){ const c=currentMarker.getLatLng(); lat=c.lat; lon=c.lng; }
+  if(lat==null||lon==null){ els.msg.textContent='現在地が取得できていません'; return; }
+  const arr=loadSaves(); arr.unshift({name,lat,lon}); saveSaves(arr.slice(0,50));
+  els.saveName.value=''; els.msg.textContent='現在地を保存しました';
+}
+function setFromSaved(){
+  const idx=Number(els.savedList.value); const arr=loadSaves();
+  if(Number.isNaN(idx)||arr[idx]==null){ els.msg.textContent='地点を選んでください'; return; }
+  setDest(arr[idx].lon,arr[idx].lat); map.flyTo([arr[idx].lat,arr[idx].lon],17); getRoute();
+}
+function delSaved(){
+  const idx=Number(els.savedList.value); const arr=loadSaves();
+  if(Number.isNaN(idx)||arr[idx]==null){ els.msg.textContent='削除する地点を選んでください'; return; }
+  arr.splice(idx,1); saveSaves(arr); els.msg.textContent='削除しました';
+}
+
+/* ===== 音声 ===== */
 function startVoice(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){ els.msg.textContent='音声入力に未対応のブラウザです'; return; }
@@ -316,7 +424,7 @@ function startVoice(){
   rec.start();
 }
 
-/* ====== イベント ====== */
+/* ===== イベント ===== */
 els.search.addEventListener('click',searchNearby);
 els.mic.addEventListener('click',startVoice);
 els.clearHistory.addEventListener('click',clearHistory);
@@ -328,7 +436,8 @@ els.modeWheel.addEventListener('click',()=>{profile='wheelchair'; els.modeWalk.c
 els.getRoute.addEventListener('click',getRoute);
 els.clear.addEventListener('click',()=>{
   routeGroup.clearLayers(); if(destMarker){map.removeLayer(destMarker);destMarker=null;}
-  els.destLat.value=els.destLon.value=''; els.msg.textContent='クリアしました。目的地を設定してください。';
+  els.destLat.value=els.destLon.value='';
+  els.msg.textContent='クリアしました。目的地を設定してください。';
 });
 els.navStart.addEventListener('click',async()=>{
   if(!routeLine){ await getRoute(); await sleep(300); }
@@ -342,7 +451,13 @@ els.gotoStart.addEventListener('click',()=>{ if(currentMarker) map.flyTo(current
 els.gotoDest.addEventListener('click',()=>{ if(destMarker)  map.flyTo(destMarker.getLatLng(),18); });
 els.reroute.addEventListener('click',getRoute);
 
-/* ====== 起動 ====== */
+/* 地点保存UI */
+els.saveHere.addEventListener('click',saveHere);
+els.setFromSaved.addEventListener('click',setFromSaved);
+els.delSaved.addEventListener('click',delSaved);
+
+/* ===== 起動 ===== */
+refreshSaveList();
 initGeolocation();
 </script>
 </body>
