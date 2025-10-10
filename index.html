@@ -34,7 +34,6 @@
   .hintRow{color:var(--muted);font-size:14px;margin-top:8px}
   .status{margin-top:6px;color:#cfe2ff;font-size:14px}
 
-  /* 検索リストは“下に流れる”ボックス（他UIに被らない） */
   #resultWrap{margin-top:6px}
   .list{background:#0f172a;border:1px solid #22304e;border-radius:12px;max-height:40vh;overflow:auto;display:none}
   .item{padding:10px 12px;border-top:1px solid #1a2745;cursor:pointer}
@@ -66,7 +65,6 @@
         <button id="mic" class="icon-btn" title="音声入力">🎤</button>
         <button id="searchBtn" class="icon-btn">検索</button>
       </div>
-      <button id="saveHereBtn" class="icon-btn" title="現在地を保存">現在地を保存</button>
     </div>
 
     <!-- 座標入力 -->
@@ -103,7 +101,7 @@
       <button id="clearBtn" class="icon-btn">クリア</button>
     </div>
 
-    <!-- 記憶地点 -->
+    <!-- 記憶地点（ここに“現在地を保存”を移動） -->
     <div class="row" style="margin-top:8px">
       <div class="group" style="flex:1">
         <div class="label">記憶地点</div>
@@ -111,15 +109,16 @@
           <option value="">（未選択）</option>
         </select>
       </div>
+      <button id="saveHereBtn" class="icon-btn" title="現在地を保存">現在地を保存</button>
       <button id="useSavedBtn" class="icon-btn">目的地に設定</button>
       <button id="delSavedBtn" class="icon-btn">削除</button>
     </div>
 
     <!-- ヒント・ステータス -->
-    <div class="hintRow">地図を長押しすると目的地を設定できます</div>
+    <div class="hintRow">地図を長押しすると目的地に設定できます</div>
     <div id="statusText" class="status">準備完了。目的地を設定してください</div>
 
-    <!-- 検索結果（被らない箱） -->
+    <!-- 検索結果 -->
     <div id="resultWrap">
       <div id="list" class="list"></div>
     </div>
@@ -137,26 +136,21 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
 <script>
-/*** 設定 ***/
 const WORKER_URL = 'https://ors-proxy.miyata-connect-jp.workers.dev';
 const ORS_ENDPOINT = WORKER_URL + '/proxy';
 const SEARCH_URL = 'https://photon.komoot.io/api/';
 
-/*** 言語マップ（音声録音/読み上げ） ***/
 const LANG_SPEECH = { ja:'ja-JP', en:'en-US', zh:'zh-CN', ko:'ko-KR' };
 
-/*** 状態 ***/
 let map, youMarker, accCircle, destMarker, routeLine;
 let routePoints = [], routeSteps = [];
 let lastPos = null, watchId = null;
 let announcedTurnIdx = -1, passedWarned = false;
 let selectDestMode = false, audioCtx;
 
-/*** DOM util ***/
 const $ = s => document.querySelector(s);
 const status = t => $('#statusText').textContent = t;
 
-/*** ユーティリティ ***/
 function metersBetween(a,b){
   const R=6371000, dLat=(b.lat-a.lat)*Math.PI/180, dLon=(b.lng-a.lng)*Math.PI/180;
   const lat1=a.lat*Math.PI/180, lat2=b.lat*Math.PI/180;
@@ -200,7 +194,6 @@ function speak(text, lang){
   window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
 }
 
-/*** 地図初期化 ***/
 initMap();
 function initMap(){
   map = L.map('map', {zoomControl:false});
@@ -233,7 +226,6 @@ function initMap(){
   loadSavedPlaces();
 }
 
-/*** 現在地描画 ***/
 function showYou(pos){
   if(!youMarker){
     youMarker=L.marker([pos.lat,pos.lng],{title:'現在地'}).addTo(map);
@@ -259,7 +251,6 @@ function clearWatch(){
   if(watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
 }
 
-/*** 入出力 ***/
 function setStartFields(latlng){ $('#lat1').value=latlng.lat.toFixed(6); $('#lon1').value=latlng.lng.toFixed(6); }
 function setDestination(latlng){
   if(!destMarker){
@@ -269,7 +260,6 @@ function setDestination(latlng){
   $('#lon2').value=latlng.lng.toFixed(6); $('#lat2').value=latlng.lat.toFixed(6);
 }
 
-/*** ルート ***/
 async function requestRoute(){
   const profile = $('#profile').value, lang=$('#lang').value||'ja';
   const start = getStart(), goal=getGoal();
@@ -302,7 +292,6 @@ function getGoal(){
   if(destMarker) return destMarker.getLatLng(); return null;
 }
 
-/*** 5m 警告 & 交差点案内 ***/
 function nextTurnPoint(){
   if(!routeSteps.length) return null;
   for(let i=0;i<routeSteps.length;i++){
@@ -334,7 +323,8 @@ function maybeWarnAndGuide(){
   }
 }
 
-/*** 検索（Photon） — 近い順 上位5件 ***/
+/*** 検索（Photon）— 近い順 上位5件 ***/
+const LANG_SPEECH = { ja:'ja-JP', en:'en-US', zh:'zh-CN', ko:'ko-KR' }; // 参照用
 function buildListHeader(text){ return `<div class="listHead">${text}</div>`; }
 
 async function doSearch(){
@@ -344,13 +334,11 @@ async function doSearch(){
   $('#list').innerHTML=buildListHeader('検索結果')+'<div class="item muted">検索中…</div>';
 
   try{
-    // bias に現在地を付与（未取得なら省略）
     const bias = (lastPos ? `&lat=${lastPos.lat}&lon=${lastPos.lng}` : '');
-    const url=`${SEARCH_URL}?q=${encodeURIComponent(q||'poi')}${bias}&lang=${encodeURIComponent(langVal)}&limit=20`;
+    const url=`https://photon.komoot.io/api/?q=${encodeURIComponent(q||'poi')}${bias}&lang=${encodeURIComponent(langVal)}&limit=20`;
     const res=await fetch(url,{headers:{'Accept':'application/json'}}); const data=await res.json();
 
     let feats=data?.features||[];
-    // 距離順で並び替え→上位5件
     if(lastPos){
       feats = feats.map(f=>{
         const [lon,lat]=f.geometry.coordinates;
@@ -391,7 +379,7 @@ async function doSearch(){
   }
 }
 
-/*** 音声入力（UI文言は日本語） ***/
+/*** 音声入力 ***/
 (function setupMic(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition, mic=$('#mic');
   if(!SR){ mic.style.display='none'; return; }
@@ -412,10 +400,8 @@ $('#routeBtn').addEventListener('click', requestRoute);
 $('#rerouteBtn').addEventListener('click', requestRoute);
 
 $('#clearBtn').addEventListener('click', ()=>{
-  // ルート消去
   if(routeLine){ routeLine.remove(); routeLine=null; }
   routePoints=[]; routeSteps=[]; announcedTurnIdx=-1; passedWarned=false;
-  // 検索系リセット
   $('#q').value='';
   $('#list').style.display='none';
   $('#list').innerHTML='';
