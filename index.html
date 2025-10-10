@@ -212,7 +212,6 @@ let currentMarker=null, destMarker=null, routeLine=null, lastRoute=null;
 let watchId=null, navActive=false;
 
 /* ===== コンパス 安定化 ===== */
-// ★修正：アニメーションループを改善
 const compass={angle:0, target:0, raf:null};
 function updateCompassRotation(){
   const d=shortDiff(compass.angle,compass.target);
@@ -262,7 +261,7 @@ function initGeolocation(){
     updateCurrent([latitude,longitude]);
 
     if(Number.isFinite(heading)) setCompassTarget(heading);
-    else if(prevPos && prevPos.distanceTo(cur)>3) { // 3m以上移動したら
+    else if(prevPos && prevPos.distanceTo(cur)>3) {
         setCompassTarget(bearingBetween(prevPos,cur));
         prevPos=cur;
     }
@@ -343,9 +342,9 @@ async function performSearch(){
     const best=items[0];
     setDest(best.lon,best.lat);
     map.flyTo([best.lat,best.lon],17);
-    const route = await fetchAndDrawRoute(); // ★修正：ルート取得処理を呼び出し
+    const route = await fetchAndDrawRoute();
     if(route){
-        startNavigation(); // ★修正：成功したら案内開始
+        startNavigation();
         els.msg.textContent='最上位候補で案内を開始しました（他の候補はリストから選べます）';
     }
   }else{
