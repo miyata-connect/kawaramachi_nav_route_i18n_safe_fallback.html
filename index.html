@@ -66,8 +66,8 @@ button.danger{background:var(--danger);border:none;font-weight:700}
   .fab-col button{min-width:118px;padding:9px 11px;font-size:15px}
 }
 
-/* コンパスの文字見切れ修正：下のテキストを少し上に移動し、font-size調整 */
-.compass text:nth-child(5) { y: 68; font-size: 9px; letter-spacing: 0.05em; }
+/* コンパスの文字見切れ修正：下のテキストをさらに上に移動し、font-sizeを小さく調整 */
+.compass text:nth-child(5) { y: 70; font-size: 8px; letter-spacing: 0em; fill: #b8cce2; text-anchor: middle; }
 </style>
 </head>
 <body>
@@ -256,7 +256,7 @@ function initGeolocation(){
     if(Number.isFinite(heading)) setCompassTarget(heading);
     map.setView([latitude,longitude],17);
     prevPos=L.latLng(latitude,longitude);
-  }, err=>{ els.msg.textContent='現在地エラー: '+err.message; },
+  }, err=>{ els.msg.textContent='現在地エラー: '+err.message; console.error(err); },
   {enableHighAccuracy:true,maximumAge:1000,timeout:10000});
 
   if(watchId) navigator.geolocation.clearWatch(watchId);
@@ -268,7 +268,7 @@ function initGeolocation(){
     if(Number.isFinite(heading)) setCompassTarget(heading);
     else if(prevPos && prevPos.distanceTo(cur)>5) setCompassTarget(bearingBetween(prevPos,cur));
     prevPos=cur;
-  },()=>{}, {enableHighAccuracy:true,maximumAge:3000,timeout:10000});
+  },err=>{console.error(err);}, {enableHighAccuracy:true,maximumAge:3000,timeout:10000});
 }
 function updateCurrent(latlng){
   if(!currentMarker) currentMarker=L.marker(latlng,{title:'現在地'}).addTo(map);
@@ -287,19 +287,20 @@ function setDest(lon,lat){
 async function getRoute(){
   const slon=Number(els.startLon.value), slat=Number(els.startLat.value);
   const dlon=Number(els.destLon.value), dlat=Number(els.destLat.value);
-  if(![slon,slat,dlon,dlat].every(Number.isFinite)){ els.msg.textContent='座標が不足しています'; return; }
+  if(![slon,slat,dlon,dlat].every(Number.isFinite)){ els.msg.textContent='座標が不足しています'; return null; }
   els.msg.textContent='ルート取得中…';
   const body={coordinates:[[slon,slat],[dlon,dlat]],instructions:true,language:'ja',
-              profile:profile,geometry:true,geometry_format:'geojson'};
+              geometry:true,geometry_format:'geojson'};
+  console.log('Fetching route with body:', body, 'profile:', profile);
   try{
-    const res=await fetch(WORKER_ORIGIN,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!res.ok) throw new Error('HTTP '+res.status);
+    const res=await fetch(`${WORKER_ORIGIN}/${profile}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!res.ok) throw new Error('HTTP ' + res.status + ' ' + res.statusText);
     const j=await res.json();
     drawRouteGeoJSON(j);
     els.msg.textContent='ルート取得完了';
     if(routeLine) map.fitBounds(routeLine.getBounds(),{padding:[30,30]});
     return j;
-  }catch(e){ console.error(e); els.msg.textContent='ルート取得に失敗しました: ' + e.message; return null; }
+  }catch(e){ console.error('getRoute error:', e); els.msg.textContent='ルート取得に失敗しました: ' + e.message; return null; }
 }
 function drawRouteGeoJSON(j){
   routeGroup.clearLayers();
@@ -314,7 +315,7 @@ function speakJa(txt){
   try{
     const u=new SpeechSynthesisUtterance(txt); u.lang='ja-JP';
     window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
-  }catch{}
+  }catch(e){console.error('speakJa error:', e);}
 }
 function startNavigation(){
   if(!routeLine){ els.msg.textContent='先にルートを取得してください'; return; }
@@ -395,7 +396,7 @@ async function photonQuery({q,lat,lon,limit=30}){
       return {name:p.name||p.street||p.city||'名称不明',addr:[p.city,p.street,p.housenumber].filter(Boolean).join(' '),
               lon:c[0],lat:c[1],dist:here.distanceTo(ll),src:'photon',kind:(p.osm_value||'').toLowerCase()};
     });
-  }catch{return []}
+  }catch(e){console.error('photonQuery error:', e); return []}
 }
 async function nominatimQuery({q,box,limit=30}){
   const url=new URL('https://nominatim.openstreetmap.org/search');
@@ -414,7 +415,7 @@ async function nominatimQuery({q,box,limit=30}){
       return {name:o.display_name.split(',')[0]||'名称不明',addr:o.display_name,lon:Number(o.lon),lat:Number(o.lat),
               dist:here.distanceTo(ll),src:'nominatim',kind:(o.class||'')+'/'+(o.type||'')};
     });
-  }catch{return []}
+  }catch(e){console.error('nominatimQuery error:', e); return []}
 }
 function degBox(lat,lon,meters){
   const dLat=meters/111320;
@@ -433,8 +434,14 @@ function showResults(items){
     div.addEventListener('click',async()=>{
       setDest(it.lon,it.lat);
       map.flyTo([it.lat,it.lon],17);
+      els.msg.textContent = '目的地を設定しました。ルート取得中...';
       const j = await getRoute();
-      if(j){ startNavigation(); }
+      if(j){ 
+        startNavigation(); 
+        els.msg.textContent = 'ルート取得成功。案内を開始しました';
+      } else {
+        els.msg.textContent = 'ルート取得に失敗しました。座標やプロキシを確認してください';
+      }
     });
     els.resultList.appendChild(div);
   });
@@ -495,7 +502,7 @@ function startVoice(){
   if(!SR){ els.msg.textContent='音声入力に未対応のブラウザです'; return; }
   const rec=new SR(); rec.lang='ja-JP'; rec.interimResults=false; rec.maxAlternatives=1;
   rec.onresult=(ev)=>{ els.q.value=ev.results[0][0].transcript||''; searchNearby(); };
-  rec.onerror=()=>{ els.msg.textContent='音声入力に失敗しました'; };
+  rec.onerror=(ev)=>{ els.msg.textContent='音声入力に失敗しました: ' + ev.error; console.error(ev); };
   rec.start();
 }
 
@@ -508,7 +515,16 @@ els.closeResults.addEventListener('click',()=>els.results.style.display='none');
 els.modeWalk.addEventListener('click',()=>{profile='foot-walking';els.modeWalk.className='primary';els.modeWheel.className='ghost';});
 els.modeWheel.addEventListener('click',()=>{profile='wheelchair'; els.modeWalk.className='ghost';  els.modeWheel.className='primary';});
 
-els.getRoute.addEventListener('click',async()=>{ const j=await getRoute(); if(j) startNavigation(); });
+els.getRoute.addEventListener('click',async()=>{ 
+  els.msg.textContent = 'ルート取得中...';
+  const j=await getRoute(); 
+  if(j) {
+    startNavigation();
+    els.msg.textContent = 'ルート取得成功。案内を開始しました';
+  } else {
+    els.msg.textContent = 'ルート取得に失敗しました';
+  }
+});
 els.clear.addEventListener('click',()=>{
   routeGroup.clearLayers(); routeLine=null; lastRoute=null; navActive=false;
   if(destMarker){map.removeLayer(destMarker);destMarker=null;}
