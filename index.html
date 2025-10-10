@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cloudflare Workers ナビ</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css?v=final">
 <style>
 :root{
   --bg:#0f1a25; --panel:#132235; --panel2:#0f1e30;
@@ -158,7 +158,7 @@ button.danger:hover{background:#e74c3c}
   </div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js?v=final"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
 'use strict';
@@ -251,8 +251,6 @@ async function fetchAndDrawRoute() {
             language: 'ja',
             profile: profile,
             geometry: true,
-            // ★★★ 最後の修正: エラーの原因となっていたこの一行を削除 ★★★
-            // geometry_format: 'geojson' 
         };
         const res = await fetch(WORKER_ORIGIN, {
             method: 'POST',
