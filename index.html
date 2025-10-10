@@ -245,14 +245,14 @@ async function fetchAndDrawRoute() {
     }
     setMessage('ルート取得中...');
     try {
-        // ★★★ 修正: サーバーに送るデータを正しい形式に戻しました ★★★
         const body = {
             coordinates: [[slon, slat], [dlon, dlat]],
             instructions: true,
             language: 'ja',
             profile: profile,
             geometry: true,
-            geometry_format: 'geojson'
+            // ★★★ 最後の修正: エラーの原因となっていたこの一行を削除 ★★★
+            // geometry_format: 'geojson' 
         };
         const res = await fetch(WORKER_ORIGIN, {
             method: 'POST',
@@ -297,7 +297,6 @@ async function performSearch() {
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) { const c = map.getCenter(); lat = c.lat; lon = c.lng; }
 
     setMessage('検索中...');
-    // ★★★ 修正: 2つの検索を並行実行し、両方の結果を待つように改善 ★★★
     const results = await Promise.allSettled([
         photonQuery(raw, lat, lon),
         nominatimQuery(raw, lat, lon)
@@ -383,7 +382,6 @@ function init() {
         routeGroup = L.layerGroup().addTo(map);
         els.needle.style.transform = 'rotate(0deg)';
 
-        // ★★★ 修正: JSで強制的にスタイルを適用 ★★★
         const attrEl = document.querySelector('.leaflet-control-attribution');
         if (attrEl) {
             attrEl.style.whiteSpace = 'normal';
@@ -400,7 +398,6 @@ function init() {
     }
 }
 
-// 根本原因の解決: CSSのレンダリングを待ってから初期化処理を開始
 setTimeout(init, 200);
 
 });
