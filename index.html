@@ -4,7 +4,8 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
 <title>Cloudflare Workers 経由 ORS 歩行ナビ</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin>
+
 <style>
   :root{
     --bg:#0b1220;--panel:#121a2b;--fg:#e8eefc;--muted:#98a4c5;--accent:#3ea8ff;
@@ -13,30 +14,44 @@
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif}
+
   header{position:sticky;top:0;z-index:600;background:linear-gradient(180deg,var(--bg),#0c1527 70%);padding:10px 12px 6px}
   h1{margin:0 0 10px 0;font-size:20px}
+
   .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .search{display:flex;align-items:center;gap:6px;background:var(--panel);border:1px solid #243150;border-radius:12px;padding:6px 8px;flex:1;min-width:240px}
   .search input{background:transparent;border:none;outline:none;color:var(--fg);width:100%;font-size:16px}
   .icon-btn{background:var(--btn);border:1px solid #22304e;color:var(--fg);border-radius:10px;padding:8px 12px;font-weight:600;cursor:pointer}
   .icon-btn:disabled{opacity:.6;cursor:not-allowed}
+
   .group{display:flex;align-items:center;gap:6px;background:#0f1a31;border:1px solid #22304e;border-radius:12px;padding:6px 8px}
   .label{color:var(--muted);font-size:12px;margin-right:2px;white-space:nowrap}
   .num{appearance:none;background:#0f1a31;border:1px solid #22304e;border-radius:10px;color:var(--fg);padding:8px 10px;font-size:14px;width:120px}
   select{appearance:none;background:#0f1a31;border:1px solid #22304e;border-radius:10px;color:var(--fg);padding:8px 10px;font-size:14px}
   .primary{background:var(--accent);border-color:#2b7fcc;color:#031225}
-  .hintRow{color:var(--muted);font-size:14px;margin-top:8px} /* ←サイズを他と合わせた */
-  .statusbar{margin-top:8px;background:#0f172a;border:1px solid #22304e;border-radius:12px;padding:8px 12px;color:#cfe2ff}
-  #map{height:calc(100vh - 250px);min-height:420px}
-  @media (max-width:700px){ #map{height:calc(100vh - 300px)} }
+
+  .hintRow{color:var(--muted);font-size:14px;margin-top:8px}
+  .status{margin-top:6px;color:#cfe2ff;font-size:14px} /* ←囲い無しのテキスト */
+
+  /* 地図エリアを安定表示（dvh使用＋最小高さ） */
+  #map{height:65dvh;min-height:420px}
+
+  /* 右下の操作ボタン */
   .floating{position:fixed;right:14px;bottom:20px;z-index:500;display:flex;flex-direction:column;gap:10px}
   .fab{background:#0e162c;border:1px solid #22304e;color:var(--fg);border-radius:14px;padding:10px 14px;font-weight:700;cursor:pointer;min-width:120px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.35)}
   .fab:active{transform:translateY(1px)}
+
+  /* 検索候補リスト */
   .list{position:absolute;left:12px;right:12px;top:148px;z-index:650;background:#0f172a;border:1px solid #22304e;border-radius:12px;max-height:300px;overflow:auto;display:none}
   .item{padding:10px 12px;border-top:1px solid #1a2745;cursor:pointer}
   .item:first-child{border-top:none}
   .item:hover{background:#121f3b}
   .muted{color:var(--muted)}
+
+  /* ズームコントロールの位置と見栄えを強制（消失/重なり防止） */
+  .leaflet-control-container .leaflet-bottom.leaflet-left{bottom:16px;left:12px}
+  .leaflet-control-zoom{border-radius:12px;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+  .leaflet-control-zoom a{width:34px;height:34px;line-height:34px;font-size:18px}
 </style>
 </head>
 <body>
@@ -53,7 +68,7 @@
       </div>
     </div>
 
-    <!-- 座標入力（ラベル明記） -->
+    <!-- 座標入力 -->
     <div class="row" style="margin-top:8px">
       <div class="group">
         <div class="label">開始 Lon,Lat</div>
@@ -67,7 +82,7 @@
       </div>
     </div>
 
-    <!-- モード（旧プロフィール）・言語・操作 -->
+    <!-- モード・言語・操作 -->
     <div class="row" style="margin-top:8px">
       <div class="group"><div class="label">モード</div>
         <select id="profile" title="経路タイプ（ORS routing profile）">
@@ -83,16 +98,14 @@
           <option value="ko">韓国語</option>
         </select>
       </div>
-
       <button id="routeBtn" class="icon-btn primary">ルート取得</button>
       <button id="clearBtn" class="icon-btn">クリア</button>
     </div>
 
-    <!-- ヒント（ここに固定配置＝重なり無し） -->
+    <!-- ヒント（固定配置） -->
     <div class="hintRow">地図を長押しすると目的地を設定できます</div>
-
-    <!-- ステータス -->
-    <div id="statusBar" class="statusbar">準備OK。ボタンを押してください。</div>
+    <!-- ステータス（囲いナシ） -->
+    <div id="statusText" class="status">準備OK。ボタンを押してください。</div>
   </header>
 
   <div id="list" class="list"></div>
@@ -106,7 +119,7 @@
     <button id="rerouteBtn" class="fab">リルート</button>
   </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
 <script>
 /*** 設定 ***/
 const WORKER_URL = 'https://ors-proxy.miyata-connect-jp.workers.dev';
@@ -122,9 +135,9 @@ let selectDestMode = false, audioCtx;
 
 /*** DOM util ***/
 const $ = s => document.querySelector(s);
-const status = (t)=> { $('#statusBar').textContent = t; };
+const status = (t)=> { $('#statusText').textContent = t; };
 
-/*** helpers ***/
+/*** ユーティリティ ***/
 function metersBetween(a,b){
   const R=6371000, dLat=(b.lat-a.lat)*Math.PI/180, dLon=(b.lng-a.lng)*Math.PI/180;
   const lat1=a.lat*Math.PI/180, lat2=b.lat*Math.PI/180;
@@ -166,19 +179,23 @@ function speak(text, lang){ if(!('speechSynthesis' in window)) return;
   window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
 }
 
-/*** 地図 ***/
+/*** 地図初期化 ***/
 initMap();
 function initMap(){
-  // デフォルトのズームUIは消して、左下へ配置し直す（重なり回避）
-  map = L.map('map', {zoomControl:false}).setView([34.342,134.046], 16);
+  // デフォルトズームOFF→左下に追加（見失い防止）
+  map = L.map('map', {zoomControl:false});
   L.control.zoom({ position:'bottomleft' }).addTo(map);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
 
-  map.on('click', e=>{ if(selectDestMode){ setDestination(e.latlng); selectDestMode=false; status('目的地を設定しました'); }});
-  map.on('contextmenu', e=>{ setDestination(e.latlng); status('目的地を設定しました'); });
+  // まずはフォールバック（徳島市役所あたり）
+  const fallback = {lat:34.342000,lng:134.046000};
+  map.setView([fallback.lat,fallback.lng], 16);
 
-  status('準備OK。ボタンを押してください。');
+  // 初回にサイズ確定
+  setTimeout(()=> map.invalidateSize(), 150);
+
+  // 現在地
   if('geolocation' in navigator){
     navigator.geolocation.getCurrentPosition(p=>{
       const {latitude,longitude,accuracy}=p.coords;
@@ -186,12 +203,21 @@ function initMap(){
       setStartFields(lastPos);
       showYou(lastPos);
       map.setView([latitude,longitude], 17);
-    },()=>{}, {enableHighAccuracy:true,timeout:8000,maximumAge:30000});
+      setTimeout(()=> map.invalidateSize(), 100); // 端末UI変化後に再計算
+    },()=>{ status('現在地は許可されませんでした（フォールバック表示）'); },
+    {enableHighAccuracy:true,timeout:8000,maximumAge:30000});
+  }else{
+    status('位置情報に未対応の端末（フォールバック表示）');
   }
+
+  // 目的地セット
+  map.on('click', e=>{ if(selectDestMode){ setDestination(e.latlng); selectDestMode=false; status('目的地を設定しました'); }});
+  map.on('contextmenu', e=>{ setDestination(e.latlng); status('目的地を設定しました'); });
+
+  window.addEventListener('resize', ()=> setTimeout(()=> map.invalidateSize(), 100));
 }
 
-/*** 現在地表示 ***/
-let youMarker, accCircle;
+/*** 現在地描画 ***/
 function showYou(pos){
   if(!youMarker){
     youMarker=L.marker([pos.lat,pos.lng],{title:'現在地'}).addTo(map);
@@ -201,7 +227,7 @@ function showYou(pos){
     accCircle.setLatLng([pos.lat,pos.lng]).setRadius(pos.accuracy||20);
   }
 }
-let watchId=null;
+
 function ensureWatch(){
   if(watchId!=null) return;
   if(!('geolocation' in navigator)){ status('この端末は位置情報に未対応'); return; }
@@ -227,7 +253,7 @@ function setDestination(latlng){
   $('#lon2').value=latlng.lng.toFixed(6); $('#lat2').value=latlng.lat.toFixed(6);
 }
 
-/*** ルート取得 ***/
+/*** ルート ***/
 async function requestRoute(){
   const profile = $('#profile').value, lang=$('#lang').value||'ja';
   const start = getStart(), goal=getGoal();
@@ -260,7 +286,7 @@ function getGoal(){
   if(destMarker) return destMarker.getLatLng(); return null;
 }
 
-/*** 5m 警告 & 交差点音声 ***/
+/*** 5m 警告 & 交差点案内 ***/
 function nextTurnPoint(){
   if(!routeSteps.length) return null;
   for(let i=0;i<routeSteps.length;i++){
@@ -337,7 +363,6 @@ $('#locBtn').addEventListener('click', ()=>{ ensureWatch(); if(lastPos) map.setV
 $('#dstBtn').addEventListener('click', ()=>{ selectDestMode=true; status('地図をタップして目的地を設定'); setTimeout(()=>{selectDestMode=false},7000); });
 $('#searchBtn').addEventListener('click', doSearch);
 $('#q').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); doSearch(); } });
-document.addEventListener('click', e=>{ if(!$('#list').contains(e.target) && e.target!==$('#q')) $('#list').style.display='none'; });
 
 /*** 案内開始/停止（現在地watchトグル） ***/
 $('#guideBtn').addEventListener('click', ()=>{
