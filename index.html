@@ -25,16 +25,13 @@
   .num{appearance:none;background:#0f1a31;border:1px solid #22304e;border-radius:10px;color:var(--fg);padding:8px 10px;font-size:14px;width:120px}
   select{appearance:none;background:#0f1a31;border:1px solid #22304e;border-radius:10px;color:var(--fg);padding:8px 10px;font-size:14px}
   .primary{background:var(--accent);border-color:#2b7fcc;color:#031225}
-  .hintRow{color:var(--muted);font-size:12px;margin-top:6px}
-  /* ステータスはヘッダーの最下段に固定配置（地図やボタンと重ならない） */
+  .hintRow{color:var(--muted);font-size:14px;margin-top:8px} /* ←サイズを他と合わせた */
   .statusbar{margin-top:8px;background:#0f172a;border:1px solid #22304e;border-radius:12px;padding:8px 12px;color:#cfe2ff}
   #map{height:calc(100vh - 250px);min-height:420px}
   @media (max-width:700px){ #map{height:calc(100vh - 300px)} }
-  /* 右下の操作ボタン */
   .floating{position:fixed;right:14px;bottom:20px;z-index:500;display:flex;flex-direction:column;gap:10px}
   .fab{background:#0e162c;border:1px solid #22304e;color:var(--fg);border-radius:14px;padding:10px 14px;font-weight:700;cursor:pointer;min-width:120px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.35)}
   .fab:active{transform:translateY(1px)}
-  /* 検索候補 */
   .list{position:absolute;left:12px;right:12px;top:148px;z-index:650;background:#0f172a;border:1px solid #22304e;border-radius:12px;max-height:300px;overflow:auto;display:none}
   .item{padding:10px 12px;border-top:1px solid #1a2745;cursor:pointer}
   .item:first-child{border-top:none}
@@ -70,20 +67,20 @@
       </div>
     </div>
 
-    <!-- プロファイル・言語・操作 -->
+    <!-- モード（旧プロフィール）・言語・操作 -->
     <div class="row" style="margin-top:8px">
-      <div class="group"><div class="label">プロフィール</div>
-        <select id="profile">
-          <option value="foot-walking" selected>foot-walking</option>
-          <option value="wheelchair">wheelchair</option>
+      <div class="group"><div class="label">モード</div>
+        <select id="profile" title="経路タイプ（ORS routing profile）">
+          <option value="foot-walking" selected>foot-walking（徒歩）</option>
+          <option value="wheelchair">wheelchair（車いす）</option>
         </select>
       </div>
       <div class="group"><div class="label">言語</div>
         <select id="lang">
-          <option value="ja" selected>ja</option>
-          <option value="en">en</option>
-          <option value="zh">zh</option>
-          <option value="ko">ko</option>
+          <option value="ja" selected>日本語</option>
+          <option value="en">英語</option>
+          <option value="zh">中国語</option>
+          <option value="ko">韓国語</option>
         </select>
       </div>
 
@@ -91,17 +88,17 @@
       <button id="clearBtn" class="icon-btn">クリア</button>
     </div>
 
-    <!-- ヒント（地図長押し）をここに固定配置＝重なり無し -->
+    <!-- ヒント（ここに固定配置＝重なり無し） -->
     <div class="hintRow">地図を長押しすると目的地を設定できます</div>
 
-    <!-- ステータス・メッセージ（どこにも被らない・常に見える） -->
+    <!-- ステータス -->
     <div id="statusBar" class="statusbar">準備OK。ボタンを押してください。</div>
   </header>
 
   <div id="list" class="list"></div>
   <div id="map"></div>
 
-  <!-- 右下の操作ボタン。案内開始を一番上に追加 -->
+  <!-- 右下の操作ボタン -->
   <div class="floating">
     <button id="guideBtn" class="fab">案内開始</button>
     <button id="locBtn" class="fab">現在地</button>
@@ -112,7 +109,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin></script>
 <script>
 /*** 設定 ***/
-const WORKER_URL = 'https://ors-proxy.miyata-connect-jp.workers.dev'; // ←あなたのWorker
+const WORKER_URL = 'https://ors-proxy.miyata-connect-jp.workers.dev';
 const ORS_ENDPOINT = WORKER_URL + '/proxy';
 const SEARCH_URL = 'https://photon.komoot.io/api/';
 
@@ -127,7 +124,7 @@ let selectDestMode = false, audioCtx;
 const $ = s => document.querySelector(s);
 const status = (t)=> { $('#statusBar').textContent = t; };
 
-/*** 小ユーティリティ ***/
+/*** helpers ***/
 function metersBetween(a,b){
   const R=6371000, dLat=(b.lat-a.lat)*Math.PI/180, dLon=(b.lng-a.lng)*Math.PI/180;
   const lat1=a.lat*Math.PI/180, lat2=b.lat*Math.PI/180;
@@ -172,20 +169,21 @@ function speak(text, lang){ if(!('speechSynthesis' in window)) return;
 /*** 地図 ***/
 initMap();
 function initMap(){
-  map = L.map('map', {zoomControl:true}).setView([34.342,134.046], 16);
+  // デフォルトのズームUIは消して、左下へ配置し直す（重なり回避）
+  map = L.map('map', {zoomControl:false}).setView([34.342,134.046], 16);
+  L.control.zoom({ position:'bottomleft' }).addTo(map);
+
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map);
 
-  // 目的地セット（モバイル長押しは contextmenu）
   map.on('click', e=>{ if(selectDestMode){ setDestination(e.latlng); selectDestMode=false; status('目的地を設定しました'); }});
   map.on('contextmenu', e=>{ setDestination(e.latlng); status('目的地を設定しました'); });
 
   status('準備OK。ボタンを押してください。');
-  // ★ 初期値＝現在地（可能なら）
   if('geolocation' in navigator){
     navigator.geolocation.getCurrentPosition(p=>{
       const {latitude,longitude,accuracy}=p.coords;
       lastPos={lat:latitude,lng:longitude,accuracy};
-      setStartFields(lastPos); // 初期値を入力欄に反映
+      setStartFields(lastPos);
       showYou(lastPos);
       map.setView([latitude,longitude], 17);
     },()=>{}, {enableHighAccuracy:true,timeout:8000,maximumAge:30000});
@@ -193,6 +191,7 @@ function initMap(){
 }
 
 /*** 現在地表示 ***/
+let youMarker, accCircle;
 function showYou(pos){
   if(!youMarker){
     youMarker=L.marker([pos.lat,pos.lng],{title:'現在地'}).addTo(map);
@@ -202,13 +201,13 @@ function showYou(pos){
     accCircle.setLatLng([pos.lat,pos.lng]).setRadius(pos.accuracy||20);
   }
 }
+let watchId=null;
 function ensureWatch(){
   if(watchId!=null) return;
   if(!('geolocation' in navigator)){ status('この端末は位置情報に未対応'); return; }
   watchId = navigator.geolocation.watchPosition(p=>{
     lastPos={lat:p.coords.latitude,lng:p.coords.longitude,accuracy:p.coords.accuracy};
     showYou(lastPos);
-    // 未入力なら開始欄を現在地で埋める（初期値要求）
     if(!$('#lat1').value || !$('#lon1').value) setStartFields(lastPos);
     maybeWarnAndGuide();
   }, err=> status('位置取得に失敗: '+err.message),
