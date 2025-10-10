@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Cloudflare Workers ナビ</title>
 
-<!-- Leaflet -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
 
@@ -193,7 +192,7 @@ h1{margin:4px 0 14px;font-size:28px;letter-spacing:.04em;font-weight:800;text-sh
 const WORKER_PROXY_URL = 'https://ors-proxy.miyata-connect-jp.workers.dev/proxy';
 const DEFAULT_LANG = 'ja';
 const OFF_ROUTE_M = 5;     // 5mでオフルート
-const NEAR_TURN_M  = 12;   // 次アクション読み上げ距離
+const NEAR_TURN_M  = 12;   // ターン発話距離（小さめ＋ヒステリシス）
 const OVERVIEW_MS  = 1800; // 俯瞰表示
 
 /* ====== 参照 ====== */
@@ -212,11 +211,20 @@ let guideOn=false, watchId=null, lastPos=null, lastHeading=null, reroutePending=
 
 /*** GPSフィルタ用 ***/
 let filtLat=null, filtLon=null, lastLL=null, lastTs=0;
-const ACC_LIMIT=80;         // 80mより悪い精度は無視
-const JUMP_M=50;            // 急激ジャンプのしきい値
-const EMA_ALPHA=0.2;        // 位置の平滑化係数
+const ACC_LIMIT=80;         // 80mより悪い精度は棄却
+const JUMP_M=50;            // 急激ジャンプ棄却
+const EMA_ALPHA=0.2;        // 位置の平滑化
 
+/* ====== util ====== */
 function setStatus(msg){ statusEl.textContent=msg; }
+function toRad(v){return v*Math.PI/180;}
+function haversineMeters(a,b){const R=6371000;const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);const lat1=toRad(a.lat), lat2=toRad(b.lat);
+  const s1=Math.sin(dLat/2), s2=Math.sin(dLon/2);const h=s1*s1+Math.cos(lat1)*Math.cos(lat2)*s2*s2;return 2*R*Math.asin(Math.sqrt(h));}
+function fmtDist(m){return m<1000?`${Math.round(m)}m`:`${(m/1000).toFixed(1)}km`; }
+function bboxAround(lat,lon,meters){ // 簡易矩形
+  const dLat=meters/111320, dLon=meters/(111320*Math.cos(toRad(lat))); 
+  return {minLon:lon-dLon,maxLon:lon+dLon,minLat:lat-dLat,maxLat:lat+dLat};
+}
 
 /* ====== 地図初期化 ====== */
 function initMap(){
@@ -306,11 +314,13 @@ function drawRoute(data){
   map.fitBounds(routeLine.getBounds(),{padding:[30,30]});
 }
 
-/* ====== 音声案内 ====== */
+/* ====== 音声案内（連発防止つき） ====== */
+let lastSpokenIdx=-1, lastSpeakTs=0;
 function speak(t){ try{ const u=new SpeechSynthesisUtterance(t); u.lang='ja-JP'; speechSynthesis.cancel(); speechSynthesis.speak(u);}catch{} }
 function startGuidance(){
   if(!currentRoute){ setStatus('まずルートを取得してください。'); return; }
-  guideOn=true; reroutePending=false; setStatus('案内を開始します'); speak('案内を開始します'); announceNextAction();
+  guideOn=true; reroutePending=false; lastSpokenIdx=-1; lastSpeakTs=0;
+  setStatus('案内を開始します'); speak('案内を開始します'); announceNextAction(true);
   if(watchId) navigator.geolocation.clearWatch(watchId);
   watchId=navigator.geolocation.watchPosition(p=>{
     const f=filterPosition(p); if(!f) return; lastPos=p;
@@ -322,22 +332,27 @@ function startGuidance(){
         if(!reroutePending){
           reroutePending=true; speak('通り過ぎました。リルートします。'); setStatus('オフルート：リルート中…');
           startLonEl.value=f.lon.toFixed(6); startLatEl.value=f.lat.toFixed(6);
-          getRoute().then(()=>{ reroutePending=false; announceNextAction(); });
+          getRoute().then(()=>{ reroutePending=false; announceNextAction(true); });
         }
-      }else{ announceNextAction(); }
+      }else{ announceNextAction(false); }
     }catch(_){}
   }, err=>console.warn(err), geolocOptions());
 }
 function stopGuidance(){ guideOn=false; if(watchId) navigator.geolocation.clearWatch(watchId); watchId=null; }
 startGuideBtn.addEventListener('click',startGuidance);
 rerouteBtn.addEventListener('click',()=>{ if(lastPos){ startLonEl.value=(filtLon??lastPos.coords.longitude).toFixed(6);
- startLatEl.value=(filtLat??lastPos.coords.latitude).toFixed(6); getRoute().then(announceNextAction);} });
+ startLatEl.value=(filtLat??lastPos.coords.latitude).toFixed(6); getRoute().then(()=>announceNextAction(true));} });
 
-function announceNextAction(){
+function announceNextAction(force=false){
   if(!guideOn||!instructionSteps.length||!startMarker) return;
   const my=startMarker.getLatLng(); let nearestIdx=0,nearestD=Infinity;
   instructionSteps.forEach((st,i)=>{ if(st.way_points&&routeLine){ const wp=st.way_points[0]; const latlng=routeLine.getLatLngs()[wp]; const d=map.distance(my,latlng); if(d<nearestD){nearestD=d;nearestIdx=i;} }});
-  if(nearestD<=NEAR_TURN_M){ const t=(instructionSteps[nearestIdx].instruction||'').replace('です。','です'); if(t) speak(t); }
+  const now=Date.now();
+  if(force || (nearestD<=NEAR_TURN_M && nearestIdx!==lastSpokenIdx && now-lastSpeakTs>5000)){
+    const raw=(instructionSteps[nearestIdx].instruction||'').replace(/です。?$/,'です');
+    const msg = raw||'直進です';
+    speak(msg); lastSpokenIdx=nearestIdx; lastSpeakTs=now;
+  }
 }
 
 /* ====== クリア ====== */
@@ -352,45 +367,75 @@ function clearAll(){
 }
 clearBtn.addEventListener('click',clearAll);
 
-/* ====== 検索（近隣 5 件：距離ソート） ====== */
-function toRad(v){return v*Math.PI/180;}
-function haversineMeters(a,b){const R=6371000;const dLat=toRad(b.lat-a.lat), dLon=toRad(b.lon-a.lon);const lat1=toRad(a.lat), lat2=toRad(b.lat);
-  const s1=Math.sin(dLat/2), s2=Math.sin(dLon/2);const h=s1*s1+Math.cos(lat1)*Math.cos(lat2)*s2*s2;return 2*R*Math.asin(Math.sqrt(h));}
-function fmtDist(m){return m<1000?`${Math.round(m)}m`:`${(m/1000).toFixed(1)}km`; }
+/* ====== 検索：Nominatim + Overpass 併用（常に近い上位5件） ====== */
+function uniqByCoord(items){
+  const seen=new Set(); const out=[];
+  for(const it of items){
+    const key=`${it.lat.toFixed(5)},${it.lon.toFixed(5)}`;
+    if(!seen.has(key)){ seen.add(key); out.push(it); }
+  }
+  return out;
+}
+async function searchNominatim(text, baseLat, baseLon, radiusM=3000){
+  const b=bboxAround(baseLat,baseLon,radiusM);
+  const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&extratags=1&limit=20&dedupe=1&bounded=1&accept-language=ja&viewbox=${b.minLon},${b.maxLat},${b.maxLon},${b.minLat}&q=${encodeURIComponent(text)}`;
+  const res=await fetch(url,{headers:{'User-Agent':'miyata-connect-github-io-navi'}});
+  const arr=await res.json();
+  return arr.map(r=>({ source:'nominatim', name:(r.display_name||'').split(',')[0], full:r.display_name||'', lat:Number(r.lat), lon:Number(r.lon) }));
+}
+async function searchOverpass(text, baseLat, baseLon, radiusM=3000){
+  const esc=text.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'); // 正規表現エスケープ
+  const q = `
+  [out:json][timeout:25];
+  (
+    node(around:${radiusM},${baseLat},${baseLon})["name"~"${esc}",i];
+    way(around:${radiusM},${baseLat},${baseLon})["name"~"${esc}",i];
+    relation(around:${radiusM},${baseLat},${baseLon})["name"~"${esc}",i];
+    node(around:${radiusM},${baseLat},${baseLon})["name:ja"~"${esc}",i];
+    way(around:${radiusM},${baseLat},${baseLon})["name:ja"~"${esc}",i];
+    relation(around:${radiusM},${baseLat},${baseLon})["name:ja"~"${esc}",i];
+    node(around:${radiusM},${baseLat},${baseLon})["alt_name"~"${esc}",i];
+    way(around:${radiusM},${baseLat},${baseLon})["alt_name"~"${esc}",i];
+    relation(around:${radiusM},${baseLat},${baseLon})["alt_name"~"${esc}",i];
+  );
+  out center 25;`;
+  const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'data='+encodeURIComponent(q)});
+  const json=await res.json();
+  return (json.elements||[]).map(e=>{
+    const lat = e.type==='node' ? e.lat : (e.center?.lat);
+    const lon = e.type==='node' ? e.lon : (e.center?.lon);
+    const name = e.tags?.['name:ja'] || e.tags?.name || e.tags?.alt_name || '名称不明';
+    const addr = [e.tags?.addr2,e.tags?.addr1,e.tags?.addr_full,e.tags?.['addr:full'],e.tags?.['addr:city'],e.tags?.['addr:street']].filter(Boolean).join(' ');
+    return {source:'overpass', name, full: addr || name, lat, lon};
+  }).filter(v=>isFinite(v.lat)&&isFinite(v.lon));
+}
 
 async function doSearch(){
   const text=(qEl.value||'').trim();
   if(!text){ resultsEl.hidden=true; resultsEl.innerHTML=''; return; }
-  // 現在地が未取得なら一度捕まえる
   if(!startLatEl.value || !startLonEl.value){ try{ await setStartToCurrent(false); }catch{} }
-
   const baseLat=parseFloat(startLatEl.value)||0, baseLon=parseFloat(startLonEl.value)||0;
+
   try{
-    // まず広めに 20 件取る（bounded は使わない）
-    const url=`https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&extratags=1&limit=20&accept-language=ja&q=${encodeURIComponent(text)}`;
-    const res=await fetch(url,{headers:{'User-Agent':'miyata-connect-github-io-navi'}});
-    const raw=await res.json();
+    const [nomi, over] = await Promise.allSettled([
+      searchNominatim(text, baseLat, baseLon, 3000),
+      searchOverpass(text, baseLat, baseLon, 3000)
+    ]);
+    let items=[];
+    if(nomi.status==='fulfilled') items = items.concat(nomi.value||[]);
+    if(over.status==='fulfilled') items = items.concat(over.value||[]);
 
-    // 重複（同一座標）を丸めて排除
-    const uniq = [];
-    const keyset = new Set();
-    for(const r of raw){
-      const lat=Number(r.lat), lon=Number(r.lon);
-      const k=`${lat.toFixed(5)},${lon.toFixed(5)}`;
-      if(!keyset.has(k)){ keyset.add(k); uniq.push({...r, lat, lon}); }
-    }
+    items = uniqByCoord(items);
+    items = items.map(r=>({ ...r, d:haversineMeters({lat:baseLat,lon:baseLon},{lat:r.lat,lon:r.lon}) }))
+                 .sort((a,b)=>a.d-b.d)
+                 .slice(0,5);
 
-    // 距離計算して近い順に並べ替え → 上位 5 件
-    const withD = uniq.map(r=>({r, d:haversineMeters({lat:baseLat,lon:baseLon},{lat:r.lat,lon:r.lon})}))
-                      .sort((a,b)=>a.d-b.d)
-                      .slice(0,5);
-
-    resultsEl.innerHTML = withD.length
-      ? withD.map(({r,d})=>`
-         <div class="rItem" data-lon="${r.lon}" data-lat="${r.lat}">
-           <div class="rName">${(r.display_name||'').split(',')[0]} <span class="rMeta">（${fmtDist(d)}）</span></div>
-           <div class="rMeta">${r.display_name||''}</div>
-         </div>`).join('')
+    resultsEl.innerHTML = items.length
+      ? items.map(r=>`
+        <div class="rItem" data-lon="${r.lon}" data-lat="${r.lat}">
+          <div class="rName">${r.name} <span class="rMeta">（${fmtDist(r.d)}）</span></div>
+          <div class="rMeta">${r.full}</div>
+        </div>`).join('')
       : '<div class="rItem">該当なし</div>';
 
     resultsEl.hidden=false;
@@ -454,7 +499,7 @@ modeChips.addEventListener('click',e=>{
   if(currentRoute) getRoute();
 });
 
-/* ====== ユーティリティ ====== */
+/* ====== 形状・距離ユーティリティ ====== */
 function decodePolyline(str){ let index=0,lat=0,lng=0,coordinates=[]; while(index<str.length){ let b,shift=0,result=0;
   do{b=str.charCodeAt(index++)-63; result|=(b&0x1f)<<shift; shift+=5;}while(b>=0x20); const dlat=((result&1)?~(result>>1):(result>>1)); lat+=dlat;
   shift=0;result=0; do{b=str.charCodeAt(index++)-63; result|=(b&0x1f)<<shift; shift+=5;}while(b>=0x20); const dlng=((result&1)?~(result>>1):(result>>1)); lng+=dlng;
