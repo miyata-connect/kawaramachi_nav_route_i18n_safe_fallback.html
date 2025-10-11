@@ -5,17 +5,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Cloudflare Workers ナビ</title>
 
-<!-- Leaflet CSS（二重化） -->
+<!-- Leaflet CSS を多重化（どれか1つでも読めればOK） -->
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
-<link rel="stylesheet" id="leaflet-css-fallback" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" disabled>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
 
 <style>
 :root{
   --bg:#0f1a25; --panel:#132235; --panel2:#0f1e30;
   --text:#eaf2ff; --muted:#9db0c6;
   --ok:#2ecc71; --primary:#4aa3ff; --danger:#ff6b6b;
-  --chip:#0b1624;
 }
 html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP","Helvetica Neue",Arial,"メイリオ",Meiryo,sans-serif}
@@ -33,7 +33,7 @@ button.danger{background:var(--danger);border:none;font-weight:700}
 button[disabled]{opacity:.55;pointer-events:none}
 .hint{color:var(--muted);font-size:14px}
 
-/* ===== ルートタイプ：トグル（セグメント） ===== */
+/* ルートタイプ：トグル（セグメント） */
 .toggle-group{display:inline-grid;grid-auto-flow:column;gap:8px;background:#0b1624;border:1px solid rgba(255,255,255,.12);
   border-radius:999px;padding:6px}
 .toggle{position:relative}
@@ -41,7 +41,7 @@ button[disabled]{opacity:.55;pointer-events:none}
 .toggle label{display:block;padding:8px 14px;border-radius:999px;cursor:pointer;user-select:none;white-space:nowrap}
 .toggle input:checked + label{background:#18314d;box-shadow:0 0 0 3px rgba(74,163,255,.18) inset;border:1px solid rgba(74,163,255,.5)}
 
-/* ===== Map ===== */
+/* Map */
 .mapwrap{position:relative}
 #map{
   height:64vh; min-height:360px; border-radius:16px; overflow:hidden;
@@ -61,7 +61,7 @@ button[disabled]{opacity:.55;pointer-events:none}
 .compass text{font-size:10px;fill:#f6d365;letter-spacing:.1em}
 #needle polygon{fill:#ff4e4e;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}
 
-/* Leaflet（左下固定 & 見切れ対策） */
+/* Leaflet：左下固定 & 見切れ抑止 */
 .leaflet-control-zoom{left:10px!important;right:auto!important;bottom:14px!important;top:auto!important}
 .leaflet-control-attribution{
   left:8px!important; right:auto!important; bottom:10px!important;
@@ -226,29 +226,39 @@ button[disabled]{opacity:.55;pointer-events:none}
   </div>
 </div>
 
-<!-- Leaflet JS（二重化ローダ：失敗時に自動フォールバック + 強制初期化） -->
+<!-- Leaflet JS ローダ：3系統CDNに順次フォールバック。疑似初期化は一切しない -->
 <script>
 (function loadLeaflet(){
-  function add(src, onload, onerror){
-    var s=document.createElement('script'); s.src=src; s.defer=true; s.onload=onload; s.onerror=onerror||null;
+  const sources=[
+    'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js',
+    'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js'
+  ];
+  let i=0;
+  function tryLoad(){
+    if(i>=sources.length){
+      console.error('全CDNでLeafletの読み込みに失敗');
+      const m=document.getElementById('msg');
+      if(m) m.textContent='地図エンジン（Leaflet）の読み込みに失敗しました。ネットワークまたはCDN遮断をご確認ください。';
+      // それでもUIは使えるようにスケルトンだけ外す
+      const sk=document.getElementById('mapSkeleton'); if(sk) sk.style.display='none';
+      return;
+    }
+    const s=document.createElement('script');
+    s.src=sources[i++]; s.defer=true;
+    s.onload=ready;
+    s.onerror=()=>{ console.warn('Leafletロード失敗:', s.src); tryLoad(); };
     document.head.appendChild(s);
   }
-  let inited=false;
   function ready(){
-    if(inited) return;
-    if(window.L && L.map){ inited=true; init(); }
-    else { setTimeout(ready,50); }
+    // JSは読み込めても、L.tileLayerなどが未定義のケース対策
+    if(window.L && typeof L.map==='function' && typeof L.tileLayer==='function'){
+      init();
+    }else{
+      setTimeout(ready,60);
+    }
   }
-  // 1st: jsDelivr
-  add('https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js', ready, function(){
-    // CSSフォールバックを有効化
-    document.getElementById('leaflet-css-fallback').disabled=false;
-    // 2nd: unpkg
-    add('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js', ready);
-    // セーフガード：2秒待ってもLが無ければ疑似初期化
-    setTimeout(()=>{ if(!window.L) { console.warn('Leaflet未ロード -> 疑似初期化');
-      window.L={map:()=>({})}; } ready(); }, 2000);
-  });
+  tryLoad();
 })();
 </script>
 
@@ -258,7 +268,7 @@ const WORKER_ORIGIN='https://ors-proxy.miyata-connect-jp.workers.dev/proxy';
 const OSRM_ORIGIN='https://router.project-osrm.org';
 const HEARTBEAT_URL='https://www.gstatic.com/generate_204';
 let profile='foot-walking';
-let routeMode='shortest'; // デフォルト：最短
+let routeMode='shortest'; // デフォルト最短
 
 /* ===== 要素 ===== */
 const $=id=>document.getElementById(id);
@@ -318,7 +328,7 @@ function needleStep(ts){
   const maxStep=compass.maxDegPerSec*dt;
   const step=Math.sign(d)*Math.min(Math.abs(d)*0.10, maxStep);
   compass.angle=norm360(compass.angle+step);
-  // SVGの原点回転（中心 37,37）
+  // 中心(37,37)回転
   els.needle.setAttribute('transform',`rotate(${compass.angle} 37 37)`);
   compass.raf=requestAnimationFrame(needleStep);
 }
@@ -348,22 +358,46 @@ function initDeviceOrientation(){
   }
 }
 
-/* ===== 地図生成（確実に表示） ===== */
+/* ===== 地図生成（確実に表示：タイルも二段フォールバック） ===== */
+function addBestTileLayer(map){
+  // 1st: サブドメイン付き（標準）
+  let layer=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20});
+  let errors=0;
+  const onErr=()=>{
+    errors++;
+    if(errors===3){ // 複数枚失敗なら別ホストへ切替
+      map.removeLayer(layer);
+      // 2nd: 単一ホスト
+      layer=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20});
+      layer.on('tileerror',()=>{ // 3rd: HOT（非常時）
+        map.removeLayer(layer);
+        const hot=L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',{maxZoom:20});
+        hot.addTo(map);
+        hot.on('load',()=>{ const sk=els.mapSkeleton; if(sk) sk.style.display='none'; });
+      });
+      layer.addTo(map);
+      layer.on('load',()=>{ const sk=els.mapSkeleton; if(sk) sk.style.display='none'; });
+    }
+  };
+  layer.on('tileerror',onErr);
+  layer.on('load',()=>{ const sk=els.mapSkeleton; if(sk) sk.style.display='none'; });
+  layer.addTo(map);
+}
 function ensureMapVisible(lat=35.362, lon=137.724, zoom=6){
   if(mapReady) return;
-  if(!window.L || !L.map){ // まれにLeafletがまだ
-    setTimeout(()=>ensureMapVisible(lat,lon,zoom),80); return;
+  if(!window.L || typeof L.map!=='function' || typeof L.tileLayer!=='function'){
+    // Leafletが読めていない
+    const sk=els.mapSkeleton; if(sk) sk.style.display='none';
+    const m=els.msg; if(m) m.textContent='地図エンジンが読み込めません（CDN遮断の可能性）。';
+    return;
   }
   map=L.map('map',{zoomControl:false});
-  const tile=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20});
-  tile.on('load',()=>{ els.mapSkeleton.style.display='none'; });
-  tile.addTo(map);
+  addBestTileLayer(map);
   L.control.zoom({position:'bottomleft'}).addTo(map);
   routeGroup=L.layerGroup().addTo(map);
   map.setView([lat,lon],zoom);
-  // 予防：初回サイズ調整 & 3秒後の強制解除
   requestAnimationFrame(()=>map.invalidateSize());
-  setTimeout(()=>{ els.mapSkeleton.style.display='none'; }, 3000);
+  setTimeout(()=>{ const sk=els.mapSkeleton; if(sk) sk.style.display='none'; }, 3000);
   mapReady=true;
 }
 
@@ -433,8 +467,7 @@ function setDest(lon,lat){
 /* ===== ルート（ORS → OSRM） ===== */
 function orsPreferenceFor(mode){
   if(mode==='shortest') return 'shortest';
-  // 楽チン/お散歩AI/観光案内は現状 recommended（将来拡張）
-  return 'recommended';
+  return 'recommended'; // 楽チン/お散歩AI/観光案内は現状これ（将来拡張）
 }
 async function getRoute(){
   if(routingLock) return null;
@@ -474,7 +507,7 @@ function drawRouteOSRM(j){
 }
 function addBackMarkers(){ if(currentMarker) currentMarker.addTo(routeGroup); if(destMarker) destMarker.addTo(routeGroup); }
 
-/* ===== 方角表示 ===== */
+/* ===== 方角表示・案内 ===== */
 function bearingToText(b){
   const names=['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西','北'];
   const idx=Math.round(b/22.5); return names[idx];
@@ -486,13 +519,10 @@ function initialBearingFromRoute(){
     const g=lastRoute.route?.geometry?.coordinates; if(g&&g.length>=2){ const a={lat:g[0][1],lng:g[0][0]},b={lat:g[1][1],lng:g[1][0]}; return bearingBetween(a,b); }
   }
   if(lastRoute?.engine==='ors'){
-    const g=lastRoute.route?.geometry?.coordinates; if(g&&g.length>=2){ const a={lat:g[0][1],lng:g[0][0]},b={lat[g?1:0][1],lng:g[1][0]}; }
-    if(g&&g.length>=2){ const a={lat:g[0][1],lng:g[0][0]},b={lat:g[1][1],lng:g[1][0]}; return bearingBetween(a,b); }
+    const g=lastRoute.route?.geometry?.coordinates; if(g&&g.length>=2){ const a={lat:g[0][1],lng:g[0][0]},b={lat:g[1][1],lng:g[1][0]}; return bearingBetween(a,b); }
   }
   return null;
 }
-
-/* ===== 案内 ===== */
 let speakLock=false;
 function speakJa(txt){ try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(txt); u.lang='ja-JP'; speechSynthesis.speak(u);}catch{} }
 function buildOsrmInstruction(step){
@@ -632,7 +662,7 @@ function showResults(items){
     els.resultList.appendChild(div);
   });
 }
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&quot;',"'":'&#39;'}[m]))}
 
 /* ===== 履歴 ===== */
 const HISTORY_KEY='mc_search_history';
@@ -640,7 +670,7 @@ const loadHistory=()=>{try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||
 function saveHistory(q){ if(!q) return; const arr=loadHistory().filter(x=>x!==q); arr.unshift(q); localStorage.setItem(HISTORY_KEY,JSON.stringify(arr.slice(0,20))); }
 function clearHistory(){ localStorage.removeItem(HISTORY_KEY); els.q.value=''; els.results.style.display='none'; els.resultList.innerHTML=''; els.msg.textContent='履歴をクリアしました'; }
 
-/* ===== 地点保存（v2 ID方式） ===== */
+/* ===== 地点保存（ID方式） ===== */
 const SAVE_KEY='mc_saved_places_v2', SAVE_KEY_OLD='mc_saved_places';
 function newId(){ return 'p'+Math.random().toString(36).slice(2)+Date.now().toString(36); }
 function loadSaves(){ try{ return JSON.parse(localStorage.getItem(SAVE_KEY)||'[]'); }catch{ return []; } }
@@ -748,7 +778,7 @@ function wireEvents(){
 function loadSavesInit(){ migrateOldSavesIfNeeded(); refreshSaveList(); }
 function init(){
   wireEvents(); loadSavesInit(); initDeviceOrientation(); initGeolocation();
-  // 何かあっても地図は起こす
+  // 予備：エラーでも地図は起こす努力だけする（Leaflet未ロード時は何もしない）
   window.addEventListener('error',()=>{ ensureMapVisible(); });
   window.addEventListener('unhandledrejection',()=>{ ensureMapVisible(); });
 }
