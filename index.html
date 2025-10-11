@@ -36,12 +36,12 @@ button[disabled]{opacity:.55;pointer-events:none}
 .mapwrap{position:relative}
 #map{
   height:64vh; min-height:360px; border-radius:16px; overflow:hidden;
-  display:block; /* ←常時ブロックで高さ確保（せり上がり防止） */
+  display:block; /* 常に高さを確保（ボタンせり上がり防止） */
   background:radial-gradient(1200px 400px at 10% 0%, rgba(255,255,255,.08), rgba(0,0,0,.05) 60%, transparent 61%) , #0c1724;
 }
 .mapwrap .skeleton{
   position:absolute; inset:0; pointer-events:none; z-index:1;
-  background:repeating-linear-gradient( 90deg, rgba(255,255,255,.06) 0, rgba(255,255,255,.06) 40px, rgba(255,255,255,.02) 40px, rgba(255,255,255,.02) 80px);
+  background:repeating-linear-gradient(90deg, rgba(255,255,255,.06) 0, rgba(255,255,255,.06) 40px, rgba(255,255,255,.02) 40px, rgba(255,255,255,.02) 80px);
   animation:sh 1.3s linear infinite; opacity:.55;
 }
 @keyframes sh{from{transform:translateX(-30%)}to{transform:translateX(30%)}}
@@ -66,7 +66,7 @@ button[disabled]{opacity:.55;pointer-events:none}
 .fab-col button{min-width:126px;padding:10px 12px;font-weight:700;box-shadow:0 10px 20px rgba(0,0,0,.35);white-space:nowrap}
 
 /* 検索結果 */
-.results{margin-top:10px}
+.results{margin-top:10px; scroll-margin-top:12px;}
 .result{background:#0b1624;border:1px solid rgba(255,255,255,.08);padding:10px 12px;border-radius:12px;margin-bottom:8px;cursor:pointer}
 .result[role="button"]{outline:none}
 .result:focus-visible{box-shadow:0 0 0 3px rgba(74,163,255,.45)}
@@ -269,7 +269,7 @@ const heartbeat={timer:null, base:60000, backoff:60000, max:900000,
   stop(){ if(this.timer){ clearTimeout(this.timer); this.timer=null; } }
 };
 
-/* ===== コンパス（さらに減速） ===== */
+/* ===== コンパス（減速＆間引き） ===== */
 const compass={ angle:0, target:0, raf:null, haveDevice:false,
   maxDegPerSec:60, deadBand:3.0, deviceMinInterval:120, lastDeviceTs:0 };
 const norm360=x=>{x%=360; if(x<0)x+=360; return x;}
@@ -318,7 +318,7 @@ function initDeviceOrientation(){
   }
 }
 
-/* ===== 地図生成（常時ブロック＋スケルトンで高さ維持） ===== */
+/* ===== 地図生成 ===== */
 function ensureMapVisible(lat=35.362, lon=137.724, zoom=6){
   if(mapReady){ return; }
   map=L.map('map',{zoomControl:false});
@@ -495,10 +495,32 @@ async function searchNearby(){
   let hasStart=[lat,lon].every(Number.isFinite); if(!hasStart){ const c=map.getCenter(); lat=c.lat; lon=c.lng; }
   els.msg.textContent='検索中…';
   const items=await mergedSearch(raw, hasStart?lat:null, hasStart?lon:null);
-  showResults(items);
+  showResults(items);           // ←結果描画
+  autoFocusFirstResult();       // ←アクセシビリティ
+  scrollToResults();            // ←自動スクロール（今回追加）
   els.msg.textContent = items.length ? (hasStart?'候補が見つかりました。リストから選ぶと案内を開始します。':'候補が見つかりました。地図中心を出発地として案内します。') : '候補が見つかりません';
   saveHistory(raw);
 }
+
+/* スクロール実装（今回追加） */
+function scrollToResults(){
+  if(els.results.style.display==='none') return;
+  // レイアウト確定を待ってからスムーズスクロール
+  requestAnimationFrame(()=>{
+    const rect=els.results.getBoundingClientRect();
+    const y=window.pageYOffset + rect.top - 8; // 少し余白
+    // CSSの smooth が無い環境はフォールバック
+    try{
+      window.scrollTo({top:y, behavior:'smooth'});
+    }catch{ window.scrollTo(0,y); }
+  });
+}
+function autoFocusFirstResult(){
+  // 先頭の候補をフォーカス（画面リーダー向け）
+  const first=els.resultList.querySelector('.result[role="button"]');
+  if(first){ setTimeout(()=>first.focus(), 50); }
+}
+
 async function mergedSearch(raw,lat,lon){
   const queries=buildQueries(raw); let pool=[];
   for(const q of queries){ const a=await photonQuery({q,lat,lon,limit:40}); pool=pool.concat(a); if(pool.length>=5) break; }
