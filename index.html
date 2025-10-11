@@ -45,7 +45,7 @@ button[disabled]{opacity:.6;pointer-events:none}
 @keyframes sh{from{transform:translateX(-28%)}to{transform:translateX(28%)}}
 #staticMap{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;z-index:0;border-radius:16px}
 
-/* ETAオーバーレイ（上部中央）— ルート確定時のみ表示 */
+/* ETA（ルート確定時のみ表示／“未計算”は出さない） */
 #etaOverlay{position:absolute;left:12px;right:12px;top:8px;z-index:470;display:none;justify-content:center;pointer-events:none}
 #etaPill{pointer-events:auto;display:flex;flex-direction:column;gap:6px;align-items:center;
   background:rgba(8,16,28,.85);backdrop-filter:blur(4px);
@@ -54,8 +54,8 @@ button[disabled]{opacity:.6;pointer-events:none}
 #etaMain{font-size:28px;font-weight:900;letter-spacing:.01em}
 #etaMain .num{font-size:30px}
 
-/* コンパス（被り回避で少し下） */
-.compass{position:absolute;left:16px;top:120px;z-index:450;width:82px;height:82px;border-radius:50%;box-shadow:0 6px 16px rgba(0,0,0,.35);pointer-events:none}
+/* コンパス：もっと角へ */
+.compass{position:absolute;left:10px;top:10px;z-index:450;width:82px;height:82px;border-radius:50%;box-shadow:0 6px 16px rgba(0,0,0,.35);pointer-events:none}
 .compass svg{display:block;width:100%;height:100%}
 .compass text{font-size:10px;fill:#f6d365;letter-spacing:.1em}
 #needle polygon{fill:#ff4e4e;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}
@@ -84,7 +84,7 @@ button[disabled]{opacity:.6;pointer-events:none}
 .modal .row{margin-top:8px}
 .modal .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
 
-/* 天気（3件横並び：上=時刻、中=大アイコン、下=温度+降水） */
+/* 天気：中央に大アイコン、上下に時刻／温度・降水（改行） */
 #weather{margin-top:10px;background:#0b1624;border-radius:12px;padding:10px}
 #weather .wx{display:flex;gap:10px;justify-content:space-between}
 .wxcard{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
@@ -96,6 +96,7 @@ button[disabled]{opacity:.6;pointer-events:none}
 .wxicon.rain{background:#57a0ff;color:#062040}
 .wxicon.snow{background:#bde3ff;color:#214b74}
 .wxtemp{font-size:16px;font-weight:700}
+.wxprec{font-size:15px;opacity:.9}
 
 @media (max-width:640px){
   #map{height:68vh}
@@ -160,7 +161,7 @@ button[disabled]{opacity:.6;pointer-events:none}
       <div id="etaBox" class="hint">到着予想（徒歩）：—</div>
     </div>
 
-    <!-- 天気（3件横並び・中央に大アイコン） -->
+    <!-- 天気（3件横並び・中央大アイコン・温度/降水は改行） -->
     <div id="weather">
       <div id="wxBody" class="wx"></div>
     </div>
@@ -187,7 +188,7 @@ button[disabled]{opacity:.6;pointer-events:none}
     <div id="mapSkeleton" aria-hidden="true"></div>
     <img id="staticMap" alt="地図プレビュー">
 
-    <!-- ETAオーバーレイ（所要時間＋距離のみ） -->
+    <!-- ETA -->
     <div id="etaOverlay" role="region" aria-label="到着予想">
       <div id="etaPill">
         <div id="etaLabels">所要時間／距離</div>
@@ -301,8 +302,7 @@ const OVERPASS='https://overpass-api.de/api/interpreter';
 const OPEN_METEO='https://api.open-meteo.com/v1/forecast';
 const HEARTBEAT_URL='https://www.gstatic.com/generate_204';
 let profile='foot-walking';
-let voiceTriggered=false;   // 音声検索経由フラグ
-let nextHintTimer=null;     // 使っていないが残置（将来の拡張用）
+let voiceTriggered=false;
 
 const $=id=>document.getElementById(id);
 const els={
@@ -449,7 +449,7 @@ function updateCurrent(latlng){ if(!mapReady) ensureMapVisible(); if(currentMark
 function setStart(lon,lat){ $('startLon').value=lon??''; $('startLat').value=lat??''; }
 function setDest(lon,lat){ $('destLon').value=lon??''; $('destLat').value=lat??''; if(Number.isFinite(lat)&&Number.isFinite(lon)){ if(!mapReady) ensureMapVisible(lat,lon,13); if(window.L){ if(!destMarker) destMarker=L.marker([lat,lon],{title:'目的地'}).addTo(routeGroup||map); else destMarker.setLatLng([lat,lon]); } } }
 
-/* 天気（3件横並び—中央大アイコン） */
+/* 天気：中央大アイコン、温度/降水は改行 */
 async function fetchWeather(lat,lon){
   try{
     const url=`${OPEN_METEO}?latitude=${lat}&longitude=${lon}&hourly=weathercode,temperature_2m,precipitation_probability&forecast_days=2&timezone=auto`;
@@ -461,7 +461,8 @@ async function fetchWeather(lat,lon){
       out.push(`<div class="wxcard">
         <div class="wxtime">${String(t.getHours()).padStart(2,'0')}:00</div>
         ${icon}
-        <div class="wxtemp">${temp}℃ ／ 降水${pop}%</div>
+        <div class="wxtemp">${temp}℃</div>
+        <div class="wxprec">降水${pop}%</div>
       </div>`);
     }
     els.wxBody.innerHTML=out.join('');
@@ -475,11 +476,10 @@ function detourPoint(slon,slat,dlon,dlat,ratio=0.18){
   const mx=(slon+dlon)/2,my=(slat+ dlat)/2; const vx=dlon-slon, vy=dlat-slat;
   const L=Math.hypot(vx,vy)||1; const nx=-vy/L, ny=vx/L; const offset=ratio*L; return [mx+nx*offset, my+ny*offset];
 }
-const waitForUnlock=()=>new Promise(res=>{
-  const tick=()=>{ if(!routingLock) return res(); setTimeout(tick,120); }; tick();
-});
+const waitForUnlock=()=>new Promise(res=>{ const tick=()=>{ if(!routingLock) return res(); setTimeout(tick,120); }; tick(); });
+
 async function getRoute(){
-  await waitForUnlock(); // ★ロック解放待ちで順番待ち
+  await waitForUnlock();
   routingLock=true; setBusy(els.getRoute,true); setBusy(els.reroute,true);
   let slon=Number(els.startLon.value), slat=Number(els.startLat.value);
   const dlon=Number(els.destLon.value), dlat=Number(els.destLat.value);
@@ -520,7 +520,7 @@ function updateETA(engine,route){
   els.etaBox.textContent=`到着予想${label}：${fmtDuration(finalSec)}・${km(dist)} km　到着 ${String(eta.getHours()).padStart(2,'0')}:${String(eta.getMinutes()).padStart(2,'0')}`;
   els.etaDurationTop.textContent=fmtDuration(finalSec);
   els.etaDistanceTop.textContent=`${km(dist)} km`;
-  showEtaPill(true); // ★ルート確定後のみ表示
+  showEtaPill(true);
 }
 
 /* ===== 安全ポイント（横断歩道・歩道橋・地下道・踏切） ===== */
@@ -553,7 +553,7 @@ async function fetchSafetyPointsFromOverpass(){
   }catch{}
 }
 
-/* ===== ガイダンス生成・逐次 ===== */
+/* ===== ガイダンス ===== */
 function initialBearingFromRoute(){
   const g=lastRoute?.route?.geometry?.coordinates; if(g&&g.length>=2){ const a={lat:g[0][1],lng:g[0][0]},b={lat:g[1][1],lng:g[1][0]}; return bearingBetween(a,b); }
   return null;
@@ -580,7 +580,6 @@ function prepareGuidance(){
   navState.steps=steps;
 }
 function bucketForDistance(d){ if(d>200) return 200; if(d>120) return 150; if(d>80) return 120; if(d>50) return 50; if(d>30) return 30; if(d>10) return 10; if(d>5) return 5; return 3; }
-function updateNextHint(dist=null,text=''){ /* オーバーレイ簡略化に伴い未使用（将来用） */ }
 function nearestSafetyAhead(cur,nextStep){
   if(!safetyPoints.length) return null;
   const here=L.latLng(cur.lat,cur.lng), tgt=L.latLng(nextStep.lat,nextStep.lon); let best=null,bestd=1e9;
@@ -649,12 +648,21 @@ function showResults(items){
     div.innerHTML=`<div><strong>${i+1}. ${escapeHtml(it.name)}</strong></div>
       <small>${(it.dist!=null&&it.dist<1e12)?(it.dist/1000).toFixed(2)+' km　':''}${escapeHtml(it.addr||'')}
       <span class="badge">${it.lat.toFixed(5)}, ${it.lon.toFixed(5)}</span></small>`;
+
     const handler=async()=>{
+      // 二重タップ防止
+      if(div._busy) return; div._busy=true; setTimeout(()=>div._busy=false,1200);
+
       setDest(it.lon,it.lat);
       if(mapReady&&map) map.flyTo([it.lat,it.lon],18);
-      const j=await getRoute(); // ★ロック待ち→確実に取得
+
+      // 取得→開始（失敗時は小リトライ）
+      let j=await getRoute();
+      if(!j){ await new Promise(r=>setTimeout(r,300)); j=await getRoute(); }
       if(j){ startNavigation(); }
+      else{ $('msg').textContent='ルート取得に失敗（検索候補から再試行してください）'; }
     };
+
     div.addEventListener('click',handler);
     div.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); handler(); }});
     els.resultList.appendChild(div);
@@ -733,7 +741,19 @@ function startVoice(){
 /* ===== ナビ開始・停止 ===== */
 function speakJa(txt){ try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(txt); u.lang='ja-JP'; speechSynthesis.speak(u);}catch{} }
 function startNavigation(){
-  if(!routeLine){ $('msg').textContent='先にルートを取得してください'; return; }
+  // ルート未生成なら、座標が揃っていれば自動取得→開始
+  if(!routeLine){
+    const slon=Number(els.startLon.value), slat=Number(els.startLat.value);
+    const dlon=Number(els.destLon.value), dlat=Number(els.destLat.value);
+    if([slon,slat,dlon,dlat].every(Number.isFinite)){
+      getRoute().then(j=>{ if(j){ _startNavCore(); }else{ $('msg').textContent='ルートが未取得です（目的地を選択してから再実行）'; }});
+      return;
+    }
+    $('msg').textContent='先にルートを取得してください'; return;
+  }
+  _startNavCore();
+}
+function _startNavCore(){
   navActive=true; heartbeat.start();
   if(voiceTriggered){ speakJa('音声検索後、案内を開始します。'); voiceTriggered=false; }
   if(mapReady&&map&&routeLine) map.fitBounds(routeLine.getBounds(),{padding:[30,30]});
@@ -744,6 +764,30 @@ function stopNavigation(){ navActive=false; heartbeat.stop(); }
 
 /* ===== UIイベント ===== */
 function setBusy(btn,flag){ if(!btn) return; if(flag){ btn.setAttribute('disabled',''); setTimeout(()=>btn.removeAttribute('disabled'),1200); }}
+
+// クリック1発で即リルート（現在のトグル選択を使用）＋詳細選択したい人向けにモーダルも維持
+function wireRerouteButton(){
+  els.reroute.addEventListener('click',async()=>{
+    // モーダルを見たい人のために表示
+    openRerouteModal();
+
+    // ラジオ選択を変更した瞬間に即リルート
+    document.querySelectorAll('input[name="rr"]').forEach(r=>{
+      r.onclick = async ()=>{ routeMode=r.value; closeRerouteModal(); const j=await getRoute(); if(j) startNavigation(); };
+    });
+
+    // 何も触らない人向け：現在のトグル値で即リルート実行
+    const current = (document.querySelector('input[name="routeMode"]:checked')||{}).value || 'shortest';
+    routeMode=current;
+    // 小さな待ちを入れて、モーダル描画直後でも確実に実行
+    setTimeout(async()=>{ const j=await getRoute(); if(j) startNavigation(); }, 50);
+  });
+
+  // 従来の確認ボタンも有効
+  els.cancelRR.addEventListener('click',()=>closeRerouteModal());
+  els.doRR.addEventListener('click',async()=>{ await doReroute(); });
+}
+
 function wireRouteToggle(){
   els.routeToggles.addEventListener('change',(e)=>{
     if(e.target && e.target.name==='routeMode'){
@@ -772,6 +816,8 @@ function onLeafletReady(){ ensureMapVisible(); }
 document.addEventListener('DOMContentLoaded',()=>{
   try{
     wireRouteToggle();
+    wireRerouteButton();
+
     els.search.addEventListener('click',searchNearby);
     els.mic.addEventListener('click',startVoice);
     els.clearHistory.addEventListener('click',clearHistory);
@@ -787,29 +833,25 @@ document.addEventListener('DOMContentLoaded',()=>{
       els.destLat.value=els.destLon.value='';
       els.etaBox.textContent='到着予想（徒歩）：—';
       els.etaDurationTop.textContent='—'; els.etaDistanceTop.textContent='—';
-      els.etaOverlay.style.display='none'; // ★ETA未計算は表示しない
+      els.etaOverlay.style.display='none';
       $('msg').textContent='クリアしました。目的地を設定してください。';
       stopNavigation();
     });
     els.navStart.addEventListener('click',startNavigation);
-    els.gotoStart.addEventListener('click',()=>{ if(currentMarker && mapReady&&map) map.flyTo(currentMarker.getLatLng(),18); });
-    els.gotoDest.addEventListener('click',()=>{ if(destMarker && mapReady&&map) map.flyTo(destMarker.getLatLng(),18); });
-    els.reroute.addEventListener('click',()=>$('rerouteModal').style.display='flex');
-    els.cancelRR.addEventListener('click',()=>$('rerouteModal').style.display='none');
-    els.doRR.addEventListener('click',async()=>{ const sel=[...document.querySelectorAll('input[name="rr"]')].find(i=>i.checked)?.value||'shortest'; routeMode=sel; $('rerouteModal').style.display='none'; const j=await getRoute(); if(j) startNavigation(); });
 
-    // 保存
-    els.openSaveModal.addEventListener('click',openSave);
-    els.cancelSave.addEventListener('click',()=>els.saveModal.style.display='none');
-    els.doSave.addEventListener('click',doSave);
-    els.setFromSaved.addEventListener('click',setFromSaved);
-    els.delSaved.addEventListener('click',delSaved);
+    els.gotoStart.addEventListener('click',()=>{
+      if(currentMarker && mapReady&&map){ map.flyTo(currentMarker.getLatLng(),18); }
+      else{
+        navigator.geolocation.getCurrentPosition(p=>{
+          ensureMapVisible(p.coords.latitude,p.coords.longitude,18);
+          updateCurrent([p.coords.latitude,p.coords.longitude]);
+        },()=>{$('msg').textContent='現在地が取得できませんでした';});
+      }
+    });
 
-    // 観光案内（予定）
-    els.closeTour.addEventListener('click',closeTour);
-    els.applyTour.addEventListener('click',applyTour);
+    els.gotoDest.addEventListener('click',()=>{ if(destMarker && mapReady&&map) map.flyTo(destMarker.getLatLng(),18); else $('msg').textContent='目的地が未設定です'; });
 
-    // 初期状態ではETAオーバーレイ非表示
+    // 初期状態ではETA非表示
     els.etaOverlay.style.display='none';
 
     // デバイス機能 & 測位
