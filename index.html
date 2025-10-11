@@ -29,9 +29,9 @@ button[disabled]{opacity:.55;pointer-events:none}
 
 /* Map */
 .mapwrap{position:relative}
-#map{height:64vh;border-radius:16px;overflow:hidden;display:none} /* 現在地取得まで非表示 */
+#map{height:64vh;border-radius:16px;overflow:hidden;display:none} /* ← 現在地取得まで隠す */
 
-/* コンパス：中心回転・落ち着いた動き */
+/* コンパス */
 .compass{position:absolute;left:16px;top:16px;z-index:450;width:82px;height:82px;border-radius:50%;
   box-shadow:0 6px 16px rgba(0,0,0,.35);pointer-events:none}
 .compass svg{display:block;width:100%;height:100%}
@@ -277,15 +277,24 @@ function initDeviceOrientation(){
   }
 }
 
-/* ===== 地図（現在地が取れるまで生成しない） ===== */
+/* ===== 地図（★修正：描画前に display:block → L.map → invalidateSize） ===== */
 function createMapAt(lat,lon){
   if(mapReady) return;
+  // 1) 先に表示してから
+  const mapEl=$('map');
+  mapEl.style.display='block';
+
+  // 2) その後に Leaflet 初期化
   map=L.map('map',{zoomControl:false});
   L.control.zoom({position:'bottomleft'}).addTo(map);
   routeGroup=L.layerGroup().addTo(map);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20}).addTo(map);
   map.setView([lat,lon],16);
-  $('map').style.display='block';
+
+  // 3) レイアウト確定後にサイズ再計算
+  setTimeout(()=>{ map.invalidateSize(); },0);
+
+  // ボタン活性
   [els.navStart,els.gotoStart,els.gotoDest,els.reroute].forEach(b=>b.removeAttribute('disabled'));
   mapReady=true;
 }
@@ -302,7 +311,7 @@ function initGeolocation(){
   if(!navigator.geolocation){ els.msg.textContent='この端末は位置情報に未対応です'; els.geoFailRow.style.display='flex'; return; }
   navigator.geolocation.getCurrentPosition(pos=>{
     const {latitude,longitude,heading}=pos.coords;
-    createMapAt(latitude,longitude);
+    createMapAt(latitude,longitude); // ← 成功後に初めて地図生成（display:block 済み）
     setStart(longitude,latitude);
     updateCurrent([latitude,longitude]);
     if(Number.isFinite(heading)) setCompassTarget(heading,'gps');
@@ -398,13 +407,12 @@ function addBackMarkers(){
   if(destMarker) destMarker.addTo(routeGroup);
 }
 
-/* ===== 方位→日本語方角変換 ===== */
+/* ===== 方位→日本語方角変換 & 初期方角 ===== */
 function bearingToText(b){
   const names=['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西','北'];
   const idx=Math.round(b/22.5); return names[idx];
 }
 function initialBearingFromRoute(){
-  // OSRM優先：maneuver.bearing_after があれば使う
   if(lastRoute?.engine==='osrm'){
     const step = lastRoute.route?.legs?.[0]?.steps?.[0];
     const m=step?.maneuver;
@@ -413,16 +421,15 @@ function initialBearingFromRoute(){
       const a={lat:g[0][1],lng:g[0][0]}, b={lat:g[1][1],lng:g[1][0]}; return bearingBetween(a,b);
     }
   }
-  // ORS：geometryから
   if(lastRoute?.engine==='ors'){
     const g=lastRoute.route?.geometry?.coordinates; if(g&&g.length>=2){
-      const a={lat:g[0][1],lng=g[0][0]}, b={lat=g[1][1],lng=g[1][0]}; return bearingBetween(a,b);
+      const a={lat:g[0][1],lng=g[0][0]}, b={lat:g[1][1],lng:g[1][0]}; return bearingBetween(a,b);
     }
   }
   return null;
 }
 
-/* ===== 案内（読み上げは常に1回＋方角付与＋心拍開始） ===== */
+/* ===== 案内（読み上げ1回＋方角付与＋心拍） ===== */
 let speakLock=false;
 function speakJa(txt){
   try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(txt); u.lang='ja-JP'; speechSynthesis.speak(u);}catch{}
@@ -452,7 +459,6 @@ function buildOsrmInstruction(step){
   return `${name}${phrase}`;
 }
 function firstInstruction(){
-  // 初期方角
   const b = initialBearingFromRoute();
   const dirTxt = (b==null)? '' : `（${bearingToText(b)}方向）`;
   if(!lastRoute) return '案内を開始します';
@@ -460,7 +466,6 @@ function firstInstruction(){
     const step = lastRoute.route?.segments?.[0]?.steps?.[0];
     const name = step?.name ? `${step.name}を` : '';
     const inst = step?.instruction || '直進してください';
-    // ORSの instruction に方向語が無い場合に方角を補う
     return `案内を開始します。${name}${inst}${dirTxt}`;
   }else{
     const step = lastRoute.route?.legs?.[0]?.steps?.[0];
@@ -593,8 +598,8 @@ function clearHistory(){
 }
 
 /* ===== 地点保存（ID方式＋旧データ移行） ===== */
-const SAVE_KEY='mc_saved_places_v2';          // 新
-const SAVE_KEY_OLD='mc_saved_places';         // 旧（インデックス配列）
+const SAVE_KEY='mc_saved_places_v2';
+const SAVE_KEY_OLD='mc_saved_places';
 function newId(){ return 'p'+Math.random().toString(36).slice(2)+Date.now().toString(36); }
 function loadSaves(){ try{ return JSON.parse(localStorage.getItem(SAVE_KEY)||'[]'); }catch{ return []; } }
 function saveSaves(arr){ localStorage.setItem(SAVE_KEY,JSON.stringify(arr)); refreshSaveList(); }
@@ -605,7 +610,7 @@ function refreshSaveList(){
 }
 function migrateOldSavesIfNeeded(){
   const v2=loadSaves();
-  if(v2.length>0) return; // 既に新形式あり
+  if(v2.length>0) return;
   try{
     const oldRaw=localStorage.getItem(SAVE_KEY_OLD);
     if(!oldRaw) return;
@@ -646,7 +651,7 @@ function delSaved(){
   const idx=arr.findIndex(p=>p.id===id);
   if(idx===-1){ els.msg.textContent='選択した地点が見つかりません'; return; }
   arr.splice(idx,1); saveSaves(arr);
-  els.savedList.value=''; // 選択解除
+  els.savedList.value='';
   els.msg.textContent='削除しました';
 }
 
@@ -685,7 +690,7 @@ els.gotoStart.addEventListener('click',()=>{ if(currentMarker && mapReady) map.f
 els.gotoDest.addEventListener('click',()=>{ if(destMarker && mapReady)  map.flyTo(destMarker.getLatLng(),18); });
 els.reroute.addEventListener('click',async()=>{
   if(routingLock) return;
-  const j=await getRoute(); if(j) startNavigation(); // 心拍はナビ継続
+  const j=await getRoute(); if(j) startNavigation();
 });
 
 /* 地名保存モーダル */
