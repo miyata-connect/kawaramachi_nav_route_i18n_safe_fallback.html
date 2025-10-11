@@ -216,7 +216,8 @@ const els={
   openSaveModal:$('openSaveModal'), saveModal:$('saveModal'),
   saveName:$('saveName'), saveLon:$('saveLon'), saveLat:$('saveLat'),
   cancelSave:$('cancelSave'), doSave:$('doSave'),
-  forceInit:$('forceInit'), startWithoutGPS:$('startWithoutGPS')
+  forceInit:$('forceInit'), startWithoutGPS:$('startWithoutGPS'),
+  setFromSaved:$('setFromSaved'), delSaved:$('delSaved')
 };
 
 /* ===== 状態 ===== */
@@ -237,36 +238,72 @@ const heartbeat={timer:null, base:60000, backoff:60000, max:900000,
   stop(){ if(this.timer){ clearTimeout(this.timer); this.timer=null; } }
 };
 
-/* ===== コンパス（安定化） ===== */
-const compass={angle:0,target:0,lastUpdate:0,raf:null,alpha:0.10,dead:2.0,minInterval:33,haveDevice:false};
+/* ===== コンパス（落ち着いた追従：速度上限＋低周波化） ===== */
+const compass={
+  angle:0, target:0, raf:null,
+  haveDevice:false,
+  maxDegPerSec:90,          // 1秒あたりの最大回転角（過度なスパイク抑制）
+  deadBand:2.5,             // これ未満の差は無視
+  deviceMinInterval:100,    // deviceorientationの最短更新間隔(ms)
+  lastDeviceTs:0
+};
 const norm360=x=>{x%=360; if(x<0)x+=360; return x;}
 const shortDiff=(a,b)=>{let d=norm360(b)-norm360(a); if(d>180)d-=360; if(d<-180)d+=360; return d;}
+
 function setCompassTarget(deg, via='device'){
   if(!Number.isFinite(deg)) return;
-  const now=Date.now(); if(now-compass.lastUpdate<compass.minInterval) return;
-  compass.lastUpdate=now; if(via==='device') compass.haveDevice=true;
-  const t=norm360(deg); if(Math.abs(shortDiff(compass.target,t))<compass.dead) return;
+  const t=norm360(deg);
+  const gap=Math.abs(shortDiff(compass.target,t));
+  if(gap<compass.deadBand) return;     // 小さなブレは捨てる
   compass.target=t;
-  if(!compass.raf){
-    const step=()=>{
-      const d=shortDiff(compass.angle,compass.target);
-      if(Math.abs(d)<0.05){ compass.angle=norm360(compass.angle); compass.raf=null; return; }
-      compass.angle=norm360(compass.angle + d*compass.alpha);
-      els.needle.setAttribute('transform',`rotate(${compass.angle} 37 37)`);
-      compass.raf=requestAnimationFrame(step);
-    };
-    compass.raf=requestAnimationFrame(step);
-  }
+  if(via==='device') compass.haveDevice=true;
+  if(!compass.raf){ compass.raf=requestAnimationFrame(needleStep); }
 }
+
+function needleStep(ts){
+  // 連続アニメーション（速度制限付き）
+  if(!needleStep.prevTs) needleStep.prevTs=ts;
+  const dt=Math.max(1, ts-needleStep.prevTs)/1000; // 秒
+  needleStep.prevTs=ts;
+
+  const d=shortDiff(compass.angle,compass.target);
+  if(Math.abs(d)<0.1){ compass.raf=null; needleStep.prevTs=0; return; }
+
+  // このフレームで許可する最大回転角
+  const maxStep=compass.maxDegPerSec*dt;
+  let step=Math.sign(d)*Math.min(Math.abs(d)*0.15, maxStep); // 15%追従 or 速度上限
+  compass.angle=norm360(compass.angle+step);
+
+  // SVGの中心回転（37,37）
+  els.needle.setAttribute('transform',`rotate(${compass.angle} 37 37)`);
+  compass.raf=requestAnimationFrame(needleStep);
+}
+
+// デバイス方位センサー（ノイズと速すぎる更新を抑制）
 function initDeviceOrientation(){
   const getScreenAngle=()=> (screen.orientation && typeof screen.orientation.angle==='number')
       ? screen.orientation.angle : (typeof window.orientation==='number'? window.orientation:0) || 0;
+
   const handler=(ev)=>{
+    const now=performance.now();
+    if(now - compass.lastDeviceTs < compass.deviceMinInterval) return; // 更新間引き
     let heading=null;
-    if(typeof ev.webkitCompassHeading==='number'){ heading=ev.webkitCompassHeading; }
-    else if(typeof ev.alpha==='number'){ heading=norm360(360 - ev.alpha + getScreenAngle()); }
+
+    // iOS: webkitCompassHeading があればそれを使用（精度チェック）
+    if(typeof ev.webkitCompassHeading==='number'){
+      if(typeof ev.webkitCompassAccuracy==='number' && ev.webkitCompassAccuracy>45){
+        // 精度が悪すぎるときは無視
+        return;
+      }
+      heading=ev.webkitCompassHeading; // 0=北（時計回り）
+    }else if(typeof ev.alpha==='number'){
+      // 標準: デバイスのZ軸回転。北基準へ変換 + 画面回転補正
+      heading=norm360(360 - ev.alpha + getScreenAngle());
+    }
+    compass.lastDeviceTs=now;
     if(heading!=null) setCompassTarget(heading,'device');
   };
+
   if(window.DeviceOrientationEvent){
     if(DeviceOrientationEvent.requestPermission){
       DeviceOrientationEvent.requestPermission().then(s=>{ if(s==='granted'){ window.addEventListener('deviceorientation',handler,true); }});
@@ -300,6 +337,7 @@ function bearingBetween(a,b){
 }
 
 /* ---- 3秒ウォッチドッグ：必ず表示 ---- */
+let watchdogTimer=null, geoResolved=false;
 function startWatchdog(){
   clearTimeout(watchdogTimer);
   watchdogTimer=setTimeout(()=>{
@@ -446,12 +484,12 @@ function initialBearingFromRoute(){
     const m=step?.maneuver;
     if(typeof m?.bearing_after==='number') return norm360(m.bearing_after);
     const g=lastRoute.route?.geometry?.coordinates; if(g&&g.length>=2){
-      const a={lat:g[0][1],lng:g[0][0]}, b={lat:g[1][1],lng:g[1][0]}; return bearingBetween(a,b);
+      const a={lat:g[0][1],lng:g[0][0]}, b={lat:g[1][1],lng=g[1][0]}; return bearingBetween(a,b);
     }
   }
   if(lastRoute?.engine==='ors'){
     const g=lastRoute.route?.geometry?.coordinates; if(g&&g.length>=2){
-      const a={lat:g[0][1],lng:g[0][0]}, b={lat:g[1][1],lng:g[1][0]}; return bearingBetween(a,b);
+      const a={lat=g[0][1],lng=g[0][0]}, b={lat=g[1][1],lng=g[1][0]}; return bearingBetween(a,b);
     }
   }
   return null;
@@ -666,9 +704,9 @@ function migrateOldSavesIfNeeded(){
 function openSave(){
   let lat=Number(els.startLat.value), lon=Number(els.startLon.value);
   if((!Number.isFinite(lat)||!Number.isFinite(lon)) && mapReady){ const c=map.getCenter(); lat=c.lat; lon=c.lng; }
-  $('saveName').value='';
-  $('saveLon').value=Number.isFinite(lon)?lon:'';
-  $('saveLat').value=Number.isFinite(lat)?lat:'';
+  els.saveName.value='';
+  els.saveLon.value=Number.isFinite(lon)?lon:'';
+  els.saveLat.value=Number.isFinite(lat)?lat:'';
   els.saveModal.style.display='flex';
 }
 function doSave(){
@@ -709,7 +747,7 @@ function startVoice(){
 /* ===== ヘルパ ===== */
 function setBusy(btn,flag){ if(!btn) return; if(flag){ btn.setAttribute('disabled',''); setTimeout(()=>btn.removeAttribute('disabled'),1200); }}
 
-/* ===== イベント ===== */
+/* ===== イベント（★保存系の接続を追加） ===== */
 els.search.addEventListener('click',searchNearby);
 els.mic.addEventListener('click',startVoice);
 els.clearHistory.addEventListener('click',clearHistory);
@@ -730,6 +768,13 @@ els.navStart.addEventListener('click',startNavigation);
 els.gotoStart.addEventListener('click',()=>{ if(currentMarker && mapReady) map.flyTo(currentMarker.getLatLng(),18); });
 els.gotoDest.addEventListener('click',()=>{ if(destMarker && mapReady)  map.flyTo(destMarker.getLatLng(),18); });
 els.reroute.addEventListener('click',async()=>{ if(routingLock) return; const j=await getRoute(); if(j) startNavigation(); });
+
+/* 保存UI：★ここが前版で未接続だったため無反応になっていた */
+els.openSaveModal.addEventListener('click',openSave);
+els.cancelSave.addEventListener('click',()=>els.saveModal.style.display='none');
+els.doSave.addEventListener('click',doSave);
+els.setFromSaved.addEventListener('click',setFromSaved);
+els.delSaved.addEventListener('click',delSaved);
 
 /* 位置情報UI（手動トリガ） */
 els.forceInit?.addEventListener('click',()=>{ geoResolved=false; initGeolocation(); });
