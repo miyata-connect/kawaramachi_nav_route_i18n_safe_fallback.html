@@ -29,7 +29,7 @@ button[disabled]{opacity:.55;pointer-events:none}
 
 /* Map */
 .mapwrap{position:relative}
-#map{height:64vh;border-radius:16px;overflow:hidden;display:none} /* 最初は隠す */
+#map{height:64vh;border-radius:16px;overflow:hidden;display:none} /* 初期は隠す */
 
 /* コンパス */
 .compass{position:absolute;left:16px;top:16px;z-index:450;width:82px;height:82px;border-radius:50%;
@@ -127,11 +127,11 @@ button[disabled]{opacity:.55;pointer-events:none}
       </div>
     </div>
 
-    <div id="msg" class="hint" style="margin-top:6px;">現在地の取得を待機中…</div>
-    <div class="row" id="geoFailRow" style="display:none;margin-top:6px;align-items:center">
-      <button id="forceInit" class="danger">地図を読み込む（許可が必要）</button>
+    <div id="msg" class="hint" style="margin-top:6px;">現在地の取得を待機中…（3秒で仮表示に切り替えます）</div>
+    <div class="row" id="geoFailRow" style="display:flex;margin-top:6px;align-items:center">
+      <button id="forceInit" class="danger">現在地で再試行</button>
       <button id="startWithoutGPS" class="ghost">位置情報なしで開始</button>
-      <span class="hint">※許可しなくても使えます（精度は落ちます）。</span>
+      <span class="hint">※どちらでも使えます（後から現在地に自動切替）。</span>
     </div>
   </div>
 
@@ -216,14 +216,14 @@ const els={
   openSaveModal:$('openSaveModal'), saveModal:$('saveModal'),
   saveName:$('saveName'), saveLon:$('saveLon'), saveLat:$('saveLat'),
   cancelSave:$('cancelSave'), doSave:$('doSave'),
-  forceInit:$('forceInit'), geoFailRow:$('geoFailRow'), startWithoutGPS:$('startWithoutGPS'),
+  forceInit:$('forceInit'), startWithoutGPS:$('startWithoutGPS')
 };
 
 /* ===== 状態 ===== */
 let map=null, routeGroup=null, currentMarker=null, destMarker=null, routeLine=null, lastRoute=null;
 let watchId=null, prevPos=null, prevTime=0, mapReady=false;
 let routingLock=false, navActive=false;
-let geoWatchdog=null, geoResolved=false;
+let geoResolved=false, watchdogTimer=null;
 
 /* ===== 心拍（ナビ中のみ） ===== */
 const heartbeat={timer:null, base:60000, backoff:60000, max:900000,
@@ -277,16 +277,16 @@ function initDeviceOrientation(){
   }
 }
 
-/* ===== 地図作成 ===== */
-function createMapAt(lat,lon, zoom=16){
-  if(mapReady) return;
+/* ===== 地図生成ユーティリティ（必ず表示させる） ===== */
+function ensureMapVisible(lat=35.362, lon=137.724, zoom=6){
+  if(mapReady){ return; }
   const mapEl=$('map'); mapEl.style.display='block';
   map=L.map('map',{zoomControl:false});
   L.control.zoom({position:'bottomleft'}).addTo(map);
   routeGroup=L.layerGroup().addTo(map);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20}).addTo(map);
   map.setView([lat,lon],zoom);
-  setTimeout(()=>{ map.invalidateSize(); },0);
+  setTimeout(()=>map.invalidateSize(),0);
   mapReady=true;
 }
 
@@ -299,66 +299,68 @@ function bearingBetween(a,b){
   return norm360(toDeg(Math.atan2(y,x)));
 }
 
-/* ---- フォールバック起動：6秒で自動仮表示 ---- */
-function startGeoWatchdog(){
-  if(geoWatchdog) clearTimeout(geoWatchdog);
-  geoWatchdog=setTimeout(()=>{
-    if(geoResolved) return;
-    // 日本の中心付近（岐阜県あたり）に仮表示
-    createMapAt(35.362,137.724,6);
-    els.msg.textContent='現在地の取得に時間がかかっています。仮表示で使用可能です（位置情報なし）。';
-    els.geoFailRow.style.display='flex';
-  }, 6000);
+/* ---- 3秒ウォッチドッグ：必ず表示 ---- */
+function startWatchdog(){
+  clearTimeout(watchdogTimer);
+  watchdogTimer=setTimeout(()=>{
+    if(!geoResolved){ ensureMapVisible(); els.msg.textContent='現在地の取得に時間がかかっています。仮表示で使用中。'; }
+  }, 3000);
 }
 
 function initGeolocation(){
+  startWatchdog();
+
   if(!navigator.geolocation){
-    els.msg.textContent='この端末は位置情報に未対応です。位置情報なしで使用します。';
-    createMapAt(35.362,137.724,6);
-    els.geoFailRow.style.display='flex';
+    ensureMapVisible(); els.msg.textContent='この端末は位置情報に未対応です（仮表示）。';
     return;
   }
-  startGeoWatchdog();
 
-  navigator.geolocation.getCurrentPosition(pos=>{
-    geoResolved=true; if(geoWatchdog) clearTimeout(geoWatchdog);
-    const {latitude,longitude,heading}=pos.coords;
-    if(!mapReady) createMapAt(latitude,longitude,17);
-    setStart(longitude,latitude);
-    updateCurrent([latitude,longitude]);
-    if(Number.isFinite(heading)) setCompassTarget(heading,'gps');
-    map.setView([latitude,longitude],17);
-    prevPos=L.latLng(latitude,longitude); prevTime=Date.now();
-    els.msg.textContent='準備完了。目的地を設定してください';
-  }, err=>{
-    if(geoWatchdog) clearTimeout(geoWatchdog);
-    els.msg.textContent='現在地エラー: '+err.message+'（位置情報なしで使用できます）';
-    if(!mapReady) createMapAt(35.362,137.724,6);
-    els.geoFailRow.style.display='flex';
-  }, {enableHighAccuracy:true,maximumAge:1000,timeout:10000});
+  try{
+    navigator.geolocation.getCurrentPosition(pos=>{
+      geoResolved=true; clearTimeout(watchdogTimer);
+      const {latitude,longitude,heading}=pos.coords;
+      ensureMapVisible(latitude,longitude,17);
+      setStart(longitude,latitude);
+      updateCurrent([latitude,longitude]);
+      if(Number.isFinite(heading)) setCompassTarget(heading,'gps');
+      map.setView([latitude,longitude],17);
+      prevPos=L.latLng(latitude,longitude); prevTime=Date.now();
+      els.msg.textContent='準備完了。目的地を設定してください';
+    }, err=>{
+      clearTimeout(watchdogTimer);
+      ensureMapVisible();
+      els.msg.textContent='現在地エラー: '+err.message+'（仮表示で使用中）';
+    }, {enableHighAccuracy:true,maximumAge:1000,timeout:8000});
+  }catch(e){
+    ensureMapVisible();
+    els.msg.textContent='現在地初期化に失敗しました（仮表示）。';
+  }
 
-  if(watchId) navigator.geolocation.clearWatch(watchId);
-  watchId=navigator.geolocation.watchPosition(pos=>{
-    const {latitude,longitude,heading,speed}=pos.coords;
-    geoResolved=true;
-    if(!mapReady) createMapAt(latitude,longitude,17);
-    const cur=L.latLng(latitude,longitude), now=Date.now();
-    updateCurrent([latitude,longitude]);
-    const dist = prevPos? prevPos.distanceTo(cur):0;
-    const v = (typeof speed==='number' && isFinite(speed)) ? speed : (prevTime? dist/((now-prevTime)/1000):0);
-    if(Number.isFinite(heading)) setCompassTarget(heading,'gps');
-    else if(!compass.haveDevice && prevPos && dist>20 && v>0.7){
-      if(now - lastGpsBearingUpdate > 1000){
-        setCompassTarget(bearingBetween(prevPos,cur),'gps');
-        lastGpsBearingUpdate = now;
+  try{
+    if(watchId) navigator.geolocation.clearWatch(watchId);
+    watchId=navigator.geolocation.watchPosition(pos=>{
+      geoResolved=true;
+      const {latitude,longitude,heading,speed}=pos.coords;
+      ensureMapVisible(latitude,longitude,17);
+      const cur=L.latLng(latitude,longitude), now=Date.now();
+      updateCurrent([latitude,longitude]);
+      const dist = prevPos? prevPos.distanceTo(cur):0;
+      const v = (typeof speed==='number' && isFinite(speed)) ? speed : (prevTime? dist/((now-prevTime)/1000):0);
+      if(Number.isFinite(heading)) setCompassTarget(heading,'gps');
+      else if(!compass.haveDevice && prevPos && dist>20 && v>0.7){
+        if(now - lastGpsBearingUpdate > 1000){
+          setCompassTarget(bearingBetween(prevPos,cur),'gps');
+          lastGpsBearingUpdate = now;
+        }
       }
-    }
-    prevPos=cur; prevTime=now;
-  },()=>{}, {enableHighAccuracy:true,maximumAge:2500,timeout:10000});
+      prevPos=cur; prevTime=now;
+    },()=>{}, {enableHighAccuracy:true,maximumAge:2500,timeout:10000});
+  }catch{}
 }
 let lastGpsBearingUpdate=0;
 
 function updateCurrent(latlng){
+  if(!mapReady) ensureMapVisible();
   if(!currentMarker) currentMarker=L.marker(latlng,{title:'現在地'}).addTo(routeGroup||map);
   else currentMarker.setLatLng(latlng);
 }
@@ -366,6 +368,7 @@ function setStart(lon,lat){ els.startLon.value=lon??''; els.startLat.value=lat??
 function setDest(lon,lat){
   els.destLon.value=lon??''; els.destLat.value=lat??'';
   if(Number.isFinite(lat)&&Number.isFinite(lon)){
+    if(!mapReady) ensureMapVisible(lat,lon,13);
     if(!destMarker) destMarker=L.marker([lat,lon],{title:'目的地'}).addTo(routeGroup||map);
     else destMarker.setLatLng([lat,lon]);
   }
@@ -379,12 +382,10 @@ async function getRoute(){
   let slon=Number(els.startLon.value), slat=Number(els.startLat.value);
   const dlon=Number(els.destLon.value), dlat=Number(els.destLat.value);
 
-  // 位置なし時は地図中心を仮の開始地点に採用
   if(![slon,slat].every(Number.isFinite) && mapReady){
     const c=map.getCenter(); slat=c.lat; slon=c.lng; setStart(slon,slat);
-    els.msg.textContent='開始地点が未設定のため、地図中心を出発地として使用します。';
+    els.msg.textContent='開始地点未設定 → 地図中心を出発地として使用します。';
   }
-
   if(![slon,slat,dlon,dlat].every(Number.isFinite)){
     els.msg.textContent='座標が不足しています（開始/目的地を設定してください）';
     routingLock=false; return null;
@@ -445,12 +446,12 @@ function initialBearingFromRoute(){
     const m=step?.maneuver;
     if(typeof m?.bearing_after==='number') return norm360(m.bearing_after);
     const g=lastRoute.route?.geometry?.coordinates; if(g&&g.length>=2){
-      const a={lat:g[0][1],lng:g[0][0]}, b={lat:g[1][1],lng=g[1][0]}; return bearingBetween(a,b);
+      const a={lat:g[0][1],lng:g[0][0]}, b={lat:g[1][1],lng:g[1][0]}; return bearingBetween(a,b);
     }
   }
   if(lastRoute?.engine==='ors'){
     const g=lastRoute.route?.geometry?.coordinates; if(g&&g.length>=2){
-      const a={lat=g[0][1],lng=g[0][0]}, b={lat=g[1][1],lng=g[1][0]}; return bearingBetween(a,b);
+      const a={lat:g[0][1],lng:g[0][0]}, b={lat:g[1][1],lng:g[1][0]}; return bearingBetween(a,b);
     }
   }
   return null;
@@ -511,16 +512,16 @@ function startNavigation(){
 /* ===== 検索 ===== */
 async function searchNearby(){
   const raw=els.q.value.trim(); if(!raw){ els.msg.textContent='検索ワードを入力してください'; return; }
+  if(!mapReady) ensureMapVisible();
 
-  // 位置がなければ「地図中心」を推定開始地点として使う（検索は全国）
   let lat=Number(els.startLat.value), lon=Number(els.startLon.value);
-  let hasStart= [lat,lon].every(Number.isFinite);
-  if(!hasStart && mapReady){ const c=map.getCenter(); lat=c.lat; lon=c.lng; }
+  let hasStart=[lat,lon].every(Number.isFinite);
+  if(!hasStart){ const c=map.getCenter(); lat=c.lat; lon=c.lng; }
 
   els.msg.textContent='検索中…';
   const items = await mergedSearch(raw, hasStart? lat:null, hasStart? lon:null);
   showResults(items);
-  els.msg.textContent = items.length ? (hasStart? '候補が見つかりました。リストから選ぶと案内を開始します。' : '候補が見つかりました。リストから選ぶと地図中心を出発地として案内します。')
+  els.msg.textContent = items.length ? (hasStart? '候補が見つかりました。リストから選ぶと案内を開始します。' : '候補が見つかりました。地図中心を出発地として案内します。')
                                      : '候補が見つかりません';
   saveHistory(raw);
 }
@@ -535,7 +536,7 @@ async function mergedSearch(raw,lat,lon){
     const useBox = Number.isFinite(lat)&&Number.isFinite(lon);
     const box = useBox? degBox(lat,lon,20_000): null;
     for(const q of queries){
-      const b=await nominatimQuery({q,box,limit:40, jpOnly:!useBox}); // 位置なし→全国JP検索
+      const b=await nominatimQuery({q,box,limit:40, jpOnly:!useBox});
       pool=pool.concat(b); if(pool.length>=5) break;
     }
   }
@@ -580,7 +581,7 @@ async function nominatimQuery({q,box,limit=30,jpOnly=false}){
     url.searchParams.set('bounded','1');
     url.searchParams.set('viewbox',`${box.w},${box.n},${box.e},${box.s}`);
   }else if(jpOnly){
-    url.searchParams.set('countrycodes','jp'); // 位置なし時は全国JP
+    url.searchParams.set('countrycodes','jp');
   }
   url.searchParams.set('limit',String(limit));
   try{
@@ -614,7 +615,7 @@ function showResults(items){
     const handler=async()=>{
       if(routingLock) return;
       setDest(it.lon,it.lat);
-      if(!mapReady) createMapAt(it.lat,it.lon,13);
+      if(!mapReady) ensureMapVisible(it.lat,it.lon,13);
       map.flyTo([it.lat,it.lon],17);
       const j=await getRoute();
       if(j){ startNavigation(); }
@@ -730,18 +731,18 @@ els.gotoStart.addEventListener('click',()=>{ if(currentMarker && mapReady) map.f
 els.gotoDest.addEventListener('click',()=>{ if(destMarker && mapReady)  map.flyTo(destMarker.getLatLng(),18); });
 els.reroute.addEventListener('click',async()=>{ if(routingLock) return; const j=await getRoute(); if(j) startNavigation(); });
 
-/* 位置情報UI */
-els.forceInit.addEventListener('click',()=>{ initGeolocation(); });
-els.startWithoutGPS.addEventListener('click',()=>{
-  if(!mapReady) createMapAt(35.362,137.724,6);
-  els.msg.textContent='位置情報なしで使用中。開始地点は地図中心として扱います。';
-  els.geoFailRow.style.display='flex';
-});
+/* 位置情報UI（手動トリガ） */
+els.forceInit?.addEventListener('click',()=>{ geoResolved=false; initGeolocation(); });
+els.startWithoutGPS?.addEventListener('click',()=>{ ensureMapVisible(); els.msg.textContent='位置情報なしで使用中。開始地点は地図中心として扱います。'; });
 
-/* 起動：旧データ移行→デバイス方位→現在地 */
+/* 起動：旧データ移行→デバイス方位→現在地（＋番兵） */
 function loadSavesInit(){ migrateOldSavesIfNeeded(); refreshSaveList(); }
 function init(){ loadSavesInit(); initDeviceOrientation(); initGeolocation(); }
 init();
+
+/* 予期せぬエラーでもUIを止めない */
+window.addEventListener('error',()=>{ ensureMapVisible(); });
+window.addEventListener('unhandledrejection',()=>{ ensureMapVisible(); });
 </script>
 </body>
 </html>
