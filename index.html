@@ -11,7 +11,7 @@
   --bg:#0f1a25; --panel:#132235; --panel2:#0f1e30; --text:#eaf2ff; --muted:#9db0c6;
   --ok:#2ecc71; --primary:#4aa3ff; --danger:#ff6b6b;
   --compassSize:82px; --compassMargin:18px;
-  --labelW:12ch;          /* ← ラベル列を少し詰める（入力に面積を回す） */
+  --labelW:12ch;
 }
 html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP","Helvetica Neue",Arial,"メイリオ",Meiryo,sans-serif;scroll-behavior:smooth}
@@ -28,32 +28,16 @@ button.danger{background:var(--danger);border:none;font-weight:700}
 button[disabled]{opacity:.6;pointer-events:none}
 .hint{color:var(--muted);font-size:14px}
 
-/* ====== 緯度・経度：縦センター & 横幅拡大 ====== */
+/* 緯度・経度：縦センター & 横幅拡大 */
 .stagger-wrap{display:flex;flex-direction:column;gap:10px}
-.st-row{display:flex;gap:12px;align-items:center;flex-wrap:nowrap}      /* ← 縦センタリング */
-.st-row>.hint{
-  flex:0 0 var(--labelW);              /* 左ラベルの横幅は固定（開始/目的で起点を揃える） */
-  min-width:var(--labelW);
-  text-align:left;
-}
-.coords{
-  flex:1 1 auto;                        /* ← 余白はすべて入力側に配分 */
-  display:flex; gap:16px; align-items:stretch; flex-wrap:nowrap;
-}
-.coord-col{
-  flex:1 1 0;                           /* ← 2列が等分で広がる */
-  display:flex; flex-direction:column; gap:6px; min-width:0;
-}
+.st-row{display:flex;gap:12px;align-items:center;flex-wrap:nowrap}
+.st-row>.hint{flex:0 0 var(--labelW);min-width:var(--labelW);text-align:left}
+.coords{flex:1 1 auto;display:flex;gap:16px;align-items:stretch;flex-wrap:nowrap}
+.coord-col{flex:1 1 0;display:flex;flex-direction:column;gap:6px;min-width:0}
 .coord-label{font-size:12px;color:var(--muted);padding-left:2px}
-.coord-input{
-  width:100%;                           /* ← 入力幅を親いっぱいに */
-  max-width:none;                       /* ← 上限を外す */
-  min-width:12ch;
-  padding:10px 12px;
-  font-size:16px;
-}
+.coord-input{width:100%;max-width:none;min-width:12ch;padding:10px 12px;font-size:16px}
 
-/* トグル（ルートタイプ） */
+/* トグル */
 .toggle-group{display:flex;flex-wrap:wrap;gap:8px;background:#0b1624;border:1px solid rgba(255,255,255,.12);
   border-radius:999px;padding:6px;box-sizing:border-box;max-width:100%}
 .toggle{display:flex}
@@ -69,7 +53,7 @@ button[disabled]{opacity:.6;pointer-events:none}
 @keyframes sh{from{transform:translateX(-28%)}to{transform:translateX(28%)}}
 #staticMap{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;z-index:0;border-radius:16px}
 
-/* ETAピル（コンパスに被らないよう右に余白） */
+/* ETAピル */
 #etaOverlay{position:absolute;left:calc(var(--compassMargin) + var(--compassSize) + 10px);right:12px;top:8px;z-index:470;display:flex;justify-content:center;pointer-events:none}
 #etaPill{pointer-events:auto;display:flex;flex-direction:column;gap:4px;align-items:center;background:rgba(8,16,28,.88);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:8px 12px;max-width:460px}
 #timeRow{font-size:18px;font-weight:800;opacity:.95;display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
@@ -151,7 +135,7 @@ button[disabled]{opacity:.6;pointer-events:none}
     </div>
   </div>
 
-  <!-- 座標＆操作（ラベル列を統一、入力は広く） -->
+  <!-- 座標＆操作 -->
   <div class="card" style="margin-top:12px">
     <div class="stagger-wrap">
       <div class="st-row start">
@@ -252,7 +236,7 @@ button[disabled]{opacity:.6;pointer-events:none}
   </div>
 </div>
 
-<!-- 保存モーダル（緯度経度も広め） -->
+<!-- 保存モーダル -->
 <div class="modal" id="saveModal">
   <div class="box">
     <div class="title">現在地を保存</div>
@@ -319,7 +303,7 @@ let leafletReady=false;
 })();
 </script>
 
-<!-- 本体JS（機能は前回同様。OVERPASSの重複宣言は排除） -->
+<!-- 本体JS（★ safetyPoints の重複宣言を削除済み） -->
 <script>
 /* ===== 設定 ===== */
 const WORKER_ORIGIN='https://ors-proxy.miyata-connect-jp.workers.dev/proxy';
@@ -654,7 +638,6 @@ function prepareGuidance(){
 function bucketForDistance(d){ if(d>200) return 200; if(d>120) return 150; if(d>80) return 120; if(d>50) return 50; if(d>30) return 30; if(d>10) return 10; if(d>5) return 5; return 3; }
 
 /* ===== 安全誘導（横断歩道など） ===== */
-let safetyPoints=[];
 async function fetchSafetyPointsFromOverpass(){
   safetyPoints=[];
   if(!lastRoute||!mapReady) return;
