@@ -11,6 +11,7 @@
   --bg:#0f1a25; --panel:#132235; --panel2:#0f1e30; --text:#eaf2ff; --muted:#9db0c6;
   --ok:#2ecc71; --primary:#4aa3ff; --danger:#ff6b6b;
   --compassSize:82px; --compassMargin:18px;
+  --labelW:12ch;          /* ← ラベル列を少し詰める（入力に面積を回す） */
 }
 html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP","Helvetica Neue",Arial,"メイリオ",Meiryo,sans-serif;scroll-behavior:smooth}
@@ -27,21 +28,30 @@ button.danger{background:var(--danger);border:none;font-weight:700}
 button[disabled]{opacity:.6;pointer-events:none}
 .hint{color:var(--muted);font-size:14px}
 
-/* ====== 緯度・経度を“各入力の上”に表示 ====== */
-.stagger-wrap{display:flex;flex-direction:column;gap:8px}
-.st-row{display:flex;gap:10px;align-items:flex-start;flex-wrap:nowrap}
+/* ====== 緯度・経度：縦センター & 横幅拡大 ====== */
+.stagger-wrap{display:flex;flex-direction:column;gap:10px}
+.st-row{display:flex;gap:12px;align-items:center;flex-wrap:nowrap}      /* ← 縦センタリング */
 .st-row>.hint{
-  flex:0 0 16ch;            /* ラベル列の固定幅（開始/目的の左起点を一致） */
-  min-width:16ch;
-  opacity:.9;
-  padding-top:6px;          /* 上付きラベルと視覚行揃え */
+  flex:0 0 var(--labelW);              /* 左ラベルの横幅は固定（開始/目的で起点を揃える） */
+  min-width:var(--labelW);
+  text-align:left;
 }
-.coords{display:flex;gap:12px;align-items:stretch;flex-wrap:nowrap}
-.coord-col{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.coords{
+  flex:1 1 auto;                        /* ← 余白はすべて入力側に配分 */
+  display:flex; gap:16px; align-items:stretch; flex-wrap:nowrap;
+}
+.coord-col{
+  flex:1 1 0;                           /* ← 2列が等分で広がる */
+  display:flex; flex-direction:column; gap:6px; min-width:0;
+}
 .coord-label{font-size:12px;color:var(--muted);padding-left:2px}
-.coord-input{flex:0 0 auto;width:14ch;max-width:14ch;min-width:12ch;padding:8px 10px;font-size:15px}
-.st-row.dest{margin-left:0}
-.st-row.dest .coords{margin-left:0}
+.coord-input{
+  width:100%;                           /* ← 入力幅を親いっぱいに */
+  max-width:none;                       /* ← 上限を外す */
+  min-width:12ch;
+  padding:10px 12px;
+  font-size:16px;
+}
 
 /* トグル（ルートタイプ） */
 .toggle-group{display:flex;flex-wrap:wrap;gap:8px;background:#0b1624;border:1px solid rgba(255,255,255,.12);
@@ -141,7 +151,7 @@ button[disabled]{opacity:.6;pointer-events:none}
     </div>
   </div>
 
-  <!-- 座標＆操作（各入力の上に“経度/緯度”ラベル） -->
+  <!-- 座標＆操作（ラベル列を統一、入力は広く） -->
   <div class="card" style="margin-top:12px">
     <div class="stagger-wrap">
       <div class="st-row start">
@@ -242,17 +252,17 @@ button[disabled]{opacity:.6;pointer-events:none}
   </div>
 </div>
 
-<!-- 保存モーダル（ここも各入力の上にラベル） -->
+<!-- 保存モーダル（緯度経度も広め） -->
 <div class="modal" id="saveModal">
   <div class="box">
     <div class="title">現在地を保存</div>
     <div class="row"><input id="saveName" class="grow" placeholder="地点名（例：自宅・公園）"></div>
     <div class="row" style="gap:12px">
-      <div class="coord-col">
+      <div class="coord-col" style="flex:1 1 0">
         <div class="coord-label">経度</div>
         <input id="saveLon" class="coord-input" placeholder="経度" inputmode="decimal">
       </div>
-      <div class="coord-col">
+      <div class="coord-col" style="flex:1 1 0">
         <div class="coord-label">緯度</div>
         <input id="saveLat" class="coord-input" placeholder="緯度" inputmode="decimal">
       </div>
@@ -309,7 +319,7 @@ let leafletReady=false;
 })();
 </script>
 
-<!-- 本体JS（前回版と同一。UIのみ変更） -->
+<!-- 本体JS（機能は前回同様。OVERPASSの重複宣言は排除） -->
 <script>
 /* ===== 設定 ===== */
 const WORKER_ORIGIN='https://ors-proxy.miyata-connect-jp.workers.dev/proxy';
@@ -343,9 +353,7 @@ let map=null, routeLayer=null, markerLayer=null, routeLine=null, lastRoute=null;
 let currentMarker=null, destMarker=null, mapReady=false, watchId=null;
 let navActive=false, routingLock=false, routeMode='shortest', safetyPoints=[], navState=null;
 
-/* ===== ヘルパ & TTS・コンパス（略） ===== */
-/* 以降のJSは前回版と同一です（機能面に変更なし）。長文のため省略せずそのまま記載します。 */
-
+/* ===== ヘルパ & TTS・コンパス ===== */
 const timeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
 const norm360=x=>{x%=360;if(x<0)x+=360;return x;}
 const shortDiff=(a,b)=>{let d=norm360(b)-norm360(a);if(d>180)d-=360;if(d<-180)d+=360;return d;}
@@ -362,7 +370,7 @@ const tts={ lastKey:null,lastAt:0,minInterval:2000,repeatWindow:8000,
   stop(){try{speechSynthesis.cancel();}catch{} this.lastKey=null; this.lastAt=0;}
 };
 
-/* ===== コンパス ===== */
+/* ===== コンパス（落ち着いた追従）===== */
 const compass={ angle:0,target:0,raf:null,maxDegPerSec:60,deadBand:3,deviceMinInterval:120,lastTs:0 };
 function setCompassTarget(deg){ if(!Number.isFinite(deg)) return; const t=norm360(deg);
   if(Math.abs(shortDiff(compass.target,t))<compass.deadBand) return; compass.target=t;
@@ -620,6 +628,8 @@ function initialBearingFromRoute(){
 }
 const reRoad=/^(国道\d+号)(線)?/;
 const normalizeRoadName=name=>{ if(!name) return ''; const m=name.match(reRoad); return m?m[1]+'線':name; };
+function bearingToText(b){ const n=['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西','北']; return n[Math.round(b/22.5)]; }
+function buildInstruction(step){ return (step && step.instruction) ? step.instruction : '直進してください'; }
 function firstInstruction(){
   const st=lastRoute?.route?.segments?.[0]?.steps?.[0];
   const br=initialBearingFromRoute();
@@ -632,8 +642,6 @@ function firstInstruction(){
   }
   return `音声案内を開始します。${dir?dir+'へ':''}直進してください。`;
 }
-function bearingToText(b){ const n=['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西','北']; return n[Math.round(b/22.5)]; }
-function buildInstruction(step){ return (step && step.instruction) ? step.instruction : '直進してください'; }
 function prepareGuidance(){
   navState={steps:[],idx:0,preSaid:false,nearArrivalSaid:false,arrived:false,lastBucket:null,startAt:Date.now()};
   const steps=[], coords=lastRoute.route?.geometry?.coordinates||[], st=lastRoute.route?.segments?.[0]?.steps||[];
@@ -646,8 +654,7 @@ function prepareGuidance(){
 function bucketForDistance(d){ if(d>200) return 200; if(d>120) return 150; if(d>80) return 120; if(d>50) return 50; if(d>30) return 30; if(d>10) return 10; if(d>5) return 5; return 3; }
 
 /* ===== 安全誘導（横断歩道など） ===== */
-let safetyPoints=[], safetyTimer=null;
-const OVERPASS='https://overpass-api.de/api/interpreter';
+let safetyPoints=[];
 async function fetchSafetyPointsFromOverpass(){
   safetyPoints=[];
   if(!lastRoute||!mapReady) return;
@@ -679,7 +686,6 @@ function nearestSafetyAhead(cur){
   });
   return best;
 }
-
 function advanceGuidance(cur){
   if(!navState || navState.arrived) return;
   if(destMarker){
@@ -709,7 +715,7 @@ function advanceGuidance(cur){
   }
 }
 
-/* ===== ルート取得・リルート・検索・保存UI（前回同様） ===== */
+/* ===== ルート取得・リルート・検索・保存UI ===== */
 const waitForUnlock=()=>new Promise(res=>{ const tick=()=>{ if(!routingLock) return res(); setTimeout(tick,120); }; tick(); });
 async function getRoute(){
   await waitForUnlock(); routingLock=true; setBusy(els.getRoute,true); setBusy(els.reroute,true);
@@ -755,7 +761,7 @@ async function doReroute(){
   if(j){ tts.speak('リルートします。','reroute'); startNavigation(); }
 }
 
-/* 検索関連（省略せず） */
+/* 検索 */
 function setSearchBusy(on){ els.search.disabled=on; els.mic.disabled=on; els.searchStatus.textContent= on?'検索中…':''; }
 function kanaVariants(s){
   const toK=t=>t.replace(/[\u3041-\u3096]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60));
@@ -850,7 +856,7 @@ function showResults(items){
 }
 function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&quot;',"'":'&#39;'}[m]))}
 
-/* 履歴・保存（ID化済み） */
+/* 履歴・保存 */
 const HISTORY_KEY='mc_search_history';
 const SAVE_KEY='mc_saved_places_v2';
 const loadHistory=()=>{try{return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]')}catch{return []}};
