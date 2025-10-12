@@ -28,22 +28,26 @@ button.danger{background:var(--danger);border:none;font-weight:700}
 button[disabled]{opacity:.6;pointer-events:none}
 .hint{color:var(--muted);font-size:14px}
 
-/* ルートトグル（中央寄せ） */
+/* ルートトグル（段違い回避のため横スクロール・折返し禁止） */
 .toggle-group{
-  display:flex;flex-wrap:wrap;gap:6px 8px;justify-content:center;align-content:center;
-  background:#0b1624;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:6px
+  display:flex;gap:8px;justify-content:center;align-content:center;
+  background:#0b1624;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:6px 8px;
+  flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin
 }
 .toggle input{display:none}
-.toggle label{display:inline-block;padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap;font-size:14px}
+.toggle label{display:inline-block;padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap;
+  font-size:clamp(12px,1.5vw,14px)}
 .toggle input:checked + label{background:#18314d;box-shadow:0 0 0 3px rgba(74,163,255,.18) inset;border:1px solid rgba(74,163,255,.5)}
 
-/* 検索UI */
+/* 検索UI：マイクは緑→ビジーは赤 */
 #mic{background:var(--ok);border:none;font-weight:800}
+.btn-busy{background:var(--danger)!important;border-color:transparent!important}
+#searchStatus.search-large{font-size:18px;font-weight:800;color:#ffd166}
 
-/* 緯度経度：段違い配置・横幅最大化 */
+/* 緯度経度：段違い配置・横幅最大化。ラベル色を見やすく（コントラストUP） */
 .stagger-wrap{display:flex;flex-direction:column;gap:10px}
 .st-row{display:flex;gap:12px;align-items:center;flex-wrap:nowrap}
-.st-row>.hint{flex:0 0 var(--labelW);min-width:var(--labelW);text-align:left}
+.st-row>.hint{flex:0 0 var(--labelW);min-width:var(--labelW);text-align:left;color:#ffd166;font-weight:800} /* ←見やすい色 */
 .coords{flex:1 1 auto;display:flex;gap:12px;align-items:stretch;flex-wrap:nowrap}
 .coord-col{flex:1 1 0;display:flex;flex-direction:column;gap:6px;min-width:0}
 .coord-label{font-size:12px;color:var(--muted);padding-left:2px}
@@ -115,7 +119,7 @@ button[disabled]{opacity:.6;pointer-events:none}
     <div class="row" style="margin-top:8px">
       <button id="search" class="primary">検索</button>
       <button id="clearHistory" class="ghost">履歴をクリア</button>
-      <span id="searchStatus" class="hint" style="min-width:8ch"></span>
+      <span id="searchStatus" class="hint search-large" style="min-width:8ch"></span>
     </div>
   </div>
 
@@ -351,11 +355,15 @@ function ensureMapVisible(lat=35.362,lon=137.724,zoom=6){
       map=L.map('map',{zoomControl:false});
       const base=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20});
       base.addTo(map);
-      base.on('load',()=>{ const s=document.getElementById('mapSkeleton'); if(s) s.style.display='none'; });
+      const sk=document.getElementById('mapSkeleton');
+      base.on('load',()=>{ if(sk) sk.style.display='none'; });
+      base.on('tileerror',()=>{ if(sk) sk.style.display='none'; });
+      setTimeout(()=>{ if(sk) sk.style.display='none'; }, 3000); /* フォールバックで必ず剥がす */
       L.control.zoom({position:'bottomleft'}).addTo(map);
       routeLayer=L.layerGroup().addTo(map);
       markerLayer=L.layerGroup().addTo(map);
       map.on('dragstart',()=>{ followMe=false; });
+      window.addEventListener('resize',()=>{ if(mapReady&&map) setTimeout(()=>map.invalidateSize(),100); });
       mapReady=true;
     }
     map.setView([lat,lon],zoom);
@@ -364,7 +372,7 @@ function ensureMapVisible(lat=35.362,lon=137.724,zoom=6){
   }
 }
 
-/* ===== 現在地＆天気 ===== */
+/* ===== 現在地 ===== */
 function updateCurrent(latlng){
   lastKnownPos={lat:latlng[0],lng:latlng[1]};
   if(!mapReady) ensureMapVisible(latlng[0],latlng[1],18);
@@ -407,7 +415,7 @@ function initGeolocation(){
   },()=>{}, {enableHighAccuracy:true,maximumAge:2500,timeout:10000});
 }
 
-/* ===== 距離バケット（統一化の核） ===== */
+/* ===== 距離バケット（統一） ===== */
 const BUCKETS=[200,150,120,80,50,30,10,5,3];
 function bucketForDistance(d){
   if(d>200) return 200;
@@ -428,7 +436,6 @@ function cardinal4(b){ const a=norm360(b); if(a<45||a>=315) return '北'; if(a<1
 function initialBearing(){ const g=lastRoute?.route?.geometry?.coordinates; if(!g||g.length<2) return null; const a={lat:g[0][1],lng:g[0][0]},b={lat:g[1][1],lng:g[1][0]}; const toRad=t=>t*Math.PI/180, toDeg=t=>t*180/Math.PI; const φ1=toRad(a.lat),φ2=toRad(b.lat),λ1=toRad(a.lng),λ2=toRad(b.lng); const y=Math.sin(λ2-λ1)*Math.cos(φ2); const x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2-λ1); return norm360(toDeg(Math.atan2(y,x))); }
 function normalizeRoadName(name){ if(!name) return ''; const m=name.match(/^(国道|県道|町道)\s*(\d+)\s*号(線)?/); if(m) return `${m[1]}${m[2]}号線`; return name; }
 
-/* ★ 初回＆以後の距離発話を同一バケットで統一 */
 function buildIntroSpeech(){
   const st=lastRoute?.route?.segments?.[0]?.steps?.[0];
   const br=initialBearing(); const dir=(br!=null)?cardinal4(br):'';
@@ -499,7 +506,7 @@ function updateEtaDynamic(){
   else if(lastRoute?.route){ const sec=computeFinalSec(lastRoute.route); updateETAPill(lastRoute.route, sec, extractDurDist(lastRoute.route).dist); }
 }
 
-/* ガイダンス状態・進行（初回と以降の距離発話を統一＆間引き） */
+/* ガイダンス */
 function prepareGuidance(){
   navState={steps:[],idx:0,nearArrivalSaid:false,arrived:false,lastBucketIdx:null,startAt:Date.now()};
   const coords=lastRoute.route?.geometry?.coordinates||[], st=lastRoute.route?.segments?.[0]?.steps||[];
@@ -512,18 +519,14 @@ function prepareGuidance(){
     }
   });
   navState.steps=steps;
-  // 初回ステップ距離のバケットをlastBucketに設定（直後の“前方○m”と同値に）
   if(steps[0]){ const b=bucketForDistance(steps[0].distance); navState.lastBucketIdx=bucketIndex(b); }
   updateEtaDynamic();
 }
 function stepSpeech(s){ return turnPhrase(s.action||'straight'); }
 function bucketSpeakText(b, s){
-  // バケットで統一
   if(b>=120) return `前方約${b}メートルを、${stepSpeech(s)}`;
   return `前方${b}メートルを、${stepSpeech(s)}`;
 }
-function labelSafety(t){return t==='bridge'?'歩道橋':t==='tunnel'?'地下道':t==='rail'?'踏切':'横断歩道';}
-
 function advanceGuidance(cur){
   if(!navState || navState.arrived) return;
 
@@ -538,7 +541,6 @@ function advanceGuidance(cur){
   const b=bucketForDistance(dist);
   const bi=bucketIndex(b);
 
-  // 初回アナウンス直後の“二重”を防ぐ：2段階以上縮んだ時だけ更新発話
   if(Date.now()-navState.startAt>3000){
     if(navState.lastBucketIdx==null || (navState.lastBucketIdx - bi)>=2){
       tts.speak(bucketSpeakText(b, s), `step${navState.idx}-b${b}`);
@@ -546,12 +548,14 @@ function advanceGuidance(cur){
     }
   }
 
-  // 交差点直近
   if(dist<=3){
     tts.speak('ここで、'+stepSpeech(s),`now-${navState.idx}`);
     navState.idx++; navState.lastBucketIdx=null;
   }
 }
+
+/* リルート発話 */
+function modeLabel(v){ return v==='easy'?'楽チン':(v==='stroll'?'お散歩AI':'最短'); }
 
 /* 安全ポイント（横断歩道等） */
 async function fetchSafetyPointsFromOverpass(){
@@ -573,8 +577,9 @@ async function fetchSafetyPointsFromOverpass(){
   }catch{}
 }
 
-/* ルート取得 */
-const waitForUnlock=()=>new Promise(res=>{ const tick=()=>{ if(!routingLock) return res(); setTimeout(tick,120); }; tick(); });
+/* ====== ルート取得（重複宣言なし） ====== */
+function waitForUnlock(){ return new Promise(res=>{ const tick=()=>{ if(!routingLock) return res(); setTimeout(tick,120); }; tick(); }); }
+
 async function fetchRouteORS(coords){
   const opts={avoid_features:['ferries','fords']}; if(routeMode==='easy') opts.avoid_features.push('steps');
   const body={coordinates:coords,instructions:true,language:'ja',profile:'foot-walking',geometry:true,geometry_format:'geojson',preference:(routeMode==='shortest'?'shortest':'recommended'),options:opts};
@@ -597,8 +602,14 @@ function drawRouteORS(j){
   updateETAPill(route);
 }
 
-/* 検索 */
-function setSearchBusy(on){ els.search.disabled=on; els.mic.disabled=on; els.searchStatus.textContent= on?'検索中…':''; }
+/* ===== 検索 ===== */
+function setSearchBusy(on){
+  els.search.disabled=on; els.mic.disabled=on;
+  els.searchStatus.textContent= on?'検索中…':'';
+  els.searchStatus.classList.toggle('search-large', on);
+  els.mic.classList.toggle('btn-busy', on);   // ← 要望①：検索中はマイクも赤
+  els.search.classList.toggle('btn-busy', on);
+}
 function kanaVariants(s){ const toK=t=>t.replace(/[\u3041-\u3096]/g,ch=>String.fromCharCode(ch.charCodeAt(0)+0x60)); const toH=t=>t.replace(/[\u30A1-\u30F6]/g,ch=>String.fromCharCode(ch.charCodeAt(0)-0x60)); const base=[s,toK(s),toH(s)]; return Array.from(new Set(base)); }
 function buildQueries(raw){ const xs=kanaVariants(raw),out=[...xs]; xs.forEach(t=>{ out.push(`${t} 病院`,`${t} クリニック`,`${t} 店`,`${t} 近く`,`${t} 周辺`);}); return Array.from(new Set(out)); }
 async function photonQuery({q,lat,lon,limit=30}){ const url=new URL('https://photon.komoot.io/api/'); url.searchParams.set('q',q); url.searchParams.set('lang','ja'); if(Number.isFinite(lat)&&Number.isFinite(lon)){ url.searchParams.set('lat',lat); url.searchParams.set('lon',lon); } url.searchParams.set('limit',String(limit)); try{ const r=await fetch(url.toString()); const js=await r.json(); const here=(Number.isFinite(lat)&&Number.isFinite(lon))?L.latLng(lat,lon):null; return (js.features||[]).map(f=>{ const p=f.properties,c=f.geometry.coordinates,ll={lat:c[1],lon:c[0]}; const dist=here?here.distanceTo([ll.lat,ll.lon]):1e12; return {name:p.name||p.street||p.city||'名称不明',addr:[p.city,p.street,p.housenumber].filter(Boolean).join(' '),lon:c[0],lat:c[1],dist,src:'photon',kind:(p.osm_value||'').toLowerCase()}; }); }catch{return []} }
@@ -675,7 +686,6 @@ function openSave(){
   els.saveLon.value=Number.isFinite(lon)?lon:'';
   els.saveLat.value=Number.isFinite(lat)?lat:'';
   els.saveModal.style.display='flex';
-  // 入力にフォーカス（キーボード出てもボタンはsticky）
   setTimeout(()=>{ els.saveName.focus(); }, 80);
 }
 function doSave(){
@@ -699,15 +709,17 @@ function delSaved(){
   els.msg.textContent='削除しました';
 }
 
-/* 音声操作 */
+/* 音声操作（聞き取り中はボタン赤） */
 function startVoice(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR){ els.msg.textContent='音声入力に未対応のブラウザです'; return; }
-  els.searchStatus.textContent='音声認識中…';
+  els.searchStatus.textContent='音声認識中…'; els.searchStatus.classList.add('search-large');
+  els.mic.classList.add('btn-busy'); // ← 要望①
   const rec=new SR(); rec.lang='ja-JP'; rec.interimResults=false; rec.maxAlternatives=1;
+  rec.onstart=()=>{ els.mic.classList.add('btn-busy'); };
   rec.onresult=(ev)=>{ els.q.value=ev.results[0][0].transcript||''; searchNearby(); };
   rec.onerror=()=>{ els.searchStatus.textContent='音声失敗'; els.msg.textContent='音声入力に失敗しました'; };
-  rec.onend=()=>{ if(els.searchStatus.textContent==='音声認識中…') els.searchStatus.textContent=''; };
+  rec.onend=()=>{ els.mic.classList.remove('btn-busy'); els.searchStatus.textContent=''; els.searchStatus.classList.remove('search-large'); };
   rec.start();
 }
 
@@ -728,27 +740,23 @@ function _startNavCore(){
   els.msg.textContent='案内を開始します';
 }
 
-/* リルート（モード発話 → 通常案内） */
-function modeLabel(v){ return v==='easy'?'楽チン':(v==='stroll'?'お散歩AI':'最短'); }
-
-/* 検索本体 */
+/* 検索本体（検索中はマイク/検索を赤に） */
 async function searchNearby(){
   const raw=els.q.value.trim(); if(!raw){ els.msg.textContent='検索ワードを入力してください'; return; }
   let lat=Number(els.startLat.value),lon=Number(els.startLon.value);
   let hasStart=[lat,lon].every(Number.isFinite);
   if(!hasStart && currentMarker){ const c=currentMarker.getLatLng(); lat=c.lat; lon=c.lng; hasStart=true; }
 
-  els.search.disabled=true; els.mic.disabled=true; els.searchStatus.textContent='検索中…';
+  setSearchBusy(true);
   els.msg.textContent='検索中…';
   const items=await mergedSearch(raw,hasStart?lat:null,hasStart?lon:null);
   showResults(items);
   els.msg.textContent=items.length?(hasStart?'候補が見つかりました。リストから選ぶと案内を開始します。':'候補が見つかりました。地図中心を出発地として案内します。'):'候補が見つかりません';
-  els.search.disabled=false; els.mic.disabled=false; els.searchStatus.textContent='';
+  setSearchBusy(false);
   saveHistory(raw);
 }
 
 /* ルート＆リルート */
-const waitForUnlock=()=>new Promise(res=>{ const tick=()=>{ if(!routingLock) return res(); setTimeout(tick,120); }; tick(); });
 async function getRoute(){
   await waitForUnlock(); routingLock=true; setBusy(els.reroute,true);
   let slon=Number(els.startLon.value), slat=Number(els.startLat.value);
@@ -763,6 +771,7 @@ async function getRoute(){
     catch{ const {j}=await fetchRouteValhalla(coords); drawRouteORS(j); await fetchSafetyPointsFromOverpass(); routingLock=false; return {engine:'valhalla',raw:j}; } }
   }catch(e){ els.msg.textContent='ルート取得に失敗しました（再試行してください）'; routingLock=false; return null; }
 }
+
 function wireRerouteButton(){
   els.reroute.addEventListener('click',()=>{ els.rerouteModal.style.display='flex'; });
   els.cancelRR.addEventListener('click',()=>{ els.rerouteModal.style.display='none'; });
@@ -772,14 +781,13 @@ function wireRerouteButton(){
     tts.stop();
     const j=await getRoute();
     if(j){
-      // ② リルートモードを宣言 → 通常の「案内を開始します…」
       tts.speak(`${modeLabel(routeMode)}でリルートを開始します。`,'reroute-mode',{interrupt:true});
       startNavigation();
     }
   });
 }
 
-/* モーダル：キーボード干渉をさらに回避（iOS/Android） */
+/* モーダル：キーボード対応 */
 if('visualViewport' in window){
   const vv=visualViewport;
   const adjust=()=>{
