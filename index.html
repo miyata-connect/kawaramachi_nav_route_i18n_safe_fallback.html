@@ -271,7 +271,7 @@ button[disabled]{opacity:.6;pointer-events:none}
   </div>
 </div>
 
-<!-- Leaflet ローダ -->
+<!-- Leaflet ローダ（フォールバック3段） -->
 <script>
 let leafletReady=false;
 (function loadLeaflet(){
@@ -338,7 +338,7 @@ const norm360=x=>{x%=360;if(x<0)x+=360;return x;}
 const shortDiff=(a,b)=>{let d=norm360(b)-norm360(a);if(d>180)d-=360;if(d<-180)d+=360;return d;}
 function setBusy(btn,flag){ if(!btn) return; if(flag){ btn.setAttribute('disabled',''); setTimeout(()=>btn.removeAttribute('disabled'),1200); }}
 
-/* ===== TTS（重複抑制・間隔制限・キュー破棄） ===== */
+/* ===== TTS（重複抑制） ===== */
 const tts={ lastKey:null,lastAt:0,minInterval:2500,repeatWindow:8000,
   speak(txt,key){
     const now=Date.now();
@@ -430,7 +430,7 @@ function showStaticMap(lat,lon,zoom){
 
 /* ===== 現在地・天気 ===== */
 function bearingBetween(a,b){ const toR=t=>t*Math.PI/180,toD=t=>t*180/Math.PI; const φ1=toR(a.lat),φ2=toR(b.lat),λ1=toR(a.lng),λ2=toR(b.lng);
-  const y=Math.sin(λ2-λ1)*Math.cos(φ2), x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2-λ1); return norm360(toD(Math.atan2(y,x))); }
+  const y=Math.sin(λ2-λ1)*Math.cos(φ2), x=Math.cos(φ1)*sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2-λ1); return norm360(toD(Math.atan2(y,x))); }
 function startWatchdog(){ clearTimeout(watchdogTimer); watchdogTimer=setTimeout(()=>{ if(!geoResolved){ ensureMapVisible(); $('msg').textContent='現在地の取得に時間がかかっています。仮の地図を表示中。'; } },3000); }
 function initGeolocation(){
   startWatchdog();
@@ -447,14 +447,12 @@ function initGeolocation(){
   if(watchId) navigator.geolocation.clearWatch(watchId);
   watchId=navigator.geolocation.watchPosition(pos=>{
     geoResolved=true;
-    const {latitude,longitude,heading,speed}=pos.coords;
+    const {latitude,longitude,heading}=pos.coords;
     ensureMapVisible(latitude,longitude,18);
-    const cur=L.latLng(latitude,longitude), now=Date.now(); updateCurrent([latitude,longitude]);
-    const dist=prevPos? prevPos.distanceTo(cur):0; const v=(typeof speed==='number'&&isFinite(speed))?speed:(prevTime?dist/((now-prevTime)/1000):0);
-    if(Number.isFinite(heading)) setCompassTarget(heading,'gps'); else if(prevPos && dist>20 && v>0.7){ setCompassTarget(bearingBetween({lat:prevPos.lat,lng:prevPos.lng},{lat:cur.lat,lng:cur.lng}),'gps'); }
-    prevPos=cur; prevTime=now;
-
-    if(!lastWx.lat || L.latLng(lastWx.lat,lastWx.lon).distanceTo(cur)>1000){ fetchWeather(latitude,longitude); }
+    updateCurrent([latitude,longitude]);
+    if(Number.isFinite(heading)) setCompassTarget(heading,'gps');
+    prevPos=L.latLng(latitude,longitude); prevTime=Date.now();
+    if(!lastWx.lat || L.latLng(lastWx.lat,lastWx.lon).distanceTo([latitude,longitude])>1000){ fetchWeather(latitude,longitude); }
     if(navActive) advanceGuidance({lat:latitude,lng:longitude});
   },()=>{}, {enableHighAccuracy:true,maximumAge:2500,timeout:10000});
 }
@@ -462,28 +460,44 @@ function updateCurrent(latlng){ if(!mapReady) ensureMapVisible(); if(currentMark
 function setStart(lon,lat){ $('startLon').value=lon??''; $('startLat').value=lat??''; }
 function setDest(lon,lat){ $('destLon').value=lon??''; $('destLat').value=lat??''; if(Number.isFinite(lat)&&Number.isFinite(lon)){ if(!mapReady) ensureMapVisible(lat,lon,13); if(window.L){ if(!destMarker) destMarker=L.marker([lat,lon],{title:'目的地'}).addTo(routeGroup||map); else destMarker.setLatLng([lat,lon]); } } }
 
-/* 天気 */
+/* 天気（降水確率は10%刻みに丸め、10%未満は雨アイコンにしない） */
+function round10(n){ return Math.max(0, Math.min(100, Math.round((n||0)/10)*10)); }
+function wxIconBy(wc,pop10){
+  // pop10 は 0,10,20,...,100
+  const isRainCode = (wc>=51&&wc<=67)||wc>=80;
+  const isSnowCode = (wc>=71&&wc<=77);
+  if(isSnowCode) return '<span class="wxicon snow">✻</span>';
+  if(isRainCode && pop10>=10) return '<span class="wxicon rain">☂︎</span>';
+  // 晴れ/曇り系
+  if(wc===0||wc===1||wc===2) return '<span class="wxicon sun">☀︎</span>';
+  return '<span class="wxicon cloud">☁︎</span>';
+}
 async function fetchWeather(lat,lon){
   try{
     const url=`${OPEN_METEO}?latitude=${lat}&longitude=${lon}&hourly=weathercode,temperature_2m,precipitation_probability&forecast_days=2&timezone=auto`;
     const r=await fetch(url); const j=await r.json(); const hh=j.hourly; if(!hh) return; lastWx={lat,lon};
-    const now=new Date(); let best=0, diff=1e18; for(let i=0;i<hh.time.length;i++){ const d=Math.abs(new Date(hh.time[i]).getTime()-now.getTime()); if(d<diff){diff=d;best=i;} }
-    const out=[]; for(let k=0;k<3;k++){ const i=best+k*3; if(i>=hh.time.length) break; const t=new Date(hh.time[i]);
-      const temp=Math.round(hh.temperature_2m[i]); const pop=hh.precipitation_probability[i]??0; const wc=hh.weathercode[i]??0;
-      const icon = (wc===0||wc===1||wc===2)?'<span class="wxicon sun">☀︎</span>':(wc===3?'<span class="wxicon cloud">☁︎</span>':(wc>=51&&wc<=67||wc>=80?'<span class="wxicon rain">☂︎</span>':'<span class="wxicon snow">✻</span>'));
+    const now=new Date(); let best=0, diff=1e18;
+    for(let i=0;i<hh.time.length;i++){ const d=Math.abs(new Date(hh.time[i]).getTime()-now.getTime()); if(d<diff){diff=d;best=i;} }
+    const out=[];
+    for(let k=0;k<3;k++){
+      const i=best+k*3; if(i>=hh.time.length) break;
+      const t=new Date(hh.time[i]);
+      const temp=Math.round(hh.temperature_2m[i]); const pop10=round10(hh.precipitation_probability[i]??0); const wc=hh.weathercode[i]??0;
+      const icon=wxIconBy(wc,pop10);
       out.push(`<div class="wxcard">
         <div class="wxtime">${String(t.getHours()).padStart(2,'0')}:00</div>
         ${icon}
         <div class="wxtemp">${temp}℃</div>
-        <div class="wxprec">降水${pop}%</div>
+        <div class="wxprec">降水${pop10}%</div>
       </div>`);
     }
     els.wxBody.innerHTML=out.join('');
   }catch{}
 }
 
-/* ===== ルーティング：フェイルオーバー（略：前回仕様のまま） ===== */
-/* 日本語化ヘルパ等も前回どおり（省略せずに実装） */
+/* ===== ルーティング（フェイルオーバー／省略せず実装） ===== */
+// …（ここから下は前回版のルーティング・案内ロジックをそのまま搭載。改行の都合で省略せず実装しています）
+/* 日本語化 */
 function japaneseTurn(mod,typ){
   const m=mod||''; const t=typ||'';
   if(t==='arrive') return '目的地です';
@@ -573,7 +587,7 @@ function updateETA(engine,route){
   showEtaPill(true);
 }
 
-/* ===== 安全ポイント・ガイダンス ===== */
+/* ===== 安全ポイント・案内 ===== */
 function labelSafety(t){ return t==='bridge'?'歩道橋':(t==='tunnel'?'地下道':(t==='rail'?'踏切':'横断歩道')); }
 async function fetchSafetyPointsFromOverpass(){
   safetyPoints=[]; if(!lastRoute) return;
@@ -606,7 +620,7 @@ async function fetchSafetyPointsFromOverpass(){
 }
 
 function initialBearingFromRoute(){
-  const g=lastRoute?.route?.geometry?.coordinates; if(g&&g.length>=2){ const a={lat:g[0][1],lng:g[0][0]},b={lat:g[1][1],lng:g[1][0]}; return bearingBetween(a,b); }
+  const g=lastRoute?.route?.geometry?.coordinates; if(g&&g.length>=2){ const a={lat:g[0][1],lng:g[0][0]},b={lat:g[1][1],lng:g[1][0]}; return norm360((Math.atan2(Math.sin((b.lng-a.lng)*Math.PI/180)*Math.cos(b.lat*Math.PI/180),Math.cos(a.lat*Math.PI/180)*Math.sin(b.lat*Math.PI/180)-Math.sin(a.lat*Math.PI/180)*Math.cos(b.lat*Math.PI/180)*Math.cos((b.lng-a.lng)*Math.PI/180))*180/Math.PI+360)%360); }
   return null;
 }
 function bearingToText(b){ const names=['北','北北東','北東','東北東','東','東南東','南東','南南東','南','南南西','南西','西南西','西','西北西','北西','北北西','北']; return names[Math.round(b/22.5)]; }
@@ -640,7 +654,6 @@ function nearestSafetyAhead(cur,nextStep){
 function advanceGuidance(cur){
   if(!navState || navState.arrived) return;
 
-  // 到着処理
   if(destMarker){
     const d=L.latLng(cur.lat,cur.lng).distanceTo(destMarker.getLatLng());
     if(d<=5 && !navState.arrived){ tts.speak('目的地に到着しました。案内を終了します。','arrived'); navState.arrived=true; navActive=false; heartbeat.stop(); return; }
@@ -707,11 +720,10 @@ function showResults(items){
     div.innerHTML=`<div><strong>${i+1}. ${escapeHtml(it.name)}</strong></div>
       <small>${(it.dist!=null&&it.dist<1e12)?(it.dist/1000).toFixed(2)+' km　':''}${escapeHtml(it.addr||'')}
       <span class="badge">${it.lat.toFixed(5)}, ${it.lon.toFixed(5)}</span></small>`;
-
     const handler=async()=>{
       if(div._busy) return; div._busy=true; setTimeout(()=>div._busy=false,1200);
       setDest(it.lon,it.lat); if(mapReady&&map) map.flyTo([it.lat,it.lon],18);
-      const j=await getRoute(); if(j) startNavigation(); else $('msg').textContent='ルート取得に失敗（検索候補から再試行してください）';
+      const j=await getRoute(); if(j) startNavigation(); else $('msg').textContent='ルート取得に失敗（再試行してください）';
     };
     div.addEventListener('click',handler);
     div.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); handler(); }});
@@ -728,7 +740,6 @@ function saveHistory(q){ if(!q) return; const arr=loadHistory().filter(x=>x!==q)
 function clearHistory(){
   localStorage.removeItem(HISTORY_KEY);
   els.q.value=''; els.results.style.display='none'; els.resultList.innerHTML=''; els.searchStatus.textContent='';
-  // ★ナビ完全終了 & 現在地へ戻す
   tts.stop(); navActive=false; heartbeat.stop(); navState=null;
   if(map && currentMarker){ map.flyTo(currentMarker.getLatLng(),18); }
   else{
@@ -753,7 +764,7 @@ function openSave(){
   els.saveModal.style.display='flex';
 }
 function doSave(){
-  const name=els.saveName.value.trim()||='地点';
+  const name = els.saveName.value.trim() || '地点'; /* ← 文法修正 */
   const lon=Number(els.saveLon.value), lat=Number(els.saveLat.value);
   if(![lon,lat].every(Number.isFinite)){ $('msg').textContent='保存に必要な座標が不正です'; return; }
   const arr=loadSaves(); arr.unshift({id:newId(),name,lat,lon}); saveSaves(arr.slice(0,50));
@@ -787,9 +798,8 @@ function closeRerouteModal(){ $('rerouteModal').style.display='none'; }
 async function doReroute(){
   const sel=[...document.querySelectorAll('input[name="rr"]')].find(i=>i.checked)?.value||'shortest';
   routeMode=sel; closeRerouteModal();
-  tts.stop(); // ★リセットしてから案内
+  tts.stop();
   const j=await getRoute(); if(j){
-    // リルート開始の定型文 → 初回案内
     tts.speak('リルートします。','reroute');
     startNavigation();
   }
@@ -825,9 +835,7 @@ function startNavigation(){
 function _startNavCore(){
   navActive=true; heartbeat.start();
   prepareGuidance();
-  // ★音声検索トリガ時は必ず先に定型文
   if(voiceTriggered){ tts.speak('音声案内を開始します。','voice-start'); voiceTriggered=false; }
-  // 初回案内
   const intro=firstInstruction(); tts.speak(intro,'intro');
   if(mapReady&&map&&routeLine) map.fitBounds(routeLine.getBounds(),{padding:[30,30]});
   $('msg').textContent='案内を開始します';
