@@ -29,18 +29,18 @@ button.danger{background:var(--danger);border:none;font-weight:700}
 button[disabled]{opacity:.6;pointer-events:none}
 .hint{color:var(--muted);font-size:14px}
 
-/* ==== トグル（ルート／音声） ==== */
-/* はみ出し対策：フォントとパディングを控えめに */
+/* ==== ルート・トグル（横スライド禁止） ==== */
 .toggle-group{
   display:flex;gap:8px;justify-content:center;align-content:center;
   background:#0b1624;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:8px 10px;
-  flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:thin
+  flex-wrap:wrap; /* ← 横スライド禁止。必要なら折り返し */
+  overflow:hidden; /* スクロール禁止 */
 }
 .toggle input{display:none}
 .toggle label{
   display:inline-flex;align-items:center;justify-content:center;
   padding:8px 14px;border-radius:999px;cursor:pointer;white-space:nowrap;
-  font-size:clamp(13px,1.7vw,16px); /* ←元より“ほんの少し”大きい程度 */
+  font-size:clamp(13px,1.55vw,15px);
   font-weight:800;line-height:1;
 }
 .toggle input:checked + label{
@@ -53,7 +53,7 @@ button[disabled]{opacity:.6;pointer-events:none}
 /* 「検索中…」は水色で大きく */
 #searchStatus.search-large{font-size:18px;font-weight:800;color:var(--aqua)}
 
-/* 緯度経度ブロック（前回デザイン維持） */
+/* 緯度経度ブロック */
 .stagger-wrap{display:flex;flex-direction:column;gap:10px}
 .st-row{display:flex;gap:12px;align-items:center;flex-wrap:nowrap}
 .st-row>.hint{flex:0 0 var(--labelW);min-width:var(--labelW);text-align:left;color:#ffd166;font-weight:800}
@@ -114,37 +114,44 @@ button[disabled]{opacity:.6;pointer-events:none}
 <body>
 <div class="wrap">
 
-  <!-- ルートタイプ（小さめ・はみ出し防止） -->
+  <!-- ルートタイプ（横スライド禁止・中央寄せ） -->
   <div class="card">
     <div class="toggle-group" id="routeToggles" role="radiogroup" aria-label="ルートタイプ">
-      <div class="toggle"><input type="radio" name="routeMode" id="routeShortest" value="shortest" checked><label for="routeShortest">最短</label></div>
-      <div class="toggle"><input type="radio" name="routeMode" id="routeEasy" value="easy"><label for="routeEasy">楽チン</label></div>
-      <div class="toggle"><input type="radio" name="routeMode" id="routeStroll" value="stroll"><label for="routeStroll">お散歩AI</label></div>
-      <div class="toggle"><input type="radio" name="routeMode" id="routeTour" value="tour"><label for="routeTour">観光案内（予定）</label></div>
+      <div class="toggle"><input type="radio" name="routeMode" id="routeShortest" value="shortest" checked><label for="routeShortest" data-i18n="ui.shortest">最短</label></div>
+      <div class="toggle"><input type="radio" name="routeMode" id="routeEasy" value="easy"><label for="routeEasy" data-i18n="ui.easy">楽チン</label></div>
+      <div class="toggle"><input type="radio" name="routeMode" id="routeStroll" value="stroll"><label for="routeStroll" data-i18n="ui.stroll">お散歩AI</label></div>
+      <div class="toggle"><input type="radio" name="routeMode" id="routeTour" value="tour"><label for="routeTour" data-i18n="ui.tourPlanned">観光案内（予定）</label></div>
     </div>
   </div>
 
-  <!-- 音声／言語（6言語トグル） -->
+  <!-- 言語選択（保存地点と同じセレクトUIに変更） -->
   <div class="card" style="margin-top:12px">
-    <div class="toggle-group" id="voiceToggles" role="radiogroup" aria-label="音声言語">
-      <div class="toggle"><input type="radio" name="voiceMode" id="voiceJA" value="ja" checked><label for="voiceJA">日本語</label></div>
-      <div class="toggle"><input type="radio" name="voiceMode" id="voiceEN" value="en"><label for="voiceEN">English</label></div>
-      <div class="toggle"><input type="radio" name="voiceMode" id="voiceKO" value="ko"><label for="voiceKO">한국어</label></div>
-      <div class="toggle"><input type="radio" name="voiceMode" id="voiceFR" value="fr"><label for="voiceFR">Français</label></div>
-      <div class="toggle"><input type="radio" name="voiceMode" id="voiceES" value="es"><label for="voiceES">Español</label></div>
-      <div class="toggle"><input type="radio" name="voiceMode" id="voiceZH" value="zh"><label for="voiceZH">中文</label></div>
+    <div class="row">
+      <div class="grow">
+        <div class="hint" data-i18n="ui.voiceLang">音声と言語</div>
+        <div class="row">
+          <select id="langSelect" class="grow" aria-label="言語選択">
+            <option value="ja">日本語</option>
+            <option value="en">English</option>
+            <option value="ko">한국어</option>
+            <option value="fr">Français</option>
+            <option value="es">Español</option>
+            <option value="zh">中文</option>
+          </select>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- 検索 -->
   <div class="card" style="margin-top:12px">
     <div class="row">
-      <input id="q" class="grow" placeholder="店舗名・住所・電話番号で検索" autocomplete="off">
-      <button id="mic" class="ok">🎤 音声</button>
+      <input id="q" class="grow" placeholder="店舗名・住所・電話番号で検索" autocomplete="off" data-i18n-ph="ui.searchPh">
+      <button id="mic" class="ok" data-i18n="ui.voiceBtn">🎤 音声</button>
     </div>
     <div class="row" style="margin-top:8px">
-      <button id="search" class="primary">検索</button>
-      <button id="clearHistory" class="ghost">履歴をクリア</button>
+      <button id="search" class="primary" data-i18n="ui.searchBtn">検索</button>
+      <button id="clearHistory" class="ghost" data-i18n="ui.clearHistory">履歴をクリア</button>
       <span id="searchStatus" class="hint" style="min-width:8ch"></span>
     </div>
   </div>
@@ -153,28 +160,28 @@ button[disabled]{opacity:.6;pointer-events:none}
   <div class="card" style="margin-top:12px">
     <div class="stagger-wrap">
       <div class="st-row start">
-        <div class="hint">開始地点</div>
+        <div class="hint" data-i18n="ui.startPt">開始地点</div>
         <div class="coords">
           <div class="coord-col">
-            <div class="coord-label">経度</div>
-            <input id="startLon" class="coord-input" placeholder="経度" inputmode="decimal">
+            <div class="coord-label" data-i18n="ui.lon">経度</div>
+            <input id="startLon" class="coord-input" placeholder="経度" inputmode="decimal" data-i18n-ph="ui.lon">
           </div>
           <div class="coord-col">
-            <div class="coord-label">緯度</div>
-            <input id="startLat" class="coord-input" placeholder="緯度" inputmode="decimal">
+            <div class="coord-label" data-i18n="ui.lat">緯度</div>
+            <input id="startLat" class="coord-input" placeholder="緯度" inputmode="decimal" data-i18n-ph="ui.lat">
           </div>
         </div>
       </div>
       <div class="st-row dest">
-        <div class="hint">目的地点</div>
+        <div class="hint" data-i18n="ui.destPt">目的地点</div>
         <div class="coords">
           <div class="coord-col">
-            <div class="coord-label">経度</div>
-            <input id="destLon" class="coord-input" placeholder="経度" inputmode="decimal">
+            <div class="coord-label" data-i18n="ui.lon">経度</div>
+            <input id="destLon" class="coord-input" placeholder="経度" inputmode="decimal" data-i18n-ph="ui.lon">
           </div>
           <div class="coord-col">
-            <div class="coord-label">緯度</div>
-            <input id="destLat" class="coord-input" placeholder="緯度" inputmode="decimal">
+            <div class="coord-label" data-i18n="ui.lat">緯度</div>
+            <input id="destLat" class="coord-input" placeholder="緯度" inputmode="decimal" data-i18n-ph="ui.lat">
           </div>
         </div>
       </div>
@@ -183,17 +190,17 @@ button[disabled]{opacity:.6;pointer-events:none}
     <!-- 地点保存 -->
     <div class="row" style="margin-top:12px">
       <div class="grow">
-        <div class="hint">記憶地点（この端末に保存）</div>
+        <div class="hint" data-i18n="ui.savedPts">記憶地点（この端末に保存）</div>
         <div class="row">
           <select id="savedList" class="grow"></select>
-          <button id="openSaveModal" class="ok">現在地を保存</button>
-          <button id="setFromSaved" class="primary">目的地に設定</button>
-          <button id="delSaved" class="danger">削除</button>
+          <button id="openSaveModal" class="ok" data-i18n="ui.saveHere">現在地を保存</button>
+          <button id="setFromSaved" class="primary" data-i18n="ui.setAsDest">目的地に設定</button>
+          <button id="delSaved" class="danger" data-i18n="ui.delete">削除</button>
         </div>
       </div>
     </div>
 
-    <div id="msg" class="hint" style="margin-top:6px;">現在地の取得を待機中…</div>
+    <div id="msg" class="hint" style="margin-top:6px;" data-i18n="ui.waiting">現在地の取得を待機中…</div>
   </div>
 
   <!-- 地図 -->
@@ -202,9 +209,9 @@ button[disabled]{opacity:.6;pointer-events:none}
     <div id="mapSkeleton" aria-hidden="true"></div>
 
     <!-- ETA -->
-    <div id="etaOverlay" role="region" aria-label="到着予想">
+    <div id="etaOverlay" role="region" aria-label="ETA">
       <div id="etaPill">
-        <div id="timeRow"><span id="nowClock">現在 —:—</span>｜<span id="etaClock">到着 —:—</span></div>
+        <div id="timeRow"><span id="nowClock" data-i18n-static="ui.now">現在</span> <span>—:—</span>｜<span id="etaClock" data-i18n-static="ui.arrive">到着</span> <span>—:—</span></div>
         <div id="etaMain"><span class="num" id="etaDurationTop">—</span> ｜ <span class="num" id="etaDistanceTop">—</span></div>
       </div>
     </div>
@@ -216,23 +223,23 @@ button[disabled]{opacity:.6;pointer-events:none}
         <circle cx="37" cy="37" r="36" fill="url(#g1)" stroke="rgba(255,255,255,.15)"/>
         <text x="37" y="12" text-anchor="middle">N</text>
         <g id="needle"><polygon points="37,11 31.5,37 42.5,37"/></g>
-        <text x="37" y="66" text-anchor="middle" fill="#b8cce2">進行方向</text>
+        <text x="37" y="66" text-anchor="middle" fill="#b8cce2" data-i18n="ui.heading">進行方向</text>
       </svg>
     </div>
 
     <div class="fab-col">
-      <button id="navStart" class="ok">案内開始</button>
-      <button id="gotoStart" class="primary">現在地</button>
-      <button id="gotoDest"  class="primary">目的地</button>
-      <button id="reroute"   class="danger">リルート</button>
+      <button id="navStart" class="ok" data-i18n="ui.startNav">案内開始</button>
+      <button id="gotoStart" class="primary" data-i18n="ui.gotoStart">現在地</button>
+      <button id="gotoDest"  class="primary" data-i18n="ui.gotoDest">目的地</button>
+      <button id="reroute"   class="danger"  data-i18n="ui.reroute">リルート</button>
     </div>
   </div>
 
   <!-- 検索結果 -->
   <div class="card results" id="results" style="display:none">
     <div class="row" style="justify-content:space-between;align-items:center">
-      <div><span class="badge">検索結果（近隣 上位5件）</span></div>
-      <button id="closeResults" class="ghost">閉じる</button>
+      <div><span class="badge" data-i18n="ui.resultsTitle">検索結果（近隣 上位5件）</span></div>
+      <button id="closeResults" class="ghost" data-i18n="ui.close">閉じる</button>
     </div>
     <div id="resultList" class="body"></div>
   </div>
@@ -241,21 +248,21 @@ button[disabled]{opacity:.6;pointer-events:none}
 <!-- 保存モーダル -->
 <div class="modal" id="saveModal" aria-modal="true" role="dialog">
   <div class="box">
-    <div class="title">現在地を保存</div>
-    <div class="row"><input id="saveName" class="grow" placeholder="地点名（例：自宅・公園）"></div>
+    <div class="title" data-i18n="ui.saveNow">現在地を保存</div>
+    <div class="row"><input id="saveName" class="grow" placeholder="地点名（例：自宅・公園）" data-i18n-ph="ui.placePh"></div>
     <div class="row" style="gap:12px">
       <div class="coord-col" style="flex:1 1 0">
-        <div class="coord-label">経度</div>
-        <input id="saveLon" class="coord-input" placeholder="経度" inputmode="decimal">
+        <div class="coord-label" data-i18n="ui.lon">経度</div>
+        <input id="saveLon" class="coord-input" placeholder="経度" inputmode="decimal" data-i18n-ph="ui.lon">
       </div>
       <div class="coord-col" style="flex:1 1 0">
-        <div class="coord-label">緯度</div>
-        <input id="saveLat" class="coord-input" placeholder="緯度" inputmode="decimal">
+        <div class="coord-label" data-i18n="ui.lat">緯度</div>
+        <input id="saveLat" class="coord-input" placeholder="緯度" inputmode="decimal" data-i18n-ph="ui.lat">
       </div>
     </div>
     <div class="actions">
-      <button id="cancelSave" class="ghost">キャンセル</button>
-      <button id="doSave" class="ok">保存</button>
+      <button id="cancelSave" class="ghost" data-i18n="ui.cancel">キャンセル</button>
+      <button id="doSave" class="ok" data-i18n="ui.save">保存</button>
     </div>
   </div>
 </div>
@@ -263,15 +270,15 @@ button[disabled]{opacity:.6;pointer-events:none}
 <!-- リルートモーダル -->
 <div class="modal" id="rerouteModal" aria-modal="true" role="dialog">
   <div class="box">
-    <div class="title">リルート方式を選択（徒歩）</div>
+    <div class="title" data-i18n="ui.chooseReroute">リルート方式を選択（徒歩）</div>
     <div class="row">
-      <label><input type="radio" name="rr" value="shortest" checked> 最短</label>
-      <label><input type="radio" name="rr" value="easy"> 楽チン（階段回避）</label>
-      <label><input type="radio" name="rr" value="stroll"> お散歩AI（遠回り傾向）</label>
+      <label><input type="radio" name="rr" value="shortest" checked> <span data-i18n="ui.shortest">最短</span></label>
+      <label><input type="radio" name="rr" value="easy"> <span data-i18n="ui.easy">楽チン</span></label>
+      <label><input type="radio" name="rr" value="stroll"> <span data-i18n="ui.stroll">お散歩AI</span></label>
     </div>
     <div class="actions">
-      <button id="cancelRR" class="ghost">キャンセル</button>
-      <button id="doRR" class="primary">リルート</button>
+      <button id="cancelRR" class="ghost" data-i18n="ui.cancel">キャンセル</button>
+      <button id="doRR" class="primary" data-i18n="ui.reroute">リルート</button>
     </div>
   </div>
 </div>
@@ -283,7 +290,6 @@ button[disabled]{opacity:.6;pointer-events:none}
 const WORKER_ORIGIN='https://ors-proxy.miyata-connect-jp.workers.dev/proxy';
 const OSRM='https://router.project-osrm.org';
 const VALHALLA='https://valhalla1.openstreetmap.de/route';
-const OVERPASS='https://overpass-api.de/api/interpreter';
 const profile='foot-walking';
 const ETA_UPDATE_MS=2000;
 
@@ -302,13 +308,14 @@ const els={
   routeToggles:$('routeToggles'),
   rerouteModal:$('rerouteModal'), cancelRR:$('cancelRR'), doRR:$('doRR'),
   nowClock:$('nowClock'), etaClock:$('etaClock'), etaDurationTop:$('etaDurationTop'), etaDistanceTop:$('etaDistanceTop'),
-  msg:$('msg'), mapCard:$('mapCard')
+  msg:$('msg'), mapCard:$('mapCard'),
+  langSelect:$('langSelect')
 };
 
 /* ===== 状態 ===== */
 let map=null, routeLayer=null, markerLayer=null, routeLine=null, lastRoute=null;
 let currentMarker=null, destMarker=null, mapReady=false, watchId=null;
-let navActive=false, routingLock=false, routeMode='shortest', safetyPoints=[], navState=null;
+let navActive=false, routingLock=false, routeMode='shortest', navState=null;
 let followMe=false, lastKnownPos=null;
 /* 言語：ja,en,ko,fr,es,zh */
 let voiceMode='ja';
@@ -319,28 +326,100 @@ const norm360=x=>{x%=360;if(x<0)x+=360;return x;}
 const shortDiff=(a,b)=>{let d=norm360(b)-norm360(a);if(d>180)d-=360;if(d<-180)d+=360;return d;}
 function setBusy(btn,flag){ if(!btn) return; if(flag){ btn.setAttribute('disabled',''); setTimeout(()=>btn.removeAttribute('disabled'),1100); }}
 
-/* ===== i18n ===== */
+/* ===== i18n（案内・UI） ===== */
 const I18N={
   ja:{ start:'案内を開始します。', near:'まもなく目的地です。', arrived:'目的地に到着しました。案内を終了します。',
-       ahead:'前方', meters:'メートル', go:'直進してください', then:'、その後', proceed:'進みます', now:'ここで', head:'方向へ', using:'でリルートを開始します。',
+       ahead:'前方', meters:'メートル', go:'直進してください', then:'、その後', proceed:'進みます', now:'ここで', head:'方向へ', using:'でリルートします。',
        dirs:['北','東','南','西'], left:'左折してください', right:'右折してください', uturn:'Uターンしてください' },
   en:{ start:'Starting guidance.', near:'You are approaching your destination.', arrived:'You have arrived at your destination. Ending guidance.',
        ahead:'In', meters:'meters', go:'go straight', then:', then', proceed:'proceed', now:'Now,', head:'', using:' re-routing.',
        dirs:['north','east','south','west'], left:'turn left', right:'turn right', uturn:'make a U-turn' },
   ko:{ start:'안내를 시작합니다.', near:'곧 목적지에 도착합니다.', arrived:'목적지에 도착했습니다. 안내를 종료합니다.',
-       ahead:'앞으로', meters:'미터', go:'직진하세요', then:', 이후', proceed:'진행합니다', now:'지금', head:' 방향으로', using:'로 경로를 다시 안내합니다.',
+       ahead:'앞으로', meters:'미터', go:'직진하세요', then:', 이후', proceed:'진행합니다', now:'지금', head:' 방향으로', using:'로 리루트를 시작합니다.',
        dirs:['북','동','남','서'], left:'좌회전하세요', right:'우회전하세요', uturn:'유턴하세요' },
   fr:{ start:'Démarrage du guidage.', near:'Vous approchez de votre destination.', arrived:'Vous êtes arrivé à destination. Fin du guidage.',
-       ahead:'Dans', meters:'mètres', go:'continuez tout droit', then:', puis', proceed:'avancez', now:'Maintenant,', head:' vers', using:' pour un nouveau calcul d’itinéraire.',
+       ahead:'Dans', meters:'mètres', go:'continuez tout droit', then:', puis', proceed:'avancez', now:'Maintenant,', head:' vers', using:' : recalcul d’itinéraire.',
        dirs:['nord','est','sud','ouest'], left:'tournez à gauche', right:'tournez à droite', uturn:'faites demi-tour' },
   es:{ start:'Iniciando la guía.', near:'Está acercándose a su destino.', arrived:'Ha llegado a su destino. Finalizando la guía.',
-       ahead:'En', meters:'metros', go:'siga recto', then:', luego', proceed:'avance', now:'Ahora,', head:' hacia', using:' para recalcular la ruta.',
+       ahead:'En', meters:'metros', go:'siga recto', then:', luego', proceed:'avance', now:'Ahora,', head:' hacia', using:': recalculando ruta.',
        dirs:['norte','este','sur','oeste'], left:'gire a la izquierda', right:'gire a la derecha', uturn:'dé la vuelta' },
   zh:{ start:'开始导航。', near:'即将到达目的地。', arrived:'您已到达目的地。结束导航。',
        ahead:'前方', meters:'米', go:'直行', then:'，然后', proceed:'前进', now:'现在，', head:'方向', using:'开始重新规划路线。',
        dirs:['北','东','南','西'], left:'请左转', right:'请右转', uturn:'请掉头' }
 };
+const I18N_UI={
+  ja:{ shortest:'最短', easy:'楽チン', stroll:'お散歩AI', tourPlanned:'観光案内（予定）', voiceLang:'音声と言語',
+       searchPh:'店舗名・住所・電話番号で検索', voiceBtn:'🎤 音声', searchBtn:'検索', clearHistory:'履歴をクリア',
+       startPt:'開始地点', destPt:'目的地点', lon:'経度', lat:'緯度',
+       savedPts:'記憶地点（この端末に保存）', saveHere:'現在地を保存', setAsDest:'目的地に設定', delete:'削除',
+       waiting:'現在地の取得を待機中…', heading:'進行方向', startNav:'案内開始', gotoStart:'現在地', gotoDest:'目的地', reroute:'リルート',
+       resultsTitle:'検索結果（近隣 上位5件）', close:'閉じる', saveNow:'現在地を保存', placePh:'地点名（例：自宅・公園）',
+       cancel:'キャンセル', save:'保存', chooseReroute:'リルート方式を選択（徒歩）', now:'現在', arrive:'到着'
+  },
+  en:{ shortest:'Shortest', easy:'Easy', stroll:'Stroll AI', tourPlanned:'Tour (planned)', voiceLang:'Voice & Language',
+       searchPh:'Search by name/address/phone', voiceBtn:'🎤 Voice', searchBtn:'Search', clearHistory:'Clear history',
+       startPt:'Start', destPt:'Destination', lon:'Longitude', lat:'Latitude',
+       savedPts:'Saved places (local)', saveHere:'Save current location', setAsDest:'Set as destination', delete:'Delete',
+       waiting:'Waiting for current location…', heading:'Heading', startNav:'Start', gotoStart:'My location', gotoDest:'Destination', reroute:'Re-route',
+       resultsTitle:'Results (Top 5 nearby)', close:'Close', saveNow:'Save current location', placePh:'Place name (e.g., Home, Park)',
+       cancel:'Cancel', save:'Save', chooseReroute:'Choose re-route (walk)', now:'Now', arrive:'ETA'
+  },
+  ko:{ shortest:'최단', easy:'편한', stroll:'산책 AI', tourPlanned:'관광 안내(예정)', voiceLang:'음성 및 언어',
+       searchPh:'가게/주소/전화번호로 검색', voiceBtn:'🎤 음성', searchBtn:'검색', clearHistory:'기록 지우기',
+       startPt:'출발지', destPt:'목적지', lon:'경도', lat:'위도',
+       savedPts:'저장 위치(로컬)', saveHere:'현재 위치 저장', setAsDest:'목적지로 설정', delete:'삭제',
+       waiting:'현재 위치 대기 중…', heading:'진행 방향', startNav:'안내 시작', gotoStart:'현재지', gotoDest:'목적지', reroute:'리루트',
+       resultsTitle:'검색 결과(주변 상위 5)', close:'닫기', saveNow:'현재 위치 저장', placePh:'장소명(예: 집, 공원)',
+       cancel:'취소', save:'저장', chooseReroute:'리루트 방식 선택(도보)', now:'현재', arrive:'도착'
+  },
+  fr:{ shortest:'Le plus court', easy:'Facile', stroll:'Balade IA', tourPlanned:'Tourisme (prévu)', voiceLang:'Voix & langue',
+       searchPh:'Rechercher par nom/adresse/téléphone', voiceBtn:'🎤 Voix', searchBtn:'Rechercher', clearHistory:'Effacer l’historique',
+       startPt:'Départ', destPt:'Destination', lon:'Longitude', lat:'Latitude',
+       savedPts:'Lieux enregistrés (local)', saveHere:'Enregistrer la position', setAsDest:'Définir comme destination', delete:'Supprimer',
+       waiting:'En attente de la position…', heading:'Cap', startNav:'Démarrer', gotoStart:'Ma position', gotoDest:'Destination', reroute:'Recalcul',
+       resultsTitle:'Résultats (Top 5 à proximité)', close:'Fermer', saveNow:'Enregistrer la position', placePh:'Nom du lieu (ex. Maison, Parc)',
+       cancel:'Annuler', save:'Enregistrer', chooseReroute:'Choisir recalcul (à pied)', now:'Maintenant', arrive:'Arrivée'
+  },
+  es:{ shortest:'Más corto', easy:'Fácil', stroll:'Paseo IA', tourPlanned:'Turismo (previsto)', voiceLang:'Voz e idioma',
+       searchPh:'Buscar por nombre/dirección/teléfono', voiceBtn:'🎤 Voz', searchBtn:'Buscar', clearHistory:'Borrar historial',
+       startPt:'Inicio', destPt:'Destino', lon:'Longitud', lat:'Latitud',
+       savedPts:'Lugares guardados (local)', saveHere:'Guardar ubicación actual', setAsDest:'Definir como destino', delete:'Eliminar',
+       waiting:'Esperando ubicación…', heading:'Rumbo', startNav:'Iniciar', gotoStart:'Mi ubicación', gotoDest:'Destino', reroute:'Recalcular',
+       resultsTitle:'Resultados (Top 5 cercanos)', close:'Cerrar', saveNow:'Guardar ubicación', placePh:'Nombre del lugar (ej. Casa, Parque)',
+       cancel:'Cancelar', save:'Guardar', chooseReroute:'Elegir re-cálculo (a pie)', now:'Ahora', arrive:'Llegada'
+  },
+  zh:{ shortest:'最短', easy:'轻松', stroll:'散步AI', tourPlanned:'观光（计划）', voiceLang:'语音与语言',
+       searchPh:'按名称/地址/电话搜索', voiceBtn:'🎤 语音', searchBtn:'搜索', clearHistory:'清除历史',
+       startPt:'起点', destPt:'终点', lon:'经度', lat:'纬度',
+       savedPts:'本机保存的位置', saveHere:'保存当前位置', setAsDest:'设为目的地', delete:'删除',
+       waiting:'等待当前位置…', heading:'前进方向', startNav:'开始', gotoStart:'我的位置', gotoDest:'目的地', reroute:'重新规划',
+       resultsTitle:'结果（附近前5）', close:'关闭', saveNow:'保存当前位置', placePh:'地点名（如：家、公园）',
+       cancel:'取消', save:'保存', chooseReroute:'选择重新规划（步行）', now:'现在', arrive:'到达'
+  }
+};
 const LANG_CODE={ ja:'ja-JP', en:'en-US', ko:'ko-KR', fr:'fr-FR', es:'es-ES', zh:'zh-CN' };
+
+function applyUI(){
+  const dict=I18N_UI[voiceMode]||I18N_UI.ja;
+  // data-i18n（テキスト）
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key=el.getAttribute('data-i18n'); const t=key.split('.').reduce((a,k)=>a&&a[k], {ui:dict});
+    if(typeof t==='string') el.textContent=t;
+  });
+  // data-i18n-static（ラベル語＋値を保つ要素用）
+  document.querySelectorAll('[data-i18n-static]').forEach(el=>{
+    const key=el.getAttribute('data-i18n-static'); const t=key.split('.').reduce((a,k)=>a&&a[k], {ui:dict});
+    if(typeof t==='string'){
+      if(el.id==='nowClock'){ const cur=el.nextElementSibling?.textContent||'—:—'; el.textContent=t+' '; el.nextElementSibling.textContent=cur; }
+      if(el.id==='etaClock'){ const cur=el.nextElementSibling?.textContent||'—:—'; el.textContent=t+' '; el.nextElementSibling.textContent=cur; }
+    }
+  });
+  // data-i18n-ph（placeholder）
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+    const key=el.getAttribute('data-i18n-ph'); const t=key.split('.').reduce((a,k)=>a&&a[k], {ui:dict});
+    if(typeof t==='string') el.placeholder=t;
+  });
+}
 
 /* ===== TTS（重複抑制） ===== */
 const tts=(function(){
@@ -442,14 +521,14 @@ function setDest(lon,lat){
   }
 }
 function initGeolocation(){
-  if(!navigator.geolocation){ ensureMapVisible(); els.msg.textContent='この端末は位置情報に未対応です（仮表示）。'; return; }
+  if(!navigator.geolocation){ ensureMapVisible(); els.msg.textContent=(I18N_UI[voiceMode]||I18N_UI.ja).waiting; return; }
   navigator.geolocation.getCurrentPosition(pos=>{
     const {latitude,longitude,heading}=pos.coords;
     ensureMapVisible(latitude,longitude,18);
     setStart(longitude,latitude);
     updateCurrent([latitude,longitude]);
     if(Number.isFinite(heading)) setCompassTarget(heading);
-    els.msg.textContent='準備完了。目的地を設定してください';
+    els.msg.textContent=(I18N_UI[voiceMode]||I18N_UI.ja).waiting.replace('待機中…','準備完了。目的地を設定してください');
   }, err=>{
     ensureMapVisible();
     els.msg.textContent='現在地エラー: '+err.message+'（仮表示）';
@@ -470,7 +549,6 @@ function initGeolocation(){
 const BUCKETS=[200,150,120,80,50,30,10,5,3];
 function bucketForDistance(d){ if(d>200) return 200; for(const b of BUCKETS){ if(d>b) return b; if(d===b) return b; } return 3; }
 function bucketIndex(b){ return BUCKETS.indexOf(b); }
-function roundedLabel(b){ return b>=120 ? `約${b}` : `${b}`; }
 
 /* ===== ルーティング & 文言 ===== */
 function actionFromOsrm(type,modifier){if(type==='arrive')return'arrive';if(type==='depart')return'straight';if(['left','sharp left','slight left'].includes(modifier))return'left';if(['right','sharp right','slight right'].includes(modifier))return'right';if(type==='uturn'||modifier==='uturn')return'uturn';return'straight';}
@@ -498,78 +576,66 @@ function cardinal4(deg, lang){
   return d[3];
 }
 
+function politeInstructionFromStep(lang, st){
+  const L=I18N[lang]||I18N.ja;
+  const roadJa = normalizeRoadName(st?.name||'') || 'この道';
+  const roadEn = normalizeRoadNameEn(st?.name||'') || 'this road';
+  const road = lang==='ja'?roadJa:roadEn;
+  const dRaw=Math.max(1,Math.round(st?.distance||0));
+  const b=bucketForDistance(dRaw);
+  const dLabel=(lang==='en')?(b>=120?`about ${b}`:`${b}`):(b>=120?`約${b}`:`${b}`);
+  const br=initialBearing(); const dir=(br!=null)?cardinal4(br,lang):'';
+  // 「〜してください」化
+  if(lang==='ja'){
+    const act=st?.action||'straight';
+    if(act==='left')  return `${road}を${dir?dir+'に':''}${dLabel}${L.meters}進み、左折してください。`;
+    if(act==='right') return `${road}を${dir?dir+'に':''}${dLabel}${L.meters}進み、右折してください。`;
+    if(act==='uturn') return `${road}でUターンしてください。`;
+    return `${road}を${dir?dir+'に':''}${dLabel}${L.meters}直進してください。`;
+  }else if(lang==='en'){
+    const act=st?.action||'straight';
+    const dirTxt=dir?` ${dir}`:'';
+    if(act==='left')  return `Proceed${dirTxt} ${dLabel} ${L.meters} on ${road}, then turn left.`;
+    if(act==='right') return `Proceed${dirTxt} ${dLabel} ${L.meters} on ${road}, then turn right.`;
+    if(act==='uturn') return `Make a U-turn on ${road}.`;
+    return `Go straight${dirTxt} ${dLabel} ${L.meters} on ${road}.`;
+  }
+  // 他言語は簡易
+  const act=st?.action||'straight';
+  return (lang==='fr')
+    ? (act==='left'?`Avancez ${dLabel} ${L.meters} sur ${road}, puis tournez à gauche.`
+      :act==='right'?`Avancez ${dLabel} ${L.meters} sur ${road}, puis tournez à droite.`
+      :`Continuez tout droit ${dLabel} ${L.meters} sur ${road}.`)
+    : (lang==='es'
+      ? (act==='left'?`Avance ${dLabel} ${L.meters} por ${road} y gire a la izquierda.`
+        :act==='right'?`Avance ${dLabel} ${L.meters} por ${road} y gire a la derecha.`
+        :`Siga recto ${dLabel} ${L.meters} por ${road}.`)
+      : (lang==='ko'
+        ? (act==='left'?`${road}에서 ${dLabel}${L.meters} 진행 후 좌회전하세요.`
+          :act==='right'?`${road}에서 ${dLabel}${L.meters} 진행 후 우회전하세요.`
+          :`${road}를 ${dLabel}${L.meters} 직진하세요.`)
+        : (act==='left'?`在${road}${dLabel}${L.meters}后左转。`
+          :act==='right'?`在${road}${dLabel}${L.meters}后右转。`
+          :`在${road}${dLabel}${L.meters}直行。`)));
+}
+
 function buildIntroSpeechLang(lang){
   const L=I18N[lang]||I18N.ja;
   const st=lastRoute?.route?.segments?.[0]?.steps?.[0];
-  const br=initialBearing(); const dir=(br!=null)?cardinal4(br,lang):'';
-  const langCode=LANG_CODE[lang]||'ja-JP';
+  const intro=L.start;
   if(!st){
-    const base = lang==='en' ? `${L.start} ${dir?`Head ${dir} and `:''}${L.go}.` :
-                lang==='fr' ? `${L.start} ${dir?`Cap ${dir} et `:''}${L.go}.` :
-                lang==='es' ? `${L.start} ${dir?`Vaya hacia ${dir} y `:''}${L.go}.` :
-                lang==='ko' ? `${L.start} ${dir?`${dir}${L.head} `:''}${L.go}.` :
-                lang==='zh' ? `${L.start} ${dir?`向${dir} ${L.go}。`:`${L.go}。`}` :
-                              `${L.start}${dir?dir+'へ':''}${L.go}。`;
-    return {text:base, lang:langCode};
+    const txt=(lang==='en')?`${intro} ${L.go}.`
+            :(lang==='fr')?`${intro} ${L.go}.`
+            :(lang==='es')?`${intro} ${L.go}.`
+            :(lang==='ko')?`${intro} ${L.go}.`
+            :(lang==='zh')?`${intro} ${L.go}。`
+                            :`${intro}${L.go}`;
+    return {text:txt, lang:LANG_CODE[lang]||'ja-JP'};
   }
-  const roadJa = normalizeRoadName(st.name||'') || (lang==='ja'?'この道':'');
-  const roadEn = normalizeRoadNameEn(st.name||'') || 'this road';
-  const road = lang==='ja'?roadJa:roadEn;
-  const dRaw=Math.max(1,Math.round(st.distance||0));
-  const b=bucketForDistance(dRaw);
-  const dLabel=b>=120?(lang==='en'?`about ${b}`:`約${b}`):`${b}`;
-  const action=st.action||'straight';
-  // 言語別テンプレ
-  let s='';
-  switch(lang){
-    case 'en':
-      s = `${L.start} Proceed ${dir?`${dir} `:''}${dLabel} ${L.meters} on ${road}${action==='straight'?'.':`, then ${I18N.en[action]}.`}`;
-      break;
-    case 'fr':
-      s = `${L.start} ${L.proceed} ${dir?`vers ${dir} `:''}${dLabel} ${L.meters} sur ${road}${action==='straight'?'.':`, puis ${I18N.fr[action]}.`}`;
-      break;
-    case 'es':
-      s = `${L.start} ${L.proceed} ${dir?`hacia ${dir} `:''}${dLabel} ${L.meters} por ${road}${action==='straight'?'.':`, luego ${I18N.es[action]}.`}`;
-      break;
-    case 'ko':
-      s = `${L.start} ${dir?`${dir}${L.head} `:''}${dLabel}${L.meters} ${L.proceed} (${road})${action==='straight'?'.':`, 이후 ${I18N.ko[action]}.`}`;
-      break;
-    case 'zh':
-      s = `${L.start} ${dir?`向${dir} `:''}${dLabel}${L.meters} 在${road}${L.proceed}${action==='straight'? '。' : `，然后${I18N.zh[action]}。`}`;
-      break;
-    default: // ja
-      s = `${L.start}${road}を${dir?dir+'に':''}${dLabel}${L.meters}${L.proceed}。${action==='straight'?'':I18N.ja[action]}`;
-  }
-  return {text:s, lang:langCode};
+  const polite = politeInstructionFromStep(lang, st);
+  const text = (lang==='zh') ? `${intro}${polite}` : `${intro}${polite}`;
+  return {text, lang:LANG_CODE[lang]||'ja-JP'};
 }
-function turnText(lang, action){
-  const L=I18N[lang]||I18N.ja;
-  return L[action] || L.go;
-}
-function bucketSpeakTextLang(lang, b, s){
-  const L=I18N[lang]||I18N.ja;
-  const dLabel = (lang==='en') ? (b>=120?`about ${b}`:`${b}`) : (b>=120?`約${b}`:`${b}`);
-  switch(lang){
-    case 'en': return `${L.ahead} ${dLabel} ${L.meters}, ${turnText('en', s.action)}.`;
-    case 'fr': return `${L.ahead} ${dLabel} ${L.meters}, ${turnText('fr', s.action)}.`;
-    case 'es': return `${L.ahead} ${dLabel} ${L.meters}, ${turnText('es', s.action)}.`;
-    case 'ko': return `${L.ahead} ${dLabel}${L.meters}, ${turnText('ko', s.action)}.`;
-    case 'zh': return `${L.ahead}${dLabel}${L.meters}，${turnText('zh', s.action)}。`;
-    default:   return `${L.ahead}${dLabel}${L.meters}を、${turnText('ja', s.action)}`;
-  }
-}
-function nowSpeakTextLang(lang, s){
-  const L=I18N[lang]||I18N.ja;
-  switch(lang){
-    case 'en': return `${L.now} ${turnText('en', s.action)}.`;
-    case 'fr': return `${L.now} ${turnText('fr', s.action)}.`;
-    case 'es': return `${L.now} ${turnText('es', s.action)}.`;
-    case 'ko': return `${L.now} ${turnText('ko', s.action)}.`;
-    case 'zh': return `${L.now}${turnText('zh', s.action)}。`;
-    default:   return `${L.now}${turnText('ja', s.action)}`;
-  }
-}
-function initialBearing(){ const g=lastRoute?.route?.geometry?.coordinates; if(!g||g.length<2) return null; const a={lat:g[0][1],lng:g[0][0]},b={lat:g[1][1],lng:g[1][0]}; const toRad=t=>t*Math.PI/180, toDeg=t=>t*180/Math.PI; const φ1=toRad(a.lat),φ2=toRad(b.lat),λ1=toRad(a.lng),λ2=toRad(b.lng); const y=Math.sin(λ2-λ1)*Math.cos(φ2); const x=Math.cos(φ1)*Math.sin(φ2)-Math.sin(φ1)*Math.cos(φ2)*Math.cos(λ2-λ1); return norm360(toDeg(Math.atan2(y,x))); }
 
 /* === ETA/残距離 === */
 function buildRouteMeta(latlngs, route){
@@ -619,9 +685,9 @@ function updateETAPill(route, overrideSec=null, overrideDist=null){
   const now=new Date(); const eta=new Date(now.getTime()+sec*1000);
   els.etaDurationTop.textContent=fmtDurationMin(sec);
   els.etaDistanceTop.textContent=`${km(dist)} km`;
-  els.etaClock.textContent=`到着 ${String(eta.getHours()).padStart(2,'0')}:${String(eta.getMinutes()).padStart(2,'0')}`;
+  els.etaClock.nextElementSibling.textContent=`${String(eta.getHours()).padStart(2,'0')}:${String(eta.getMinutes()).padStart(2,'0')}`;
 }
-function tickNowClock(){ const n=new Date(); els.nowClock.textContent=`現在 ${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`; }
+function tickNowClock(){ const n=new Date(); els.nowClock.nextElementSibling.textContent=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`; }
 function updateEtaDynamic(){
   const est = estimateRemainingSeconds();
   if(est && lastRoute?.route){ updateETAPill(lastRoute.route, est.sec, est.remainingDistance); }
@@ -637,7 +703,7 @@ function prepareGuidance(){
     const i2=Array.isArray(s.way_points)?s.way_points[1]:null;
     if(i2!=null&&coords[i2]){
       const [lon,lat]=coords[i2];
-      steps.push({lat,lon,action:(s.action||'straight'),distance:s.distance||0});
+      steps.push({lat,lon,action:(s.action||'straight'),distance:s.distance||0,name:s.name||''});
     }
   });
   navState.steps=steps;
@@ -662,29 +728,34 @@ function advanceGuidance(cur){
   const dist=L.latLng(cur.lat,cur.lng).distanceTo(L.latLng(s.lat,s.lon));
   const b=bucketForDistance(dist);
   const bi=bucketIndex(b);
-
   if(Date.now()-navState.startAt>3000){
     if(navState.lastBucketIdx==null || (navState.lastBucketIdx - bi)>=2){
-      tts.speak(bucketSpeakTextLang(voiceMode,b,s), `step${navState.idx}-b${b}`, LANG_CODE[voiceMode]);
+      // 距離バケット案内（簡易）
+      const Lx=I18N[voiceMode]||I18N.ja;
+      const dLabel=(voiceMode==='en')?(b>=120?`about ${b}`:`${b}`):(b>=120?`約${b}`:`${b}`);
+      const say = (voiceMode==='ja') ? `${Lx.ahead}${dLabel}${Lx.meters}を、${Lx[s.action]||Lx.go}` :
+                 (voiceMode==='en') ? `${Lx.ahead} ${dLabel} ${Lx.meters}, ${(Lx[s.action]||Lx.go)}.` :
+                 (voiceMode==='fr') ? `${Lx.ahead} ${dLabel} ${Lx.meters}, ${(Lx[s.action]||Lx.go)}.` :
+                 (voiceMode==='es') ? `${Lx.ahead} ${dLabel} ${Lx.meters}, ${(Lx[s.action]||Lx.go)}.` :
+                 (voiceMode==='ko') ? `${Lx.ahead} ${dLabel}${Lx.meters}, ${(Lx[s.action]||Lx.go)}.` :
+                                      `${Lx.ahead}${dLabel}${Lx.meters}，${(Lx[s.action]||Lx.go)}。`;
+      tts.speak(say, `step${navState.idx}-b${b}`, LANG_CODE[voiceMode]);
       navState.lastBucketIdx=bi;
     }
   }
   if(dist<=3){
-    tts.speak(nowSpeakTextLang(voiceMode,s),`now-${navState.idx}`,LANG_CODE[voiceMode]);
+    const sayNow = (voiceMode==='ja')? `ここで${(I18N.ja[s.action]||I18N.ja.go)}` : (I18N[voiceMode].now + ' ' + (I18N[voiceMode][s.action]||I18N[voiceMode].go));
+    tts.speak(sayNow,`now-${navState.idx}`,LANG_CODE[voiceMode]);
     navState.idx++; navState.lastBucketIdx=null;
   }
 }
 
-/* リルート発話 */
+/* リルート発話（「案内を開始します」は言わない） */
 function modeLabel(v){ return v==='easy'?'楽チン':(v==='stroll'?'お散歩AI':'最短'); }
 function modeLabelEn(v){ return v==='easy'?'Easy route':(v==='stroll'?'Stroll route':'Shortest route'); }
 
-/* 安全ポイント（省略：既存のまま利用） */
-async function fetchSafetyPointsFromOverpass(){ /* 既存のまま */ }
-
 /* ====== ルート取得 ====== */
 function waitForUnlock(){ return new Promise(res=>{ const tick=()=>{ if(!routingLock) return res(); setTimeout(tick,120); }; tick(); }); }
-
 async function fetchRouteORS(coords){
   const opts={avoid_features:['ferries','fords']}; if(routeMode==='easy') opts.avoid_features.push('steps');
   const body={coordinates:coords,instructions:true,language:'ja',profile:'foot-walking',geometry:true,geometry_format:'geojson',preference:(routeMode==='shortest'?'shortest':'recommended'),options:opts};
@@ -710,7 +781,7 @@ function drawRouteORS(j){
 /* ===== 検索 ===== */
 function setSearchBusy(on){
   if(on){
-    els.searchStatus.textContent='検索中…';
+    els.searchStatus.textContent=(I18N_UI[voiceMode]||I18N_UI.ja).searching||'検索中…';
     els.searchStatus.classList.add('search-large');
   }else{
     els.searchStatus.textContent='';
@@ -743,6 +814,7 @@ function showResults(items){
       if(mapReady&&map) map.flyTo([it.lat,it.lon],18);
       const j=await getRoute();
       if(j){
+        // 検索→選択時は「案内を開始します」を使う（従来どおり）
         startNavigation();
         requestAnimationFrame(()=>requestAnimationFrame(()=>{
           window.scrollTo({top:els.mapCard.getBoundingClientRect().top+window.scrollY-6,behavior:'smooth'});
@@ -825,7 +897,7 @@ function startVoice(){
   if(!SR){ els.msg.textContent='音声入力に未対応のブラウザです'; return; }
   setSearchBusy(true);
   els.searchStatus.textContent='音声認識中…';
-  const rec=new SR(); rec.lang='ja-JP'; rec.interimResults=false; rec.maxAlternatives=1;
+  const rec=new SR(); rec.lang=(LANG_CODE[voiceMode]||'ja-JP'); rec.interimResults=false; rec.maxAlternatives=1;
   rec.onstart=()=>{ els.mic.classList.add('btn-busy'); };
   rec.onresult=(ev)=>{ els.q.value=ev.results[0][0].transcript||''; searchNearby(); };
   rec.onerror=()=>{ els.searchStatus.textContent='音声失敗'; els.msg.textContent='音声入力に失敗しました'; setSearchBusy(false); };
@@ -846,7 +918,7 @@ function startNavigation(){
 function _startNavCore(){
   navActive=true; followMe=true; prepareGuidance();
   const intro = buildIntroSpeechLang(voiceMode);
-  tts.speak(intro.text,'intro',intro.lang);
+  tts.speak(intro.text,'intro',LANG_CODE[voiceMode]);
   if(mapReady&&map&&routeLine) map.fitBounds(routeLine.getBounds(),{padding:[30,30]});
   els.msg.textContent='案内を開始します';
 }
@@ -877,9 +949,9 @@ async function getRoute(){
   let coords=[[slon,slat],[dlon,dlat]];
   if(routeMode==='stroll'){ coords=[[slon,slat],detourPoint(slon,slat,dlon,dlat),[dlon,dlat]]; }
   try{
-    try{ const {j}=await fetchRouteORS(coords); drawRouteORS(j); await fetchSafetyPointsFromOverpass(); routingLock=false; return {engine:'ors',raw:j}; }
-    catch{ try{ const {j}=await fetchRouteOSRM(coords); drawRouteORS(j); await fetchSafetyPointsFromOverpass(); routingLock=false; return {engine:'osrm',raw:j}; }
-    catch{ const {j}=await fetchRouteValhalla(coords); drawRouteORS(j); await fetchSafetyPointsFromOverpass(); routingLock=false; return {engine:'valhalla',raw:j}; } }
+    try{ const {j}=await fetchRouteORS(coords); drawRouteORS(j); routingLock=false; return {engine:'ors',raw:j}; }
+    catch{ try{ const {j}=await fetchRouteOSRM(coords); drawRouteORS(j); routingLock=false; return {engine:'osrm',raw:j}; }
+    catch{ const {j}=await fetchRouteValhalla(coords); drawRouteORS(j); routingLock=false; return {engine:'valhalla',raw:j}; } }
   }catch(e){ els.msg.textContent='ルート取得に失敗しました（再試行してください）'; routingLock=false; return null; }
 }
 function wireRerouteButton(){
@@ -891,44 +963,44 @@ function wireRerouteButton(){
     tts.stop();
     const j=await getRoute();
     if(j){
-      // 言語別で「〜でリルートを開始します」
+      // ★リルート時：「案内を開始します」は発しない
+      navActive=true; followMe=true; prepareGuidance();
       const L=I18N[voiceMode]||I18N.ja;
-      const msg = (voiceMode==='en') ? `${modeLabelEn(routeMode)}${L.using}` :
-                  (voiceMode==='fr') ? `Recalcul d’itinéraire ${L.using.replace('で','')}` :
-                  (voiceMode==='es') ? `Recalculando ruta${L.using}` :
-                  (voiceMode==='ko') ? `${modeLabel(routeMode)} ${L.using}` :
-                  (voiceMode==='zh') ? `${L.using}` :
-                                        `${modeLabel(routeMode)}${L.using}`;
-      tts.speak(msg,'reroute-mode',LANG_CODE[voiceMode]);
-      const intro = buildIntroSpeechLang(voiceMode);
-      tts.speak(intro.text,'intro',intro.lang);
-      navActive=false; startNavigation();
+      const modeMsg = (voiceMode==='en') ? `${modeLabelEn(routeMode)}${L.using}` :
+                       (voiceMode==='fr') ? `Recalcul d’itinéraire : ${modeLabel(routeMode)}.` :
+                       (voiceMode==='es') ? `Recalculando ruta: ${modeLabel(routeMode)}.` :
+                       (voiceMode==='ko') ? `${modeLabel(routeMode)} ${L.using}` :
+                       (voiceMode==='zh') ? `正在重新规划路线（${modeLabel(routeMode)}）。` :
+                                            `${modeLabel(routeMode)}${L.using}`;
+      tts.speak(modeMsg,'reroute-mode',LANG_CODE[voiceMode]);
+
+      // 直後に最初の丁寧な指示だけを発話
+      const st=lastRoute?.route?.segments?.[0]?.steps?.[0];
+      if(st){
+        const first = politeInstructionFromStep(voiceMode, st);
+        tts.speak(first,'reroute-first',LANG_CODE[voiceMode]);
+      }
+      if(mapReady&&map&&routeLine) map.fitBounds(routeLine.getBounds(),{padding:[30,30]});
+      els.msg.textContent='リルート完了';
     }
   });
 }
 
-/* 言語トグル */
-function wireVoiceToggle(){
-  document.getElementById('voiceToggles').addEventListener('change',(e)=>{
-    const r=e.target.closest('input[type="radio"]'); if(!r) return;
-    voiceMode=r.value; // 'ja' | 'en' | 'ko' | 'fr' | 'es' | 'zh'
+/* 言語セレクト → 音声＆UI切替 */
+function wireLanguageSelect(){
+  els.langSelect.addEventListener('change',()=>{
+    voiceMode = els.langSelect.value || 'ja';
+    applyUI();
   });
 }
 
-/* モーダル：キーボード対応（保存/リルート） */
-if('visualViewport' in window){
-  const vv=visualViewport;
-  const adjust=()=>{
-    const m=[els.saveModal,els.rerouteModal].find(x=>x && x.style.display==='flex'); if(!m) return;
-    const box=m.querySelector('.box'); if(!box) return;
-    box.style.maxHeight = Math.floor((vv.height||window.innerHeight)*0.85)+'px';
-  };
-  vv.addEventListener('resize',adjust); vv.addEventListener('scroll',adjust);
-}
+/* 時刻/ETA */
+function tickNowClock(){ const n=new Date(); els.nowClock.nextElementSibling.textContent=`${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`; }
 
 /* 起動 */
 document.addEventListener('DOMContentLoaded',()=>{
   try{
+    applyUI(); // 初期UIを現在言語で
     ensureMapVisible();
 
     // ルートトグル
@@ -937,7 +1009,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       routeMode=r.value;
     });
 
-    wireVoiceToggle();
+    wireLanguageSelect();
 
     els.search.addEventListener('click',searchNearby);
     els.mic.addEventListener('click',startVoice);
