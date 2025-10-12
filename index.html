@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>歩行者ナビ（Cloudflare Workers + OSM）</title>
 
-<!-- Leaflet CSS（フォールバック込み） -->
+<!-- Leaflet CSS（フォールバック） -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
@@ -46,12 +46,11 @@ button[disabled]{opacity:.6;pointer-events:none}
 .coord-label{font-size:12px;color:var(--muted);padding-left:2px}
 .coord-input{width:100%;max-width:none;min-width:0;padding:10px 12px;font-size:16px}
 
-/* === ルートトグル：カード内センター配置／はみ出し防止 === */
+/* ルートトグル（中央寄せ） */
 .toggle-group{
   width:100%; min-width:0; box-sizing:border-box;
   display:flex; flex-wrap:wrap; gap:6px 8px;
-  justify-content:center;             /* ← 行の中央揃え */
-  align-content:center;               /* ← 複数行のブロックも中央に寄せる */
+  justify-content:center; align-content:center;
   background:#0b1624; border:1px solid rgba(255,255,255,.12);
   border-radius:14px; padding:6px;
 }
@@ -62,16 +61,11 @@ button[disabled]{opacity:.6;pointer-events:none}
   padding: clamp(5px, 1.2vw, 8px) clamp(8px, 2.0vw, 12px);
   border-radius:999px; cursor:pointer; white-space:nowrap;
   font-size: clamp(13px, 2.7vw, 15px); line-height:1;
-  letter-spacing:.01em; box-sizing:border-box;
-  max-width:100%;
+  letter-spacing:.01em; box-sizing:border-box; max-width:100%;
 }
 .toggle input:checked + label{
   background:#18314d; box-shadow:0 0 0 3px rgba(74,163,255,.18) inset;
   border:1px solid rgba(74,163,255,.5)
-}
-@media (max-width:390px){
-  .toggle-group{gap:5px 6px; padding:5px}
-  .toggle label{font-size:12px; padding:5px 8px}
 }
 
 /* Map */
@@ -143,7 +137,7 @@ button[disabled]{opacity:.6;pointer-events:none}
 <body>
 <div class="wrap">
 
-  <!-- ルートタイプ（徒歩のみ） -->
+  <!-- ルートタイプ -->
   <div class="card">
     <div class="toggle-group" id="routeToggles" role="radiogroup" aria-label="ルートタイプ">
       <div class="toggle"><input type="radio" name="routeMode" id="routeShortest" value="shortest" checked><label for="routeShortest">最短</label></div>
@@ -156,7 +150,6 @@ button[disabled]{opacity:.6;pointer-events:none}
   <!-- 検索 -->
   <div class="card" style="margin-top:12px">
     <div class="row">
-      <!-- ★ プレースホルダー短縮（（以降を削除） -->
       <input id="q" class="grow" placeholder="店舗名・住所・電話番号で検索" autocomplete="off">
       <button id="mic" class="ok">🎤 音声</button>
     </div>
@@ -322,6 +315,7 @@ const OSRM='https://router.project-osrm.org';
 const VALHALLA='https://valhalla1.openstreetmap.de/route';
 const OVERPASS='https://overpass-api.de/api/interpreter';
 const profile='foot-walking';
+const ETA_UPDATE_MS = 2000; // ★ 2秒おきに現在時刻＆ETAを更新
 
 /* ===== 要素 ===== */
 const $=id=>document.getElementById(id);
@@ -347,6 +341,7 @@ let map=null, routeLayer=null, markerLayer=null, routeLine=null, lastRoute=null;
 let currentMarker=null, destMarker=null, mapReady=false, watchId=null;
 let navActive=false, routingLock=false, routeMode='shortest', safetyPoints=[], navState=null;
 let followMe=false;
+let lastKnownPos=null;
 
 /* ===== 汎用 ===== */
 const timeout=(p,ms)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
@@ -354,7 +349,7 @@ const norm360=x=>{x%=360;if(x<0)x+=360;return x;}
 const shortDiff=(a,b)=>{let d=norm360(b)-norm360(a);if(d>180)d-=360;if(d<-180)d+=360;return d;}
 function setBusy(btn,flag){ if(!btn) return; if(flag){ btn.setAttribute('disabled',''); setTimeout(()=>btn.removeAttribute('disabled'),1100); }}
 
-/* ===== TTS（キュー方式） ===== */
+/* ===== TTS（キュー） ===== */
 const tts=(function(){
   const q=[]; let speaking=false; let lastKey=null,lastAt=0;
   const minInterval=1200, repeatWindow=7000;
@@ -375,7 +370,7 @@ const tts=(function(){
   };
 })();
 
-/* ===== コンパス（落ち着いた追従）===== */
+/* ===== コンパス ===== */
 const compass={ angle:0,target:0,raf:null,maxDegPerSec:60,deadBand:3,deviceMinInterval:120,lastTs:0 };
 function setCompassTarget(deg){ if(!Number.isFinite(deg)) return; const t=norm360(deg);
   if(Math.abs(shortDiff(compass.target,t))<compass.deadBand) return; compass.target=t;
@@ -455,6 +450,7 @@ function ensureMapVisible(lat=35.362,lon=137.724,zoom=6){
 
 /* ===== 現在地＆天気 ===== */
 function updateCurrent(latlng){
+  lastKnownPos={lat:latlng[0],lng:latlng[1]};
   if(!mapReady) ensureMapVisible(latlng[0],latlng[1],18);
   if(currentMarker){ currentMarker.setLatLng(latlng); }
   else if(window.L){ currentMarker=L.marker(latlng,{title:'現在地'}).addTo(markerLayer||map); }
@@ -492,6 +488,7 @@ function initGeolocation(){
     if(Number.isFinite(heading)) setCompassTarget(heading);
     if(navActive && followMe && mapReady && map) map.setView([latitude,longitude], map.getZoom());
     if(navActive) advanceGuidance({lat:latitude,lng:longitude});
+    updateEtaDynamic(); // 位置更新時にもETA更新
     if(!lastWx.lat || (window.L && L.latLng(lastWx.lat,lastWx.lon).distanceTo([latitude,longitude])>1000)) fetchWeather(latitude,longitude);
   },()=>{}, {enableHighAccuracy:true,maximumAge:2500,timeout:10000});
 }
@@ -558,38 +555,134 @@ function buildIntroSpeech(){
 }
 function stepSpeech(s){ return turnPhrase(s.action||'straight'); }
 
+/* === ETA用：ルート累積距離メタを構築 === */
+function buildRouteMeta(latlngs, route){
+  const cum=[0];
+  let total=0;
+  const dist=(a,b)=>{
+    if(window.L) return L.latLng(a[0],a[1]).distanceTo(L.latLng(b[0],b[1]));
+    const R=6371000, toR=t=>t*Math.PI/180;
+    const φ1=toR(a[0]), φ2=toR(b[0]), Δφ=toR(b[0]-a[0]), Δλ=toR(b[1]-a[1]);
+    const s=Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+    return 2*R*Math.asin(Math.sqrt(s));
+  };
+  for(let i=1;i<latlngs.length;i++){
+    total += dist(latlngs[i-1], latlngs[i]);
+    cum[i]=total;
+  }
+  let dur=0, distTotal=total;
+  const s=route?.summary;
+  if(s && (s.duration||s.duration===0)){
+    dur = s.duration;
+  }else{
+    const segs=route?.segments||[];
+    dur = segs.reduce((a,b)=>a+(b.duration||0),0);
+  }
+  const fallbackSpeed = 1.2;
+  const speed = (dur>0 && distTotal>0) ? (distTotal / dur) : fallbackSpeed;
+  return {latlngs, cum, total:distTotal, speed};
+}
+
 /* ORS描画・ETA */
 function drawRouteORS(j){
   if(routeLayer) routeLayer.clearLayers();
   const route=j.routes[0]; lastRoute={engine:'ors',route};
   const latlngs=(route.geometry.coordinates||[]).map(([lon,lat])=>[lat,lon]);
+  lastRoute.meta = buildRouteMeta(latlngs, route);
+
   routeLine=(window.L&&latlngs.length)?L.polyline(latlngs,{weight:6,opacity:.9}).addTo(routeLayer):null;
   if(routeLine&&map) map.fitBounds(routeLine.getBounds(),{padding:[30,30]});
   updateETAPill(route);
 }
-function extractDurDist(route){ const s=route?.summary; if(s) return {dur:s.duration,dist:s.distance}; const seg=route?.segments||[]; return {dur:seg.reduce((a,b)=>a+(b.duration||0),0),dist:seg.reduce((a,b)=>a+(b.distance||0),0)}; }
+
+/* ETA表示ユーティリティ */
+function extractDurDist(route){
+  const s=route?.summary;
+  if(s) return {dur:s.duration,dist:s.distance};
+  const seg=route?.segments||[];
+  return {dur:seg.reduce((a,b)=>a+(b.duration||0),0),dist:seg.reduce((a,b)=>a+(b.distance||0),0)};
+}
 function km(m){ return (m/1000).toFixed(m>=10000?0:(m>=1000?1:2)); }
 function fmtDurationMin(sec){ const m=Math.max(1,Math.ceil(sec/60)); const h=Math.floor(m/60), mm=m%60; return h>0?`${h}時間${mm}分`:`${mm}分`; }
-function computeFinalSec(route){ const {dur,dist}=extractDurDist(route); const modelSec=dist>0 ? dist/1.2 : 0; let sec = Math.max(dur||0, modelSec||0); const roundedMin = Math.max(1, Math.ceil(sec/60)); return roundedMin*60; }
-function updateETAPill(route){
-  if(!route){ els.etaDurationTop.textContent='—'; els.etaDistanceTop.textContent='—'; els.etaClock.textContent='到着 —:—'; return; }
-  const sec=computeFinalSec(route); const now=new Date(); const eta=new Date(now.getTime()+sec*1000);
+function computeFinalSec(route){
+  const {dur,dist}=extractDurDist(route);
+  const modelSec=dist>0 ? dist/1.2 : 0;
+  let sec = Math.max(dur||0, modelSec||0);
+  const roundedMin = Math.max(1, Math.ceil(sec/60));
+  return roundedMin*60;
+}
+
+/* ★ 現在位置からの動的ETA計算 */
+function estimateRemainingSeconds(){
+  if(!lastRoute?.meta) return null;
+  const meta=lastRoute.meta;
+  if(!meta.latlngs || meta.latlngs.length===0) return null;
+  let cur = lastKnownPos;
+  if(!cur && currentMarker){ const ll=currentMarker.getLatLng(); cur={lat:ll.lat,lng:ll.lng}; }
+  if(!cur) return null;
+
+  let bestIdx=0, bestD=Infinity;
+  for(let i=0;i<meta.latlngs.length;i++){
+    const p=meta.latlngs[i];
+    const d = window.L
+      ? L.latLng(cur.lat,cur.lng).distanceTo(L.latLng(p[0],p[1]))
+      : (Math.abs(cur.lat-p[0])+Math.abs(cur.lng-p[1]));
+    if(d<bestD){ bestD=d; bestIdx=i; }
+  }
+  const remainingDistance = Math.max(0, meta.total - meta.cum[bestIdx]);
+  const speed = Math.max(0.6, Math.min(2.0, meta.speed||1.2));
+  let sec = remainingDistance / speed;
+  sec = Math.max(60, Math.ceil(sec/60)*60);
+  return {sec, remainingDistance};
+}
+
+/* ETAピル更新 */
+function updateETAPill(route, overrideSec=null, overrideDist=null){
+  const r = route || lastRoute?.route;
+  if(!r){ els.etaDurationTop.textContent='—'; els.etaDistanceTop.textContent='—'; els.etaClock.textContent='到着 —:—'; return; }
+  let sec = overrideSec!=null ? overrideSec : computeFinalSec(r);
+  let dist = overrideDist!=null ? overrideDist : extractDurDist(r).dist;
+
+  const now=new Date();
+  const eta=new Date(now.getTime()+sec*1000);
   els.etaDurationTop.textContent=fmtDurationMin(sec);
-  els.etaDistanceTop.textContent=`${km(extractDurDist(route).dist)} km`;
+  els.etaDistanceTop.textContent=`${km(dist)} km`;
   els.etaClock.textContent=`到着 ${String(eta.getHours()).padStart(2,'0')}:${String(eta.getMinutes()).padStart(2,'0')}`;
 }
-function tickNowClock(){ const n=new Date(); els.nowClock.textContent=`現在 ${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`; }
+
+/* ★ 現在時刻の更新＆ETAの定期再計算 */
+function tickNowClock(){
+  const n=new Date();
+  els.nowClock.textContent=`現在 ${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+}
+function updateEtaDynamic(){
+  const est = estimateRemainingSeconds();
+  if(est && lastRoute?.route){
+    updateETAPill(lastRoute.route, est.sec, est.remainingDistance);
+  }else if(lastRoute?.route){
+    const sec = computeFinalSec(lastRoute.route);
+    updateETAPill(lastRoute.route, sec, extractDurDist(lastRoute.route).dist);
+  }
+}
 
 /* ガイダンス状態 */
 function prepareGuidance(){
   navState={steps:[],idx:0,nearArrivalSaid:false,arrived:false,lastBucket:null,startAt:Date.now()};
   const coords=lastRoute.route?.geometry?.coordinates||[], st=lastRoute.route?.segments?.[0]?.steps||[];
-  const steps=[]; st.forEach(s=>{ const i2=Array.isArray(s.way_points)?s.way_points[1]:null; if(i2!=null&&coords[i2]){ const [lon,lat]=coords[i2]; steps.push({lat,lon,action:(s.action||'straight')}); }});
+  const steps=[];
+  st.forEach(s=>{
+    const i2=Array.isArray(s.way_points)?s.way_points[1]:null;
+    if(i2!=null&&coords[i2]){
+      const [lon,lat]=coords[i2];
+      steps.push({lat,lon,action:(s.action||'straight')});
+    }
+  });
   navState.steps=steps;
+  updateEtaDynamic();
 }
 function bucketForDistance(d){ if(d>200) return 200; if(d>120) return 150; if(d>80) return 120; if(d>50) return 50; if(d>30) return 30; if(d>10) return 10; if(d>5) return 5; return 3; }
 
-/* 安全ポイント（横断歩道等） */
+/* 安全ポイント */
 async function fetchSafetyPointsFromOverpass(){
   safetyPoints=[];
   if(!lastRoute||!mapReady) return;
@@ -672,7 +765,8 @@ async function fetchRouteOSRM(coords){ const path=coords.map(c=>`${c[0]},${c[1]}
 async function fetchRouteValhalla(coords){ const loc=coords.map(([lon,lat])=>({lat,lon})); const r=await timeout(fetch(VALHALLA,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({locations:loc,costing:'pedestrian',directions_options:{units:'kilometers','language':'ja-JP'}})}),12000); if(!r.ok) throw new Error('VAL:'+r.status); const j=await r.json(); const o=valhallaToOrsLike(j); if(!o) throw new Error('VAL:empty'); return {engine:'valhalla',j:{routes:[o]}}; }
 async function getRoute(){
   await waitForUnlock(); routingLock=true; setBusy(els.reroute,true);
-  let slon=Number(els.startLon.value), slat=Number(els.startLat.value), dlon=Number(els.destLon.value), dlat=Number(els.destLat.value);
+  let slon=Number(els.startLon.value), slat=Number(els.startLat.value);
+  let dlon=Number(els.destLon.value), dlat=Number(els.destLat.value);
   if(![slon,slat].every(Number.isFinite) && mapReady){ const c=map.getCenter(); slat=c.lat; slon=c.lng; setStart(slon,slat); els.msg.textContent='開始地点未設定 → 地図中心を出発地として使用します。'; }
   if(![slon,slat,dlon,dlat].every(Number.isFinite)){ els.msg.textContent='座標が不足しています（開始/目的地を設定）'; routingLock=false; return null; }
   let coords=[[slon,slat],[dlon,dlat]];
@@ -723,7 +817,7 @@ function showResults(items){
   });
   setTimeout(()=>{ try{ els.results.scrollIntoView({behavior:'smooth',block:'start'}); }catch{} }, 50);
 }
-function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&quot;',"'":'&#39;'}[m]))}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
 
 /* 履歴・保存 */
 const HISTORY_KEY='mc_search_history';
@@ -817,7 +911,6 @@ function _startNavCore(){
   if(mapReady&&map&&routeLine) map.fitBounds(routeLine.getBounds(),{padding:[30,30]});
   els.msg.textContent='案内を開始します';
 }
-function stopNavigation(){ navActive=false; followMe=false; tts.stop(); }
 
 /* 検索本体 */
 async function searchNearby(){
@@ -900,7 +993,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     els.setFromSaved.addEventListener('click',setFromSaved);
     els.delSaved.addEventListener('click',delSaved);
 
-    tickNowClock(); setInterval(tickNowClock,10_000);
+    // ★ 現在時刻を2秒ごと更新、同時にETAも再計算
+    tickNowClock();
+    setInterval(()=>{ tickNowClock(); updateEtaDynamic(); }, ETA_UPDATE_MS);
 
     initDeviceOrientation();
     initGeolocation();
