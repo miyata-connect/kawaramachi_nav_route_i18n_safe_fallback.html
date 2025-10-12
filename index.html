@@ -31,21 +31,20 @@ button[disabled]{opacity:.6;pointer-events:none}
 .coords{display:flex;gap:8px;align-items:center;flex-wrap:nowrap}
 .coord-input{flex:0 0 auto;width:12.5ch;max-width:12.5ch;min-width:11ch;padding:8px 10px;font-size:15px}
 
-/* === 段違いレイアウト（開始地点/目的地点）=== */
-/* ラベル列は固定幅にして左右でビタ揃え。入力欄だけ段違いオフセット */
+/* === 開始地点/目的地点：ラベルの文字開始位置を揃え、入力枠も同位置に統一 === */
 .stagger-wrap{display:flex;flex-direction:column;gap:8px}
 .st-row{display:flex;gap:10px;align-items:center;flex-wrap:nowrap}
 .st-row>.hint{
-  flex:0 0 16ch;   /* ← ラベルの文字開始位置を揃える */
+  flex:0 0 16ch;  /* ← ラベル列の固定幅（左右で同じ起点） */
   min-width:16ch;
   opacity:.9;
 }
 .st-row .coords{flex:1 1 auto;display:flex;gap:8px;align-items:center}
-.st-row.dest{margin-left:0}                     /* 行全体はズラさない */
-.st-row.dest .coords{margin-left:clamp(14px,4vw,40px)}  /* 入力欄だけ段違い */
+/* 以前の“目的地点だけ右に段差”は廃止（完全に揃える） */
+.st-row.dest{ margin-left:0 }
+.st-row.dest .coords{ margin-left:0 }  /* ← これで開始/目的の入力枠左端が一致します */
 @media (max-width:380px){
   .st-row{gap:8px}
-  .st-row.dest .coords{margin-left:10px}
 }
 
 /* トグル（ルートタイプ） */
@@ -142,7 +141,7 @@ button[disabled]{opacity:.6;pointer-events:none}
     </div>
   </div>
 
-  <!-- 座標＆操作（段違いラベル揃え） -->
+  <!-- 座標＆操作（ラベルと入力枠の左位置を完全一致） -->
   <div class="card" style="margin-top:12px">
     <div class="stagger-wrap">
       <div class="st-row start">
@@ -611,7 +610,6 @@ function firstInstruction(){
     const road=normalizeRoadName(st.name||'');
     const dist=Math.max(1,Math.round(st.distance||0));
     const verb=(st.instruction||'直進してください').replace(/.*を(右折してください|左折してください|直進してください|Uターンしてください).*/,'$1');
-    // 例：「音声案内を開始します。国道438号線を38m直進してください（北方向）。」
     return `音声案内を開始します。${road?road+'を':''}${dist}m${verb}。${dir?`（${dir}）`:''}`;
   }
   return `音声案内を開始します。${dir?dir+'へ':''}直進してください。`;
