@@ -1,461 +1,218 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>歩行ナビ（最短 / 楽チン / お散歩AI）</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Walk-Nav（Cloudflare Worker中継・Google Maps版）</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 :root{
-  --bg:#0f1a25; --panel:#132235; --text:#eaf2ff; --muted:#9db0c6;
-  --ok:#2ecc71; --primary:#4aa3ff; --danger:#ff6b6b; --aqua:#7fd3ff;
-  --compassSize:82px; --compassMargin:18px; --labelW:8ch;
+  --bg:#0f1a25; --panel:#132235; --panel2:#0f1e30;
+  --text:#eaf2ff; --muted:#9db0c6;
+  --ok:#2ecc71; --primary:#4aa3ff; --danger:#ff6b6b; --accent:#4ac8ff;
 }
-*{box-sizing:border-box}
-html,body,#app{height:100%;margin:0;background:var(--bg);color:var(--text);font-family: system-ui,"Noto Sans JP","Helvetica Neue",Arial,"メイリオ",Meiryo,sans-serif}
-#map{position:fixed;inset:0}
-.panel{
-  position:fixed;left:12px;top:12px;display:grid;gap:10px;padding:12px 12px 10px 12px;
-  background:color-mix(in oklab, var(--panel) 85%, #0000 15%);
-  border:1px solid color-mix(in oklab, var(--panel) 70%, #fff0 30%);
-  border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.28);backdrop-filter: blur(6px);
-  width:min(420px, calc(100vw - 24px));
+html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP","Helvetica Neue",Arial,"メイリオ",Meiryo,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:12px}
+.card{background:var(--panel);border-radius:14px;padding:12px;box-shadow:0 6px 18px rgba(0,0,0,.28)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.grow{flex:1 1 200px}
+input,button,select{border-radius:12px;border:1px solid rgba(255,255,255,.08);
+  background:var(--panel2);color:var(--text);padding:12px 14px;font-size:16px;outline:none}
+input::placeholder{color:#8aa2bc}
+button.primary{background:var(--primary);border:none;font-weight:700}
+button.ghost{background:transparent;border:1px solid rgba(255,255,255,.15)}
+button.ok{background:var(--ok);border:none;font-weight:700}
+button.danger{background:var(--danger);border:none;font-weight:700}
+.hint{color:var(--muted);font-size:14px}
+.small{font-size:13px;color:var(--muted)}
+.badge{display:inline-block;background:rgba(255,255,255,.08);padding:3px 8px;border-radius:999px;margin-left:6px}
+#busy{color:var(--accent);font-weight:700;display:none}
+
+/* Map */
+.mapwrap{position:relative}
+#map{height:64vh;border-radius:16px;overflow:hidden}
+
+/* Compass */
+.compass{position:absolute;left:16px;top:16px;z-index:450;width:82px;height:82px;
+  border-radius:50%;box-shadow:0 6px 16px rgba(0,0,0,.35);pointer-events:none}
+.compass svg{display:block;width:100%;height:100%}
+.compass text{font-size:10px;fill:#f6d365;letter-spacing:.1em}
+#needle{transform-box:fill-box;transform-origin:37px 37px;transition:transform 0s}
+#needle polygon{fill:#ff4e4e;filter:drop-shadow(0 4px 8px rgba(0,0,0,.35))}
+
+/* Leaflet: move zoom to bottom-left, attribution bottom-left */
+.leaflet-control-zoom{left:10px!important;right:auto!important;bottom:14px!important;top:auto!important}
+.leaflet-control-attribution{left:8px!important;right:auto!important;bottom:10px!important}
+
+/* Right floating buttons */
+.fab-col{position:absolute;right:12px;bottom:88px;z-index:460;display:flex;flex-direction:column;gap:10px}
+.fab-col button{min-width:126px;padding:10px 12px;font-weight:700;box-shadow:0 10px 20px rgba(0,0,0,.35)}
+.fab-col .danger{margin-bottom:4px}
+
+/* Results panel */
+.results{margin-top:10px}
+.result{background:#0b1624;border:1px solid rgba(255,255,255,.08);padding:10px 12px;border-radius:12px;margin-bottom:8px;cursor:pointer}
+.result small{color:#a9bed5}
+.results .body{max-height:44vh;overflow:auto;margin-top:8px}
+
+/* Save modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:1000}
+.modal .box{background:var(--panel);border-radius:16px;max-width:520px;width:92vw;padding:16px;box-shadow:0 18px 40px rgba(0,0,0,.5)}
+.modal .title{font-weight:800;margin-bottom:8px}
+.modal .row{margin-top:8px}
+.modal .actions{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+
+@media (max-width:640px){
+  #map{height:68vh}
+  .fab-col button{min-width:118px;padding:9px 11px;font-size:15px}
 }
-.row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center}
-input,select,button{
-  appearance:none;border:none;outline:none;border-radius:12px;padding:10px 12px;font-size:15px;
-  background:#132d45;color:var(--text)
-}
-input::placeholder{color:#b8c7d8}
-button{cursor:pointer;transition:.2s transform}
-button.primary{background:linear-gradient(180deg,#3ea4ff,#1a7be5)}
-button.ghost{background:#1b2a3b}
-button.warn{background:#4b1f29}
-button:active{transform:scale(.98)}
-.small{font-size:12px;color:var(--muted)}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.badge{display:inline-block;padding:3px 8px;border-radius:10px;background:#21364d;color:#cae3ff;margin-left:6px}
-h1{font-size:18px;margin:0 0 2px 0}
-.kbd{padding:2px 6px;border:1px solid #40669a;border-radius:6px;font-size:12px}
-ul#history{margin:6px 0 0 0;padding:0;list-style:none;max-height:120px;overflow:auto}
-ul#history li{display:flex;justify-content:space-between;align-items:center;gap:6px;margin:4px 0;padding:6px 8px;background:#102436;border-radius:10px}
-ul#history li button{padding:6px 8px}
-hr{border:0;border-top:1px solid #1e334b;margin:6px 0}
-.dialog{
-  position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.45);z-index:5000
-}
-.dialog .box{
-  width:min(420px,95vw);background:#132235;border:1px solid #27415f;border-radius:14px;padding:14px
-}
-.dialog.show{display:grid}
-.mode-btn{padding:12px;border-radius:12px;border:1px solid #254264;background:#14283d;color:#e3f0ff}
-.mode-btn:hover{outline:2px solid #3ea4ff}
-.legend{position:fixed;right:12px;top:12px;background:#132235;border:1px solid #27415f;border-radius:12px;padding:8px 10px}
-.legend .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px}
-.token{font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
-<div id="map"></div>
-
-<div class="panel" id="panel">
-  <div>
-    <h1>歩行ナビ <span class="badge" id="modeBadge">最短</span></h1>
-    <div class="small">クリックで目的地設定 / ルート再計算・音声案内に対応</div>
-  </div>
-
-  <div class="row">
-    <input id="destInput" placeholder="目的地（地図をクリックでもOK）">
-    <div class="grid2">
-      <button id="setDest" class="ghost">目的地に設定</button>
-      <button id="deleteDest" class="warn">削除</button>
-    </div>
-  </div>
-
-  <div class="row">
-    <div class="grid2">
-      <button id="navStart" class="primary">案内開始</button>
-      <button id="stopNav" class="ghost">停止</button>
-    </div>
-    <button id="reroute" class="ghost">リルート</button>
-  </div>
-
-  <div class="grid2">
-    <button id="modeShortest" class="mode-btn">最短</button>
-    <button id="modeEasy" class="mode-btn">楽チン</button>
-  </div>
-  <button id="modeStroll" class="mode-btn">お散歩AI</button>
-
-  <hr/>
-  <div class="row">
-    <div class="small">履歴</div>
-    <button id="clearHistory" class="ghost">履歴をクリア</button>
-  </div>
-  <ul id="history"></ul>
-</div>
-
-<!-- モード選択（リルート） -->
-<div class="dialog" id="reroutePicker">
-  <div class="box">
-    <h3 style="margin:0 0 8px 0">リルート</h3>
-    <div class="grid2" style="margin-bottom:8px">
-      <button class="mode-btn" data-mode="shortest">最短</button>
-      <button class="mode-btn" data-mode="easy">楽チン</button>
-    </div>
-    <button class="mode-btn" data-mode="stroll" style="width:100%">お散歩AI</button>
-    <hr>
+<div class="wrap">
+  <div class="card">
     <div class="row">
-      <span class="small">Esc / 外側クリックで閉じる</span>
-      <button class="ghost" onclick="closeDialog('reroutePicker')">閉じる</button>
+      <input id="q" class="grow" placeholder="店舗名・住所・電話番号で検索" autocomplete="off">
+      <button id="mic" class="ghost">🎤 音声</button>
+      <button id="search" class="primary">検索</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button id="clearHistory" class="ghost">履歴をクリア</button>
+      <span id="busy">検索中…</span>
+      <span class="hint">候補をタップ → 目的地設定 → ルート取得 → 案内開始（自動）</span>
     </div>
   </div>
-</div>
 
-<!-- お散歩AI 長中短 -->
-<div class="dialog" id="strollPicker">
-  <div class="box">
-    <h3 style="margin:0 0 8px 0">お散歩AI：距離</h3>
-    <div class="grid2" style="margin-bottom:8px">
-      <button class="mode-btn" data-len="short">短（約1km）</button>
-      <button class="mode-btn" data-len="mid">中（約2km）</button>
-    </div>
-    <button class="mode-btn" data-len="long" style="width:100%">長（約3km）</button>
-    <hr>
+  <div class="card" style="margin-top:12px">
     <div class="row">
-      <span class="small">距離は概算・道路状況により変動します</span>
-      <button class="ghost" onclick="closeDialog('strollPicker')">閉じる</button>
+      <div class="grow">
+        <div class="hint">開始地点（経度・緯度）</div>
+        <div class="row">
+          <input id="startLon" class="grow" placeholder="経度" inputmode="decimal">
+          <input id="startLat" class="grow" placeholder="緯度" inputmode="decimal">
+        </div>
+      </div>
+      <div class="grow">
+        <div class="hint">目的地（経度・緯度）</div>
+        <div class="row">
+          <input id="destLon" class="grow" placeholder="経度" inputmode="decimal">
+          <input id="destLat" class="grow" placeholder="緯度" inputmode="decimal">
+        </div>
+      </div>
     </div>
+
+    <div class="row" style="margin-top:10px">
+      <button id="modeWalk"  class="primary">徒歩</button>
+      <div class="grow"></div>
+      <button id="getRoute" class="primary">ルート取得</button>
+      <button id="clear" class="ghost">クリア</button>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <div class="grow">
+        <div class="hint">記憶地点（この端末に保存）</div>
+        <div class="row">
+          <select id="savedList" class="grow"></select>
+          <button id="openSaveModal" class="ok">現在地を保存</button>
+          <button id="setFromSaved" class="primary">目的地に設定</button>
+          <button id="delSaved" class="danger">削除</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="msg" class="hint" style="margin-top:6px;">準備完了。目的地を設定してください</div>
+  </div>
+
+  <div class="card mapwrap" style="margin-top:12px">
+    <div id="map"></div>
+
+    <div class="compass" aria-hidden="true">
+      <svg viewBox="0 0 74 74">
+        <defs>
+          <radialGradient id="g1" cx="50%" cy="50%" r="60%">
+            <stop offset="0%"  stop-color="#0b1624"/>
+            <stop offset="60%" stop-color="#0a1320"/>
+            <stop offset="100%" stop-color="#07121e"/>
+          </radialGradient>
+        </defs>
+        <circle cx="37" cy="37" r="36" fill="url(#g1)" stroke="rgba(255,255,255,.15)"/>
+        <text x="37" y="12" text-anchor="middle">N</text>
+        <g id="needle">
+          <polygon points="37,11 31.5,37 42.5,37"/>
+        </g>
+        <text x="37" y="66" text-anchor="middle" fill="#b8cce2">進行方向</text>
+      </svg>
+    </div>
+
+    <div class="fab-col">
+      <button id="navStart" class="ok">案内開始</button>
+      <button id="gotoStart" class="primary">現在地</button>
+      <button id="gotoDest"  class="primary">目的地</button>
+      <button id="reroute"   class="danger">リルート</button>
+    </div>
+  </div>
+
+  <div class="card results" id="results" style="display:none">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <div><span class="badge">検索結果（近隣 上位5件）</span></div>
+      <button id="closeResults" class="ghost">閉じる</button>
+    </div>
+    <div id="resultList" class="body"></div>
   </div>
 </div>
 
-<div class="legend small">
-  <div><span class="dot" style="background:#4aa3ff"></span>現在ルート</div>
-  <div><span class="dot" style="background:#2ecc71"></span>代替（楽チン）</div>
+<div class="modal" id="saveModal">
+  <div class="box">
+    <div class="title">現在地を保存</div>
+    <div class="row">
+      <input id="saveName" class="grow" placeholder="地点名を入力（例：自宅・公園）">
+    </div>
+    <div class="row">
+      <input id="saveLon" class="grow" placeholder="経度" inputmode="decimal">
+      <input id="saveLat" class="grow" placeholder="緯度" inputmode="decimal">
+    </div>
+    <div class="actions">
+      <button id="cancelSave" class="ghost">キャンセル</button>
+      <button id="doSave" class="ok">保存</button>
+    </div>
+  </div>
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-/* ========= ユーティリティ ========= */
-const $ = (id)=> document.getElementById(id);
-function openDialog(id){ const d=$(id); d.classList.add('show'); d.onclick=(e)=>{ if(e.target===d) closeDialog(id); } }
-function closeDialog(id){ $(id).classList.remove('show'); }
-function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
-function speakJa(text){
-  try{
-    window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang='ja-JP'; u.rate = 1; u.pitch = 1;
-    window.speechSynthesis.speak(u);
-  }catch(e){}
-}
-function token(n){ return Number(n).toLocaleString('ja-JP'); }
+/* ===== 固定設定（あなたの Cloudflare Worker URL） ===== */
+const GMAP_PROXY = 'https://ors-proxy.miyata-connect-jp.workers.dev'; // ← ここはあなたの Worker に合わせて
 
-/* ========= 地図初期化 ========= */
-const map = L.map('map', {zoomControl:false}).setView([34.345, 134.046], 15); // 高松・瓦町あたり
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19, attribution:'© OpenStreetMap'
-}).addTo(map);
-L.control.zoom({position:'bottomright'}).addTo(map);
-
-/* ========= 状態 ========= */
-let startLatLng = null;             // 出発（現在地）
-let destLatLng = null;              // 目的地
-let routeLayer = null;              // メインルート
-let altLayer = null;                // 代替ルート（楽チン）
-let destMarker = null;
-let isNavigating = false;
-let navTimer = null;
-let routeGeo = null;                // GeoJSON LineString
-let routeMode = 'shortest';         // 'shortest' | 'easy' | 'stroll'
-let strollLength = 'mid';           // 'short' | 'mid' | 'long'
-const historyList = [];             // {name, lat, lng}
-
-/* ========= 現在地取得 ========= */
-if(navigator.geolocation){
-  navigator.geolocation.getCurrentPosition(pos=>{
-    startLatLng = [pos.coords.latitude, pos.coords.longitude];
-    map.setView(startLatLng, 16);
-    L.circleMarker(startLatLng,{radius:7,color:'#7fd3ff'}).addTo(map).bindTooltip('現在地');
-  }, ()=>{
-    startLatLng = map.getCenter(); // 取得不可なら中心
-    L.circleMarker(startLatLng,{radius:7,color:'#7fd3ff'}).addTo(map).bindTooltip('現在地（推定）');
-  });
-}else{
-  startLatLng = map.getCenter();
-}
-
-/* ========= UI: 目的地設定 ========= */
-map.on('click', e=>{
-  setDestination(e.latlng.lat, e.latlng.lng, '地図から');
-});
-$('setDest').onclick = ()=>{
-  const v = $('destInput').value.trim();
-  if(!v){ speakJa('目的地の入力が空です'); return; }
-  // 簡易：緯度,経度 形式にも対応（例: "34.34,134.05"）
-  const m = v.match(/^\s*(-?\d+(\.\d+)?)\s*,\s*(-?\d+(\.\d+)?)\s*$/);
-  if(m){
-    setDestination(parseFloat(m[1]), parseFloat(m[3]), '座標');
-  }else{
-    speakJa('地図クリック または「緯度,経度」で指定してください');
-  }
-};
-$('deleteDest').onclick = clearDestination;
-$('clearHistory').onclick = ()=>{
-  historyList.length = 0;
-  renderHistory();
-  clearDestination(); // ★ 履歴クリアで目的地もクリア（要件7）
+/* ===== 状態 ===== */
+let profile='walking'; // Google Directionsのmode
+const $=id=>document.getElementById(id);
+const els={
+  q:$('q'), mic:$('mic'), search:$('search'), clearHistory:$('clearHistory'), busy:$('busy'),
+  results:$('results'), resultList:$('resultList'), closeResults:$('closeResults'),
+  startLat:$('startLat'), startLon:$('startLon'), destLat:$('destLat'), destLon:$('destLon'),
+  modeWalk:$('modeWalk'),
+  getRoute:$('getRoute'), clear:$('clear'), msg:$('msg'),
+  navStart:$('navStart'), gotoStart:$('gotoStart'), gotoDest:$('gotoDest'), reroute:$('reroute'),
+  needle:document.getElementById('needle'),
+  savedList:$('savedList'),
+  openSaveModal:$('openSaveModal'), saveModal:$('saveModal'),
+  saveName:$('saveName'), saveLon:$('saveLon'), saveLat:$('saveLat'),
+  cancelSave:$('cancelSave'), doSave:$('doSave'),
+  setFromSaved:$('setFromSaved'), delSaved:$('delSaved')
 };
 
-function setDestination(lat,lng, label=''){
-  destLatLng = [lat,lng];
-  $('destInput').value = `${lat.toFixed(6)},${lng.toFixed(6)}`
-  if(destMarker){ map.removeLayer(destMarker); }
-  destMarker = L.marker(destLatLng).addTo(map).bindTooltip('目的地');
-  // 履歴追加
-  historyList.unshift({name:label||'目的地', lat, lng});
-  if(historyList.length>50) historyList.pop();
-  renderHistory();
-  // 目的地が入ったら即リルート
-  ensureRouteForCurrentMode(true);
-}
+/* ===== 地図 ===== */
+const map = L.map('map',{zoomControl:false});
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:20, attribution:'&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
+L.control.zoom({position:'bottomleft'}).addTo(map);
+const routeGroup=L.layerGroup().addTo(map);
+let currentMarker=null, destMarker=null, routeLine=null, lastRoute=null;
+let watchId=null, prevPos=null;
 
-function renderHistory(){
-  const ul = $('history'); ul.innerHTML='';
-  for(const h of historyList){
-    const li = document.createElement('li');
-    li.innerHTML = `<span>${h.name} <span class="small">(${h.lat.toFixed(5)}, ${h.lng.toFixed(5)})</span></span>`;
-    const b = document.createElement('button');
-    b.className='ghost'; b.textContent='目的地に設定';
-    b.onclick = ()=> setDestination(h.lat,h.lng,h.name);
-    li.appendChild(b);
-    ul.appendChild(li);
-  }
-}
-
-function clearDestination(){
-  destLatLng = null;
-  if(destMarker){ map.removeLayer(destMarker); destMarker=null; }
-  $('destInput').value='';
-  // ルートも消す
-  setRoute(null,null);
-}
-
-/* ========= ルート描画・消去 ========= */
-function setRoute(geo, alt){
-  if(routeLayer){ map.removeLayer(routeLayer); routeLayer=null; }
-  if(altLayer){ map.removeLayer(altLayer); altLayer=null; }
-  routeGeo = geo;
-  if(geo){
-    routeLayer = L.geoJSON(geo,{style:{color:'#4aa3ff',weight:6,opacity:.95}}).addTo(map);
-    const b = routeLayer.getBounds(); if(b.isValid()) map.fitBounds(b.pad(0.15));
-  }
-  if(alt){
-    altLayer = L.geoJSON(alt,{style:{color:'#2ecc71',weight:4,opacity:.7,dashArray:'6 8'}}).addTo(map);
-  }
-}
-
-/* ========= OSRM ルーティング ========= */
-async function osrmRoute(coords){ // coords: [[lat,lng], [lat,lng], ...]
-  const ll = coords.map(([la,ln])=> `${ln},${la}`).join(';');
-  const url = `https://router.project-osrm.org/route/v1/foot/${ll}?overview=full&geometries=geojson&alternatives=true&steps=false`;
-  const r = await fetch(url);
-  if(!r.ok) throw new Error('OSRM error');
-  const j = await r.json();
-  return j.routes; // [{geometry:{coordinates:[[lng,lat],...]}, distance, duration}, ...]
-}
-
-/* ========= お散歩AI：袋小路スパー除去 ========= */
-function _dist(a,b){const dx=a.lat-b.lat, dy=a.lng-b.lng; return Math.hypot(dx,dy);}
-function _angle(p0,p1,p2){
-  const v1=[p0.lat-p1.lat,p0.lng-p1.lng], v2=[p2.lat-p1.lat,p2.lng-p1.lng];
-  const c=(v1[0]*v2[0]+v1[1]*v2[1])/(Math.hypot(...v1)*Math.hypot(...v2));
-  return Math.acos(Math.max(-1,Math.min(1,c)))*180/Math.PI;
-}
-function stripDeadEndSpurs(polyline, proxim=0.00012 /*~13m*/, uTurn=160){
-  if(!polyline || polyline.length<4) return polyline;
-  let pts = polyline.slice();
-  let changed = true;
-  while(changed){
-    changed = false;
-    for(let i=2;i<pts.length;i++){
-      const tail = pts[pts.length-1];
-      const nearIdx = pts.findIndex((p,idx)=> idx<pts.length-2 && _dist(p,tail) < proxim);
-      if(nearIdx>=0){
-        const a = pts[pts.length-3], b = pts[pts.length-2], c = pts[pts.length-1];
-        if(_angle(a,b,c) > uTurn){
-          pts.splice(nearIdx+1, pts.length-(nearIdx+1));
-          changed = true;
-          break;
-        }
-      }
-    }
-  }
-  return pts;
-}
-
-/* ========= ルート要求（モード別） ========= */
-async function ensureRouteForCurrentMode(force=false){
-  if(!startLatLng || !destLatLng){
-    if(routeMode !== 'stroll'){ // stroll は目的地不要
-      if(force) speakJa('現在地と目的地を設定してください');
-      return;
-    }
-  }
-  await requestRoute();
-}
-
-async function requestRoute(){
-  try{
-    $('modeBadge').textContent = routeMode==='shortest' ? '最短' : routeMode==='easy' ? '楽チン' : 'お散歩AI';
-    if(routeMode==='stroll'){
-      // 起点から周回：長中短でウェイポイントをつくる
-      const [la,ln] = startLatLng || map.getCenter();
-      const meter = strollLength==='short' ? 300 : strollLength==='mid' ? 600 : 900; // 半径目安
-      // ざっくり3点（北東・南東・西）
-      const dLat = (meter/111320);
-      const dLng = (meter/(40075000*Math.cos(la*Math.PI/180)))*360;
-      const wp1=[la+dLat, ln+dLng];
-      const wp2=[la-dLat, ln+dLng*0.6];
-      const wp3=[la,     ln-dLng*0.9];
-      const routes = await osrmRoute([ [la,ln], wp1, wp2, wp3, [la,ln] ]);
-      const best = routes[0];
-      let coords = best.geometry.coordinates.map(([x,y])=> ({lat:y,lng:x}));
-      coords = stripDeadEndSpurs(coords); // ★ 袋小路スパー除去（要件1）
-      const geo = {type:'Feature', geometry:{type:'LineString', coordinates: coords.map(p=>[p.lng,p.lat])}};
-      setRoute(geo,null);
-      if(isNavigating) speakNextManeuver(); // ★ リルート後に必ず音声（要件2）
-      return;
-    }
-
-    const routes = await osrmRoute([ startLatLng, destLatLng ]);
-    // 最短
-    let main = routes[0];
-    // 楽チン：ターン数が少なそうなもの（座標間距離が滑らかな=総角度が小さい）を選ぶ
-    let easy = null;
-    if(routes.length>1){
-      const score = r => {
-        const pts = r.geometry.coordinates.map(([x,y])=>({lat:y,lng:x}));
-        let s=0;
-        for(let i=1;i<pts.length-1;i++){ s += _angle(pts[i-1],pts[i],pts[i+1]); }
-        return s; // 大きいほど曲がりが緩い
-      };
-      routes.sort((a,b)=> score(b)-score(a));
-      easy = routes[0]; main = routes[1]||routes[0];
-    }
-    const geo = {type:'Feature', geometry: main.geometry};
-    const alt = easy && (easy!==main) ? {type:'Feature', geometry: easy.geometry} : null;
-    setRoute(geo, alt);
-    if(isNavigating) speakNextManeuver(); // ★ リルート後に必ず音声
-  }catch(e){
-    console.error(e);
-    speakJa('ルートの計算に失敗しました');
-  }
-}
-
-/* ========= ナビゲーション：開始/停止 ========= */
-function resetNavigationState(){
-  if(navTimer){ clearInterval(navTimer); navTimer=null; }
-}
-function startNavigation(){
-  if(!routeGeo){ speakJa('ルートがありません'); return; }
-  resetNavigationState();
-  isNavigating = true;
-  speakJa('案内を開始します');
-  // 簡易：一定間隔で残距離アナウンス
-  navTimer = setInterval(()=>{
-    if(!routeGeo) return;
-    const coords = routeGeo.geometry.coordinates;
-    const dist = estimateDistance(coords); // m
-    speakJa(`目的地までおよそ ${Math.max(0,Math.round(dist/50)*50)} メートルです`);
-  }, 15000);
-  speakNextManeuver();
-}
-function stopNavigation(){
-  resetNavigationState();
-  isNavigating = false;
-  speakJa('案内を停止しました');
-  clearDestination(); // ★ 目的地も空に（要件5）
-}
-function estimateDistance(coords){
-  let d=0;
-  for(let i=1;i<coords.length;i++){
-    const a=coords[i-1], b=coords[i];
-    const dx = (b[0]-a[0])*40075000*Math.cos((a[1])*Math.PI/180)/360;
-    const dy = (b[1]-a[1])*111320;
-    d+=Math.hypot(dx,dy);
-  }
-  return d;
-}
-function speakNextManeuver(){
-  // 簡易メッセージ
-  if(routeMode==='stroll') speakJa('お散歩ルートでご案内します');
-  else speakJa('ルートを更新しました。案内を続けます');
-}
-
-/* ========= ボタン動作 ========= */
-$('navStart').onclick = async ()=>{
-  // ★ どんな状態でも「開始」で必ず開始（要件3）
-  await ensureRouteForCurrentMode(true);
-  if(routeGeo || routeMode==='stroll'){ startNavigation(); }
-};
-$('stopNav').onclick = stopNavigation;
-
-// ★ リルートは必ずモードダイアログを出す（要件4）
-$('reroute').onclick = ()=> openDialog('reroutePicker');
-
-// ダイアログボタン
-$('reroutePicker').querySelectorAll('[data-mode]').forEach(b=>{
-  b.onclick = ()=>{
-    closeDialog('reroutePicker');
-    setModeAndReroute(b.dataset.mode);
-  };
-});
-$('strollPicker').querySelectorAll('[data-len]').forEach(b=>{
-  b.onclick = async ()=>{
-    strollLength = b.dataset.len;
-    closeDialog('strollPicker');
-    await requestRoute();
-    if(isNavigating) speakNextManeuver();
-  };
-});
-
-function setModeAndReroute(mode){
-  routeMode = mode;
-  if(mode==='stroll'){
-    openDialog('strollPicker'); // ★ お散歩のみ長/中/短を選ばせる（要件8）
-  }else{
-    requestRoute().then(()=>{
-      if(isNavigating) speakNextManeuver();
-    });
-  }
-  $('modeBadge').textContent = mode==='shortest'?'最短':mode==='easy'?'楽チン':'お散歩AI';
-}
-$('modeShortest').onclick = ()=> setModeAndReroute('shortest');
-$('modeEasy').onclick     = ()=> setModeAndReroute('easy');
-$('modeStroll').onclick   = ()=> setModeAndReroute('stroll');
-
-/* ========= 目的地 → ルート反映イベント ========= */
-function onRouteReadyHook(){
-  // setRoute 内から呼びたい場合の保険を考えていたが
-  // 今回は requestRoute 終端で isNavigating を見て音声再開しているので不要
-}
-
-/* ========= ルート保持に合わせて setRoute をラップ ========= */
-const _setRoute = setRoute;
-setRoute = function(geo,alt){ routeGeo = geo; _setRoute(geo,alt); };
-
-/* ========= キーバインド（便利） ========= */
-document.addEventListener('keydown', (e)=>{
-  if(e.key==='Escape'){ closeDialog('reroutePicker'); closeDialog('strollPicker'); }
-  if(e.key==='r'){ $('reroute').click(); }
-});
-
-/* ========= 最初の現在地→お散歩用の起点が定まったら軽く案内 ========= */
-(async()=>{
-  // 少し待ってから現在地が取れていればセンタリング
-  await sleep(800);
-  if(startLatLng) map.setView(startLatLng, 16);
-})();
-</script>
-</body>
-</html>
+/* ===== コンパス（安定化） ===== */
+const compass={angle:0,target:0,lastUpdate:0,raf:null};
+function norm360(x){x%=360;if(x<0)x+=360;return x;}
+function shortDiff(a,b){let d=norm360(b)-norm360(a);if(d>180)d-=360;if(d<-180)d+=360;return d;}
+function setCompassTarget(deg){
+  if
