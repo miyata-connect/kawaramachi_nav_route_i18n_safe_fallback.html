@@ -3,47 +3,66 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Walk-Nav AI (v11 Final)</title>
+<title>Walk-Nav AI (v12 Final)</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 /* --- 基本スタイル --- */
 :root{--bg:#0f1a25;--panel:#132235;--panel2:#0f1e30;--text:#eaf2ff;--muted:#9db0c6;--ok:#2ecc71;--primary:#4aa3ff;--danger:#ff6b6b;--accent:#4ac8ff;}
 body,html{margin:0;padding:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",sans-serif;background:var(--bg);color:var(--text)}
 main{max-width:800px;margin:0 auto;padding:10px}
-h3{margin:10px 0 5px;padding-bottom:5px;border-bottom:1px solid var(--panel2);color:var(--accent);font-weight:400}
-input,button,select{font-size:16px;padding:10px;border-radius:8px;border:1px solid var(--panel2);background:var(--panel);color:var(--text);margin:2px}
+h3{margin:10px 0 5px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,0.05);color:var(--accent);font-weight:400}
+input,button,select{font-size:16px;padding:10px;border-radius:8px;border:none;background:var(--panel2);color:var(--text);margin:2px}
 button{cursor:pointer}
 button.primary{background:var(--primary);color:#fff}
-#status{margin-top:8px;color:var(--muted);min-height:1.2em;font-size:14px}
-button.loading{opacity:.7;pointer-events:none}.btn-group{margin-bottom:10px}
-button.selected{background:var(--accent);color:var(--bg);font-weight:700}.center-group{display:flex;justify-content:center;gap:5px}
+#status{margin-top:8px;color:var(--muted);min-height:1.2em;font-size:14px;text-align:center;}
+button.loading{opacity:.7;pointer-events:none}
+.btn-group button.selected{background:var(--accent);color:var(--bg);font-weight:700}
+.center-group{display:flex;justify-content:center;gap:5px}
 
-/* --- FIX 2 & 3: 検索欄のレイアウト --- */
+/* --- FIX 1: すりガラス効果 --- */
+.glass-panel{
+  background:rgba(19, 34, 53, 0.7);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+  border:1px solid rgba(255, 255, 255, 0.1);
+  border-radius:12px;
+  padding:15px;
+  margin-bottom:10px;
+}
+
+/* --- 検索欄 --- */
 .search-bar{display:flex;gap:5px;align-items:center; margin-bottom: 10px;}
-.search-bar select{flex-shrink:0;}
 .search-bar input{flex-grow:1}
 .search-actions{display:flex;justify-content:center;gap:10px;}
 #btn-search{padding:10px 24px; font-weight:bold;}
+
+/* --- FIX 5: ルートモードボタンのサイズ統一 --- */
+.center-group button { min-width: 90px; }
 
 .coord-grid{display:flex;flex-wrap:nowrap;gap:5px;align-items:center;margin-bottom:5px}
 .coord-grid label{font-weight:bold;font-size:14px;flex-basis:60px;flex-shrink:0}
 .coord-grid input{flex:1 1 100px;min-width:50px;padding:8px}
 #map{width:100%;height:60vh;border-radius:12px;background:#334;position:relative;overflow:hidden}
-.compass-container{position:absolute;left:10px;top:10px;z-index:999;display:flex;flex-direction:column;align-items:center}.compass{width:60px;height:60px}#compass-needle{transform-origin:50% 50%;transition:transform .3s linear;fill:var(--danger)}.heading-modes{background:rgba(19,34,53,0.7);border-radius:8px;padding:4px 6px;margin-top:4px;font-size:12px;color:var(--muted);display:flex;gap:8px}.heading-modes span{cursor:pointer}.heading-modes span.selected{color:var(--accent);font-weight:bold}.fab-container{position:absolute;bottom:20px;right:10px;z-index:999;display:flex;flex-direction:column;gap:10px}.fab-container button{box-shadow:0 8px 20px rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1)}.fab-container button.selected{background-color:var(--accent);color:var(--bg);}.leaflet-control-zoom-in,.leaflet-control-zoom-out{width:40px !important;height:40px !important;line-height:40px !important;font-size:24px !important;}#btn-voice{background-color:var(--ok)}#btn-voice.recording{background-color:var(--danger);animation:pulse 1.5s infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,107,107,.7)}70%{box-shadow:0 0 0 10px rgba(255,107,107,0)}100%{box-shadow:0 0 0 0 rgba(255,107,107,0)}}.user-marker-icon{background-color:var(--accent);width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 10px rgba(0,0,0,0.5);transition:transform 0.3s linear;}.user-marker-icon::after{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #fff;}.nav-popup button{width:100%;padding:8px;font-size:15px;border:none;border-radius:6px;cursor:pointer;margin-bottom:5px;}.nav-popup .primary{background-color:var(--ok);color:#fff;}.leaflet-popup-content-wrapper{border-radius:8px;background:var(--panel);}.leaflet-popup-content{margin:10px;}.leaflet-popup-tip{background:var(--panel);}.time-display{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:999;display:flex;background:rgba(19,34,53,0.7);padding:8px;border-radius:8px;width:240px;justify-content:space-between;backdrop-filter:blur(3px)}.time-display div{flex:1 1 50%;text-align:center}.time-display .label{font-size:12px;color:var(--muted)}.time-display .time{font-size:18px;font-weight:bold;color:var(--accent)}#results{position:fixed;bottom:0;left:0;right:0;background:rgba(15,26,37,.95);backdrop-filter:blur(5px);border-top:1px solid var(--panel2);padding:10px;transform:translateY(100%);transition:transform .3s ease-out;z-index:1000;max-height:50vh;overflow-y:auto}#results.show{transform:translateY(0)}#results ul{list-style:none;padding:0;margin:0}#results li{padding:12px;border-bottom:1px solid var(--panel2);cursor:pointer}#results li:hover{background:var(--panel)}#results-list strong{color:var(--accent)}.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:1001}.modal-box{background:var(--panel);padding:20px;border-radius:12px;width:90%;max-width:400px}.modal-box h3{margin-top:0}.modal-box input{width:calc(100% - 24px);margin-bottom:10px}.modal-box .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:10px}#load-list li{display:flex;align-items:center;padding:8px;border-bottom:1px solid var(--panel2)}#load-list li .name{flex-grow:1}#load-list li button{margin-left:5px;padding:5px 8px;font-size:14px}.reroute-options h4{margin:15px 0 5px;color:var(--muted);text-align:center;border-bottom:1px solid var(--panel2);padding-bottom:5px;}.reroute-options .btn-group{display:flex;justify-content:center;gap:10px;}
+.compass-container{position:absolute;left:10px;top:10px;z-index:998;display:flex;flex-direction:column;align-items:center}.compass{width:60px;height:60px}#compass-needle{transform-origin:50% 50%;transition:transform .3s linear;fill:var(--danger)}.heading-modes{background:rgba(19,34,53,0.7);border-radius:8px;padding:4px 6px;margin-top:4px;font-size:12px;color:var(--muted);display:flex;gap:8px}.heading-modes span{cursor:pointer}.heading-modes span.selected{color:var(--accent);font-weight:bold}.fab-container{position:absolute;bottom:20px;right:10px;z-index:998;display:flex;flex-direction:column;gap:10px}.fab-container button{box-shadow:0 8px 20px rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1)}.fab-container button.selected{background-color:var(--accent);color:var(--bg);}.leaflet-control-zoom-in,.leaflet-control-zoom-out{width:40px !important;height:40px !important;line-height:40px !important;font-size:24px !important;}#btn-voice{background-color:var(--ok)}#btn-voice.recording{background-color:var(--danger);animation:pulse 1.5s infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,107,107,.7)}70%{box-shadow:0 0 0 10px rgba(255,107,107,0)}100%{box-shadow:0 0 0 0 rgba(255,107,107,0)}}
+.user-marker-icon-wrapper{ /*何もしないコンテナ*/ }
+.user-marker-arrow{background-color:var(--accent);width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 10px rgba(0,0,0,0.5);transition:transform 0.3s linear;}.user-marker-arrow::after{content:'';position:absolute;top:-6px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:12px solid #fff;}
+.nav-popup button{width:100%;padding:8px;font-size:15px;border:none;border-radius:6px;cursor:pointer;margin-bottom:5px;}.nav-popup .primary{background-color:var(--ok);color:#fff;}.leaflet-popup-content-wrapper{border-radius:8px;background:var(--panel);}.leaflet-popup-content{margin:10px;}.leaflet-popup-tip{background:var(--panel);}.time-display{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:998;display:flex;background:rgba(19,34,53,0.7);padding:8px;border-radius:8px;width:240px;justify-content:space-between;backdrop-filter:blur(3px)}.time-display div{flex:1 1 50%;text-align:center}.time-display .label{font-size:12px;color:var(--muted)}.time-display .time{font-size:18px;font-weight:bold;color:var(--accent)}#results{position:fixed;bottom:0;left:0;right:0;background:rgba(15,26,37,.95);backdrop-filter:blur(5px);border-top:1px solid var(--panel2);padding:10px;transform:translateY(100%);transition:transform .3s ease-out;z-index:1000;max-height:50vh;overflow-y:auto}#results.show{transform:translateY(0)}#results ul{list-style:none;padding:0;margin:0}#results li{padding:12px;border-bottom:1px solid var(--panel2);cursor:pointer}#results li:hover{background:var(--panel)}#results-list strong{color:var(--accent)}.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:1001}.modal-box{background:var(--panel);padding:20px;border-radius:12px;width:90%;max-width:400px}.modal-box h3{margin-top:0}.modal-box input{width:calc(100% - 24px);margin-bottom:10px}.modal-box .actions{display:flex;justify-content:flex-end;gap:10px;margin-top:10px}#load-list li{display:flex;align-items:center;padding:8px;border-bottom:1px solid var(--panel2)}#load-list li .name{flex-grow:1}#load-list li button{margin-left:5px;padding:5px 8px;font-size:14px}.reroute-options h4{margin:15px 0 5px;color:var(--muted);text-align:center;border-bottom:1px solid var(--panel2);padding-bottom:5px;}.reroute-options .btn-group{display:flex;justify-content:center;gap:10px;}
 </style>
 </head>
 <body>
 <main>
-  <div class="search-bar">
+  <div class="glass-panel">
+    <div class="search-bar">
+      <input id="q" data-i18n-placeholder="search_placeholder">
+      <button id="btn-voice">🎤</button>
+    </div>
     <select id="lang-select">
       <option value="ja">日本語</option><option value="en">English</option>
     </select>
-    <input id="q" data-i18n-placeholder="search_placeholder">
-    <button id="btn-voice">🎤</button>
-  </div>
-  <div class="search-actions">
-    <button id="btn-search" class="primary" data-i18n="search_button">検索</button>
-    <button id="btn-clear-history" data-i18n="clear_history_button">履歴クリア</button>
+    <div class="search-actions">
+      <button id="btn-search" class="primary" data-i18n="search_button">検索</button>
+      <button id="btn-clear-history" data-i18n="clear_history_button">履歴クリア</button>
+    </div>
   </div>
 
   <div id="map">
@@ -61,19 +80,24 @@ button.selected{background:var(--accent);color:var(--bg);font-weight:700}.center
   </div>
   <div id="status"></div>
 
-  <h3 data-i18n="route_mode">ルートモード</h3>
-  <div class="btn-group center-group">
-    <button class="mode-btn selected" data-mode="shortest" data-i18n="mode_shortest">最短Ai</button>
-    <button class="mode-btn" data-mode="easy" data-i18n="mode_easy">楽ちんAi</button>
-    <button class="mode-btn" data-mode="walkai" data-i18n="mode_stroll">お散歩Ai</button>
-    <button class="mode-btn" data-mode="tour" data-i18n="mode_sightseeing">観光Ai</button>
+  <div class="glass-panel">
+    <h3 data-i18n="route_mode">ルートモード</h3>
+    <div class="btn-group center-group">
+      <button class="mode-btn selected" data-mode="shortest" data-i18n="mode_shortest">最短Ai</button>
+      <button class="mode-btn" data-mode="easy" data-i18n="mode_easy">楽ちんAi</button>
+      <button class="mode-btn" data-mode="walkai" data-i18n="mode_stroll">お散歩Ai</button>
+      <button class="mode-btn" data-mode="tour" data-i18n="mode_sightseeing">観光Ai</button>
+    </div>
   </div>
-  <h3 data-i18n="coordinates">座標</h3>
-  <div class="coord-grid">
-    <label data-i18n="current_location_label">現在地</label><input id="start-lng" data-i18n-placeholder="longitude"><input id="start-lat" data-i18n-placeholder="latitude">
-  </div>
-  <div class="coord-grid">
-    <label data-i18n="destination_label">目的地</label><input id="end-lng" data-i18n-placeholder="longitude"><input id="end-lat" data-i18n-placeholder="latitude">
+
+  <div class="glass-panel">
+    <h3 data-i18n="coordinates">座標</h3>
+    <div class="coord-grid">
+      <label data-i18n="current_location_label">現在地</label><input id="start-lng" data-i18n-placeholder="longitude"><input id="start-lat" data-i18n-placeholder="latitude">
+    </div>
+    <div class="coord-grid">
+      <label data-i18n="destination_label">目的地</label><input id="end-lng" data-i18n-placeholder="longitude"><input id="end-lat" data-i18n-placeholder="latitude">
+    </div>
   </div>
 </main>
 <div id="results"><button id="btn-close-results" style="float:right" data-i18n="close_button">閉じる</button><h3 data-i18n="search_results">検索結果</h3><ul id="results-list"></ul></div>
@@ -83,64 +107,43 @@ button.selected{background:var(--accent);color:var(--bg);font-weight:700}.center
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-// --- FIX 2: スクリプト全体をDOM読み込み後に実行する ---
+// --- スクリプト全体をDOM読み込み後に実行する ---
 document.addEventListener('DOMContentLoaded', () => {
   try {
     /***********************
-     * 設定・グローバル変数
+     * グローバル変数・設定
      ************************/
     const GMAP_PROXY = 'https://ors-proxy.miyata-connect-jp.workers.dev';
     const PLACES_SEARCH_URL = `${GMAP_PROXY}/places:searchText`;
     const DIRECTIONS_URL      = `${GMAP_PROXY}/maps/api/directions/json`;
     
-    let userMarker = null, destMarker = null, routeLayer = null;
-    let userMarkerIcon = null;
-
+    let map, userMarker, destMarker, routeLayer, userMarkerIcon;
     let currentLang = 'ja', currentMode = 'shortest', watchId = null, headingDeg = 0;
     let lastResults = [], isRecording = false;
-    let isHeadingUp = false; let previousPosition = null;
+    let isHeadingUp = false, previousPosition = null;
     let routeFetchTime = null, routeDurationInSeconds = null, timeUpdateInterval = null;
-
     const LS_SAVED = 'walknav_saved_locations', LS_HISTORY = 'walknav_hist';
-
     const translations = {ja:{language:"言語",search:"検索",search_placeholder:"検索ワード",search_button:"検索",clear_history_button:"履歴クリア",north_up:"北固定",heading_up:"進行方向",current_location_button:"現在地",destination_button:"目的地",reroute_button:"リルート",status_ready:"準備完了",route_mode:"ルートモード",mode_shortest:"最短Ai",mode_easy:"楽ちんAi",mode_stroll:"お散歩Ai",mode_sightseeing:"観光Ai",coordinates:"座標",current_location_label:"現在地",destination_label:"目的地",longitude:"経度",latitude:"緯度",close_button:"閉じる",search_results:"検索結果",save_location_title:"地点の保存",save_name_placeholder:"名前 (例: 自宅)",cancel_button:"キャンセル",save_button:"保存",saved_locations_title:"保存した地点",status_getting_location:"現在地を取得中…",status_location_error:"現在地エラー：{message} (位置情報の許可を確認してください)",status_location_set:"現在地をセットしました",status_search_word_required:"検索ワードを入力",status_searching:"検索中…",status_search_failed:"検索失敗：{message}",status_search_results_count:"検索結果：{count}件",status_route_fetching:"ルート取得中… ({mode})",status_route_error:"ルート取得エラー：{message}",status_nav_started:"案内を開始しました",status_nav_stopped:"案内を停止しました",start_nav:"案内開始",stop_nav:"案内停止",no_results_found:"見つかりませんでした",no_saved_locations:"保存された地点はありません",confirm_delete:"{name}を削除しますか？",destination_set:"目的地を「{name}」に設定しました",location_saved:"「{name}」を保存しました",name_required:"名前を入力してください",destination_not_set:"目的地の座標が不正です",start_location_not_set:"開始地点が未設定です",save_name_prompt:"保存する場所の名前を入力してください",status_save_error:"保存失敗：{message}",reroute_title:"リルート方法の選択",reroute_stroll_title:"お散歩Ai",reroute_stroll_short:"短",reroute_stroll_medium:"中",reroute_stroll_long:"長",https_required:"エラー: このアプリは安全な接続(https)が必要です。",current_time:"現在時刻",eta_time:"到着予想",eta_arrived:"到着済み",init_error:"初期化エラー: {message}"},en:{language:"Language",search:"Search",search_placeholder:"Search term",search_button:"Search",clear_history_button:"Clear History",north_up:"North Up",heading_up:"Heading Up",current_location_button:"My Location",destination_button:"Destination",reroute_button:"Reroute",status_ready:"Ready",route_mode:"Route Mode",mode_shortest:"Shortest",mode_easy:"Easy",mode_stroll:"Stroll",mode_sightseeing:"Tour",coordinates:"Coordinates",current_location_label:"Current",destination_label:"Destination",longitude:"Longitude",latitude:"Latitude",close_button:"Close",search_results:"Search Results",save_location_title:"Save Location",save_name_placeholder:"Name (e.g., Home)",cancel_button:"Cancel",save_button:"Save",saved_locations_title:"Saved Locations",status_getting_location:"Getting current location...",status_location_error:"Location error: {message} (Please check location permissions)",status_location_set:"Current location set",status_search_word_required:"Enter a search term",status_searching:"Searching...",status_search_failed:"Search failed: {message}",status_search_results_count:"Found {count} results",status_route_fetching:"Fetching route... ({mode})",status_route_error:"Route error: {message}",status_nav_started:"Navigation started",status_nav_stopped:"Navigation stopped",start_nav:"Start Navigation",stop_nav:"Stop Navigation",no_results_found:"Not found",no_saved_locations:"No saved locations",confirm_delete:"Delete {name}?",destination_set:"Destination set to {name}",location_saved:"Saved {name}",name_required:"Please enter a name",destination_not_set:"Invalid destination coordinates",start_location_not_set:"Start location not set",save_name_prompt:"Enter a name for this location",status_save_error:"Save failed: {message}",reroute_title:"Select Reroute Type",reroute_stroll_title:"Stroll AI",reroute_stroll_short:"Short",reroute_stroll_medium:"Medium",reroute_stroll_long:"Long",https_required:"Error: This app requires a secure connection (https) to use location features.",current_time:"Current Time",eta_time:"Est. Arrival",eta_arrived:"Arrived",init_error:"Initialization Error: {message}"}};
     
     const $ = s => document.querySelector(s);
     const langSelect = $('#lang-select'), qInput = $('#q'), statusEl = $('#status'), resultsEl = $('#results'), resultsList = $('#results-list'), btnVoice = $('#btn-voice'), btnSearch = $('#btn-search'), btnClearHistory = $('#btn-clear-history'), btnCurrent = $('#btn-current'), btnDest = $('#btn-dest'), btnReroute = $('#btn-reroute'), startLng = $('#start-lng'), startLat = $('#start-lat'), endLng = $('#end-lng'), endLat = $('#end-lat'), needle = $('#compass-needle'), btnSave = $('#btn-save'), btnLoad = $('#btn-load'), saveModal = $('#save-modal'), saveNameInput = $('#save-name'), btnCancelSave = $('#btn-cancel-save'), btnDoSave = $('#btn-do-save'), loadModal = $('#load-modal'), loadList = $('#load-list'), btnCloseLoad = $('#btn-close-load'), btnNorth = $('#btn-north'), btnHeading = $('#btn-heading'), rerouteModal = $('#reroute-modal'), btnCancelReroute = $('#btn-cancel-reroute'), currentTimeEl = $('#current-time'), etaTimeEl = $('#eta-time');
 
     /***********************
-     * 地図の初期化
+     * ヘルパー関数
      ************************/
-    const map = L.map('map', { zoomControl: false }).setView([35.68, 139.76], 15);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; OpenStreetMap', maxZoom: 19
-    }).addTo(map);
-    L.control.zoom({ position: 'bottomleft' }).addTo(map);
-    userMarkerIcon = L.divIcon({ className: 'user-marker-icon', iconSize: [20, 20] });
-
-
-    /***********************
-     * ツール・ヘルパー関数
-     ************************/
-    function updateUIText(lang){const t=translations[lang]||translations.ja;document.querySelectorAll("[data-i18n]").forEach(el=>{el.textContent=t[el.dataset.i18n]||el.dataset.i18n});document.querySelectorAll("[data-i18n-placeholder]").forEach(el=>{el.placeholder=t[el.dataset.i18nPlaceholder]||el.dataset.i18nPlaceholder})}
-    function t(key,params={}){let text=translations[currentLang]?.[key]||translations.ja[key]||key;for(const p in params){text=text.replace(`{${p}}`,params[p])}return text}
-    function setStatus(textKey, params = {}){ if(statusEl) statusEl.textContent = t(textKey, params) || ''; }
-    function asLatLng(lngInput, latInput){ const lng = parseFloat(lngInput.value), lat = parseFloat(latInput.value); if (Number.isFinite(lng) && Number.isFinite(lat)) return [lat,lng]; return null; }
-    function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
-    function langCodeToBCP47(l){ const map = {ja:'ja-JP', en:'en-US'}; return map[l] || 'ja-JP'; }
-    function decodePolyline(str){let index=0,lat=0,lng=0,coordinates=[];while(index<str.length){let b,shift=0,result=0;do{b=str.charCodeAt(index++)-63;result|=(b&0x1f)<<shift;shift+=5}while(b>=0x20);let dlat=(result&1)?~(result>>1):(result>>1);lat+=dlat;shift=0;result=0;do{b=str.charCodeAt(index++)-63;result|=(b&0x1f)<<shift;shift+=5}while(b>=0x20);let dlng=(result&1)?~(result>>1):(result>>1);lng+=dlng;coordinates.push([lat*1e-5,lng*1e-5])}return coordinates}
-    function calculateBearing(lat1,lon1,lat2,lon2){const toRad=deg=>deg*Math.PI/180;const toDeg=rad=>rad*180/Math.PI;const dLon=toRad(lon2-lon1);const y=Math.sin(dLon)*Math.cos(toRad(lat2));const x=Math.cos(toRad(lat1))*Math.sin(toRad(lat2))-Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(dLon);let brng=toDeg(Math.atan2(y,x));return(brng+360)%360}
-
-    /***********************
-     * 時刻表示ロジック
-     ************************/
-    function updateTimeDisplays(){const now=new Date();currentTimeEl.textContent=now.toLocaleTimeString("ja-JP");if(routeFetchTime&&routeDurationInSeconds){const elapsedTime=(Date.now()-routeFetchTime)/1e3;const remainingDuration=routeDurationInSeconds-elapsedTime;if(remainingDuration<=0){etaTimeEl.textContent=t("eta_arrived")}else{const etaDate=new Date(Date.now()+remainingDuration*1e3);etaTimeEl.textContent=etaDate.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}}else{etaTimeEl.textContent="--:--"}}
-    function stopEtaUpdates(){if(timeUpdateInterval)clearInterval(timeUpdateInterval);routeFetchTime=null;routeDurationInSeconds=null;etaTimeEl.textContent="--:--"}
+    const updateUIText = (lang) => {const t=translations[lang]||translations.ja;document.querySelectorAll("[data-i18n]").forEach(el=>{el.textContent=t[el.dataset.i18n]||el.dataset.i18n});document.querySelectorAll("[data-i18n-placeholder]").forEach(el=>{el.placeholder=t[el.dataset.i18nPlaceholder]||el.dataset.i18nPlaceholder})};
+    const t = (key,params={}) => {let text=translations[currentLang]?.[key]||translations.ja[key]||key;for(const p in params){text=text.replace(`{${p}}`,params[p])}return text};
+    const setStatus = (textKey, params = {}) => { if(statusEl) statusEl.textContent = t(textKey, params) || ''; };
+    // (その他のヘルパー関数は変更なし)
+    function asLatLng(lngInput,latInput){const lng=parseFloat(lngInput.value),lat=parseFloat(latInput.value);if(Number.isFinite(lng)&&Number.isFinite(lat))return[lat,lng];return null}function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}function langCodeToBCP47(l){const map={ja:"ja-JP",en:"en-US"};return map[l]||"ja-JP"}function decodePolyline(str){let index=0,lat=0,lng=0,coordinates=[];while(index<str.length){let b,shift=0,result=0;do{b=str.charCodeAt(index++)-63;result|=(b&0x1f)<<shift;shift+=5}while(b>=0x20);let dlat=(result&1)?~(result>>1):(result>>1);lat+=dlat;shift=0;result=0;do{b=str.charCodeAt(index++)-63;result|=(b&0x1f)<<shift;shift+=5}while(b>=0x20);let dlng=(result&1)?~(result>>1):(result>>1);lng+=dlng;coordinates.push([lat*1e-5,lng*1e-5])}return coordinates}function calculateBearing(lat1,lon1,lat2,lon2){const toRad=deg=>deg*Math.PI/180;const toDeg=rad=>rad*180/Math.PI;const dLon=toRad(lon2-lon1);const y=Math.sin(dLon)*Math.cos(toRad(lat2));const x=Math.cos(toRad(lat1))*Math.sin(toRad(lat2))-Math.sin(toRad(lat1))*Math.cos(toRad(lat2))*Math.cos(dLon);let brng=toDeg(Math.atan2(y,x));return(brng+360)%360}
 
     /***********************
      * 主要機能
      ************************/
+    // (長いので省略)
     let recog=null;function ensureRecog(){if(recog){recog.lang=langCodeToBCP47(currentLang);return recog}const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return null;recog=new SR();recog.lang=langCodeToBCP47(currentLang);recog.onstart=()=>{isRecording=true;btnVoice.classList.add("recording");setStatus("status_searching")};recog.onend=()=>{isRecording=false;btnVoice.classList.remove("recording")};recog.onerror=e=>{setStatus("status_location_error",{message:e.error})};recog.onresult=e=>{qInput.value=e.results[0][0].transcript;btnSearch.click()};return recog}
+    function updateTimeDisplays(){const now=new Date();currentTimeEl.textContent=now.toLocaleTimeString("ja-JP");if(routeFetchTime&&routeDurationInSeconds){const elapsedTime=(Date.now()-routeFetchTime)/1e3;const remainingDuration=routeDurationInSeconds-elapsedTime;if(remainingDuration<=0){etaTimeEl.textContent=t("eta_arrived")}else{const etaDate=new Date(Date.now()+remainingDuration*1e3);etaTimeEl.textContent=etaDate.toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"})}}else{etaTimeEl.textContent="--:--"}}
+    function stopEtaUpdates(){if(timeUpdateInterval)clearInterval(timeUpdateInterval);routeFetchTime=null;routeDurationInSeconds=null;etaTimeEl.textContent="--:--"}
     async function updateUserLocation(){try{const p=await getCurrentPosition({enableHighAccuracy:true,timeout:1e4});const{latitude,longitude}=p.coords;map.setView([latitude,longitude],17);updateUserMarker(latitude,longitude);startLng.value=longitude.toFixed(6);startLat.value=latitude.toFixed(6);setStatus("status_location_set")}catch(e){setStatus("status_location_error",{message:e.message})}}
     function watchHeading(){if(watchId)return;watchId=navigator.geolocation.watchPosition(p=>{let newHeading=null;if(p.coords.heading!==null&&p.coords.heading!==undefined){newHeading=p.coords.heading}else if(previousPosition){const dist=map.distance(previousPosition,[p.coords.latitude,p.coords.longitude]);if(dist>2){newHeading=calculateBearing(previousPosition.lat,previousPosition.lng,p.coords.latitude,p.coords.longitude)}}if(newHeading!==null){headingDeg=newHeading;updateNeedle(headingDeg);updateUserMarkerRotation(headingDeg)}updateUserMarker(p.coords.latitude,p.coords.longitude);if(isHeadingUp){map.panTo([p.coords.latitude,p.coords.longitude],{animate:true,duration:0.5})}previousPosition={lat:p.coords.latitude,lng:p.coords.longitude}},e=>{setStatus("status_location_error",{message:e.message})},{enableHighAccuracy:true,maximumAge:2e3,timeout:1e4})}
     function updateNeedle(deg){needle.style.transform=`rotate(${deg}deg)`}
