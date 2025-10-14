@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Walk-Nav AI (Debugged)</title>
+<title>Walk-Nav AI (Debugged v2)</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <style>
 /* --- 基本スタイル --- */
@@ -28,11 +28,13 @@ button.loading{opacity:.7;pointer-events:none}
 
 /* --- FIX 1: 方位計を地図左上に配置 --- */
 .compass{position:absolute;left:10px;top:10px;width:60px;height:60px;z-index:999}
-#compass-needle{transform-origin:center;transition:transform .5s ease-out;transform:translate(-50%,-90%) rotate(0deg);fill:var(--danger)}
+/* FIX 1: 針の表示を修正 */
+#compass-needle{transform-origin:50% 50%;transition:transform .3s linear;fill:var(--danger)}
 
-/* --- FIX 3: フローティングボタンを地図右下に配置 --- */
+/* --- FIX 2 & 3: フローティングボタンを地図右下に配置 --- */
 .fab-container{position:absolute;bottom:20px;right:10px;z-index:999;display:flex;flex-direction:column;gap:10px}
 .fab-container button{box-shadow:0 8px 20px rgba(0,0,0,.3);border:1px solid rgba(255,255,255,.1)}
+.fab-container button.selected{background-color:var(--accent);color:var(--bg);}
 
 /* --- FIX 6: ズームボタンを拡大 --- */
 .leaflet-control-zoom-in, .leaflet-control-zoom-out {
@@ -44,7 +46,7 @@ button.loading{opacity:.7;pointer-events:none}
 #btn-voice.recording{background-color:var(--danger);animation:pulse 1.5s infinite}
 @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,107,107,.7)}70%{box-shadow:0 0 0 10px rgba(255,107,107,0)}100%{box-shadow:0 0 0 0 rgba(255,107,107,0)}}
 
-/* --- 検索結果パネル --- */
+/* --- FIX 3: 検索結果パネル --- */
 #results{position:fixed;bottom:0;left:0;right:0;background:rgba(15,26,37,.95);backdrop-filter:blur(5px);border-top:1px solid var(--panel2);padding:10px;transform:translateY(100%);transition:transform .3s ease-out;z-index:1000;max-height:50vh;overflow-y:auto}
 #results.show{transform:translateY(0)}
 #results ul{list-style:none;padding:0;margin:0}
@@ -60,16 +62,16 @@ button.loading{opacity:.7;pointer-events:none}
 
 <main>
   <h3>言語</h3>
-  <div class="btn-group">
-    <button class="lang-btn selected" data-lang="ja">日本語</button>
-    <button class="lang-btn" data-lang="en">English</button>
-    <button class="lang-btn" data-lang="de">Deutsch</button>
-    <button class="lang-btn" data-lang="it">Italiano</button>
-    <button class="lang-btn" data-lang="fr">Français</button>
-    <button class="lang-btn" data-lang="es">Español</button>
-    <button class="lang-btn" data-lang="ko">한국어</button>
-    <button class="lang-btn" data-lang="zh">中文</button>
-  </div>
+  <select id="lang-select">
+    <option value="ja">日本語</option>
+    <option value="en">English</option>
+    <option value="de">Deutsch</option>
+    <option value="it">Italiano</option>
+    <option value="fr">Français</option>
+    <option value="es">Español</option>
+    <option value="ko">한국어</option>
+    <option value="zh">中文</option>
+  </select>
 
   <h3>検索</h3>
   <input id="q" placeholder="検索ワード">
@@ -80,6 +82,8 @@ button.loading{opacity:.7;pointer-events:none}
   <div id="map">
     <div class="compass"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="48" fill="#132235" stroke="#4aa3ff" stroke-width="2"></circle><polygon id="compass-needle" points="50,10 60,50 50,90 40,50"></polygon><circle cx="50" cy="50" r="5" fill="#4aa3ff"></circle></svg></div>
     <div class="fab-container">
+      <button id="btn-north">北固定</button>
+      <button id="btn-heading">進行方向</button>
       <button id="btn-current">現在地</button>
       <button id="btn-dest">目的地</button>
       <button id="btn-reroute">リルート</button>
@@ -142,6 +146,7 @@ let destMarker = null;
 let routeLayer = null;
 let lastResults = [];
 let isRecording = false;
+let isHeadingUp = false; // FIX 2: ヘディングアップモード用の状態変数
 const LS_SAVED = 'walknav_saved_locations';
 const LS_HISTORY = 'walknav_hist';
 
@@ -159,6 +164,7 @@ L.control.zoom({ position:'bottomleft' }).addTo(map);
  ************************/
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
+const langSelect = $('#lang-select'); // FIX 4: 言語選択の要素
 const qInput = $('#q'), statusEl = $('#status'), resultsEl = $('#results'), resultsList = $('#results-list');
 const btnVoice = $('#btn-voice'), btnSearch = $('#btn-search'), btnClearHistory = $('#btn-clear-history');
 const btnCurrent = $('#btn-current'), btnDest = $('#btn-dest'), btnReroute = $('#btn-reroute');
@@ -168,6 +174,7 @@ const needle = $('#compass-needle');
 const btnSave = $('#btn-save'), btnLoad = $('#btn-load');
 const saveModal = $('#save-modal'), saveNameInput = $('#save-name'), btnCancelSave = $('#btn-cancel-save'), btnDoSave = $('#btn-do-save');
 const loadModal = $('#load-modal'), loadList = $('#load-list'), btnCloseLoad = $('#btn-close-load');
+const btnNorth = $('#btn-north'), btnHeading = $('#btn-heading'); // FIX 2: ボタン要素を取得
 
 /***********************
  * ツール
@@ -217,16 +224,12 @@ btnVoice.addEventListener('click', ()=> {
 /***********************
  * UIイベント
  ************************/
-// --- FIX 2: 言語ボタンの動作を修正 ---
-$$('.lang-btn').forEach(b=>{
-  b.addEventListener('click', ()=>{
-    $$('.lang-btn').forEach(x=>x.classList.remove('selected'));
-    b.classList.add('selected');
-    currentLang = b.dataset.lang;
-    setStatus(`言語：${b.textContent}`);
-    const r = ensureRecog();
-    if (r) r.lang = langCodeToBCP47(currentLang);
-  });
+// --- FIX 4: 言語選択をドロップダウンに変更 ---
+langSelect.addEventListener('change', (e) => {
+  currentLang = e.target.value;
+  setStatus(`言語：${e.target.options[e.target.selectedIndex].text}`);
+  const r = ensureRecog();
+  if (r) r.lang = langCodeToBCP47(currentLang);
 });
 
 $$('.mode-btn').forEach(b=>{
@@ -251,7 +254,7 @@ async function updateUserLocation(){
   try {
     const p = await getCurrentPosition({enableHighAccuracy:true,timeout:10000});
     const { latitude, longitude } = p.coords;
-    map.setView([latitude, longitude], 17);
+    map.panTo([latitude, longitude]);
     updateUserMarker(latitude, longitude);
     startLng.value = longitude.toFixed(6);
     startLat.value = latitude.toFixed(6);
@@ -264,13 +267,20 @@ async function updateUserLocation(){
 function watchHeading(){
   if (watchId) return;
   watchId = navigator.geolocation.watchPosition(p=>{
-    headingDeg = (p.coords.heading || 0);
-    updateNeedle(headingDeg);
+    if (p.coords.heading !== null && p.coords.heading !== undefined) {
+      headingDeg = p.coords.heading;
+      updateNeedle(headingDeg);
+    }
     updateUserMarker(p.coords.latitude, p.coords.longitude);
-  }, ()=>{}, {enableHighAccuracy:true, maximumAge:3000, timeout:15000});
+    // FIX 2: ヘディングアップモード時に地図をパン
+    if (isHeadingUp) {
+      map.panTo([p.coords.latitude, p.coords.longitude], { animate: true, duration: 0.5 });
+    }
+  }, ()=>{}, {enableHighAccuracy:true, maximumAge:2000, timeout:10000});
 }
+// FIX 1: 針の回転ロジックを修正
 function updateNeedle(deg){
-  needle.style.transform = `translate(-50%,-90%) rotate(${deg}deg)`;
+  needle.style.transform = `rotate(${deg}deg)`;
 }
 function updateUserMarker(lat,lng){
   if (!userMarker){
@@ -280,6 +290,21 @@ function updateUserMarker(lat,lng){
   }
 }
 btnCurrent.addEventListener('click', updateUserLocation);
+
+// --- FIX 2: ノースアップ・ヘディングアップボタンのロジック ---
+btnNorth.addEventListener('click', () => {
+  isHeadingUp = false;
+  btnNorth.classList.add('selected');
+  btnHeading.classList.remove('selected');
+  setStatus('北固定モード');
+});
+btnHeading.addEventListener('click', () => {
+  isHeadingUp = true;
+  btnHeading.classList.add('selected');
+  btnNorth.classList.remove('selected');
+  setStatus('進行方向モード');
+});
+
 
 /***********************
  * 検索ロジック
@@ -292,9 +317,12 @@ btnSearch.addEventListener('click', async ()=>{
     const resp = await fetch(PLACES_SEARCH_URL,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ textQuery:text, languageCode: currentLang })
+      // FIX 3: 検索APIに渡す言語コードを修正
+      body: JSON.stringify({ textQuery:text, languageCode: langCodeToBCP47(currentLang) })
     });
     const data = await resp.json();
+    if (resp.status !== 200) { throw new Error(data.error?.message || '不明なエラー'); }
+
     lastResults = (data.places||[]).map(p=>({
       id: p.id,
       name: p.displayName?.text || p.name || '(no name)',
@@ -302,9 +330,9 @@ btnSearch.addEventListener('click', async ()=>{
       loc: p.location ? [p.location.latitude, p.location.longitude] : null
     }));
     renderResults(lastResults);
-    showResults(true);
+    showResults(true); // 結果パネルを表示
     addHistory(text);
-    setStatus(`検索：${lastResults.length}件`);
+    setStatus(`検索結果：${lastResults.length}件`);
   }catch(e){
     setStatus('検索失敗：'+e.message);
   }finally{
@@ -315,7 +343,7 @@ btnSearch.addEventListener('click', async ()=>{
 function renderResults(items){
   resultsList.innerHTML = '';
   if (!items.length){ resultsList.innerHTML = '<li>見つかりませんでした</li>'; return; }
-  for (const r of items){
+  items.forEach(r => {
     const li = document.createElement('li');
     li.innerHTML = `<div><strong>${escapeHtml(r.name)}</strong></div><div style="opacity:.85">${escapeHtml(r.address)}</div>`;
     li.addEventListener('click', ()=>{
@@ -328,7 +356,7 @@ function renderResults(items){
       }
     });
     resultsList.appendChild(li);
-  }
+  });
 }
 $('#btn-close-results').addEventListener('click', ()=> showResults(false));
 function showResults(flag){ resultsEl.classList.toggle('show', !!flag); }
@@ -368,7 +396,7 @@ btnStart.addEventListener('click', async ()=>{
   try{
     const url = new URL(DIRECTIONS_URL);
     url.searchParams.set('origin', `${start[0]},${start[1]}`);
-    url.searchParams.set('destination', `${end[0]},${end[1]}`);
+    url.search_params.set('destination', `${end[0]},${end[1]}`);
     url.searchParams.set('mode','walking');
     url.searchParams.set('language', currentLang);
 
@@ -419,7 +447,8 @@ const addHistory=(text)=>{const h=JSON.parse(localStorage.getItem(LS_HISTORY)||'
 // --- FIX 5: 起動時に現在地を自動で取得・表示 ---
 async function initializeApp() {
   setStatus('現在地を取得中…');
-  await updateUserLocation(); // 既存の関数を呼び出し
+  btnNorth.classList.add('selected'); // デフォルトは北固定
+  await updateUserLocation();
   watchHeading();
 }
 
