@@ -1,123 +1,191 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
-  <title>Walk-NAV</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
+<title>Walk-NAV</title>
 
-  <!-- Leaflet -->
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
-  />
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-o9N1j7kG9kG8a9kaK2vNhbbX6YsJh8e3toDnN2DXW8A="
-    crossorigin=""
-    defer
-  ></script>
+<!-- すべてのCSSを内蔵（外部CSS不要） -->
+<style>
+:root{
+  --bg:#0b0f19; --fg:#e7e7ea; --glass:rgba(44,47,58,.55); --blur:12px;
+  --brand:#60a5fa; --green:#16a34a; --red:#ef4444; --blue:#3b82f6;
+  --panel-w:min(720px,92vw); --radius:18px; --shadow:0 10px 26px rgba(0,0,0,.22);
+  --z-panel:500; --z-right:520; --z-compass:530;
+}
+*,*::before,*::after{ box-sizing:border-box; } /* 入力枠はみ出し防止 */
+html,body,#map{ height:100%; width:100%; margin:0; background:#000; color:var(--fg);
+  font-family: system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans JP",sans-serif;
+}
+#map{ position:fixed; inset:0; }
 
-  <link rel="stylesheet" href="styles.css" />
-  <script defer src="app.js"></script>
+/* ガラス板 */
+.glass{
+  position:fixed; left:50%; transform:translateX(-50%);
+  top:calc(env(safe-area-inset-top,0px) + 10px);
+  width:var(--panel-w); max-width:var(--panel-w);
+  background:var(--glass); backdrop-filter:blur(var(--blur)); -webkit-backdrop-filter:blur(var(--blur));
+  border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; z-index:var(--z-panel);
+}
+.row{ display:flex; gap:12px; align-items:center; justify-content:center; flex-wrap:wrap; margin-top:12px; }
+.grid2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.center{ text-align:center; }
+
+.input{
+  width:100%; height:46px; border:1px solid rgba(255,255,255,.12);
+  border-radius:12px; background:rgba(0,0,0,.25); color:var(--fg);
+  padding:0 12px; text-align:center;
+}
+.input::placeholder{ color:#cbd5e1; text-align:center; }
+
+.btn{ border:none; height:44px; padding:0 16px; border-radius:999px; color:#fff;
+  background:rgba(255,255,255,.18); cursor:pointer; text-align:center;
+}
+.primary{ background:var(--brand); }
+.green{ background:var(--green); }
+.red{   background:var(--red); }
+.blue{  background:var(--blue); }
+
+/* 右縦ボタン（地図上、板と衝突なし） */
+.right-stack{
+  position:fixed;
+  right:max(12px, env(safe-area-inset-right,0px)+12px);
+  top:calc(env(safe-area-inset-top,0px)+120px);
+  display:flex; flex-direction:column; gap:10px; z-index:var(--z-right);
+}
+.btn-right{ min-width:110px; background:rgba(59,130,246,.95); border:none; color:#fff; border-radius:14px; height:46px; box-shadow:var(--shadow); }
+
+/* コンパス（地図左、円内回転/飛び出し防止） */
+.compass-wrap{
+  position:fixed;
+  left:max(12px, env(safe-area-inset-left,0px)+12px);
+  top:calc(env(safe-area-inset-top,0px)+120px);
+  z-index:var(--z-compass);
+}
+.compass-dial{ width:82px; height:82px; border-radius:50%; background:rgba(255,255,255,.14); box-shadow:var(--shadow); position:relative; overflow:hidden; }
+.compass-needle{ position:absolute; left:50%; top:50%; width:2px; height:38px; background:#ff4d4d;
+  transform-origin:50% 90%; transform:translate(-50%,-90%) rotate(0deg); border-radius:2px; }
+.heading-buttons{ display:flex; gap:8px; margin-top:8px; justify-content:center; }
+
+/* 言語（縦アコーディオン） */
+.lang-acc{ margin-top:8px; }
+.lang-acc > summary{ list-style:none; padding:10px 14px; border-radius:12px; background:rgba(255,255,255,.16); text-align:center; cursor:pointer; }
+.lang-btn{ background:rgba(255,255,255,.16); border:none; border-radius:999px; color:#fff; padding:10px 14px; text-align:center; }
+
+/* 検索結果：板内からスライドイン・アウト */
+.results{
+  position:absolute; left:0; right:0; bottom:-420px;
+  background:rgba(0,0,0,.45); border-radius:14px; max-height:340px; overflow:auto;
+  transition:transform .25s ease, bottom .25s ease; transform:translateY(24px);
+}
+.results.show{ bottom:10px; transform:translateY(0); }
+#results-list{ list-style:none; padding:8px 10px; margin:0; }
+#results-list li{ background:rgba(255,255,255,.12); border-radius:12px; padding:10px; margin:8px 0; text-align:center; }
+
+/* Leaflet ズームを左下へ（板/ボタン非干渉） */
+.leaflet-control-container .leaflet-left .leaflet-control-zoom{
+  margin-left: calc(env(safe-area-inset-left,0px) + 12px);
+  margin-bottom: calc(env(safe-area-inset-bottom,0px) + 12px);
+  margin-top:0; margin-right:0;
+}
+
+/* 狭幅調整 */
+@media (max-width:420px){
+  .btn-right{ min-width:96px; }
+  .compass-dial{ width:76px; height:76px; }
+}
+</style>
+
+<!-- Leaflet（CDN） -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+<script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-o9N1j7kG9kG8a9kaK2vNhbbX6YsJh8e3toDnN2DXW8A=" crossorigin=""></script>
+
+<!-- アプリ本体 -->
+<script defer src="./app.js?v=5"></script>
 </head>
 <body>
-  <!-- Map -->
   <div id="map"></div>
 
-  <!-- 右サイド縦ボタン（地図上。板と干渉しない位置/余白済み） -->
+  <!-- 右サイド：現在地/目的地/リルート -->
   <div class="right-stack">
     <button id="btn-current" class="btn-right">現在地</button>
     <button id="btn-dest"    class="btn-right">目的地</button>
     <button id="btn-reroute" class="btn-right">リルート</button>
   </div>
 
-  <!-- 方位計（針は中心回転・盤内に収める） -->
+  <!-- 方位計（左） -->
   <div class="compass-wrap">
-    <div class="compass-dial">
-      <div class="compass-needle" id="compass-needle"></div>
-    </div>
+    <div class="compass-dial"><div id="compass-needle" class="compass-needle"></div></div>
     <div class="heading-buttons">
-      <button id="btn-north"   class="btn-mini">北を向く</button>
-      <button id="btn-heading" class="btn-mini">進行方向</button>
+      <button id="btn-north"   class="btn">北を向く</button>
+      <button id="btn-heading" class="btn">進行方向</button>
     </div>
   </div>
 
-  <!-- ガラス板（1枚に統合） -->
+  <!-- ガラス板 -->
   <div id="panel" class="glass">
-    <!-- 検索バー -->
-    <div class="row search-row">
+    <div class="row">
       <input id="q" class="input" placeholder="名称・住所・電話番号で検索" />
-      <button id="btn-voice" class="btn mic green" title="音声検索（長押しで録音開始）">🎤 音声</button>
+      <button id="btn-voice" class="btn green">🎤 音声</button>
     </div>
 
-    <!-- 上段：検索＋履歴クリア -->
-    <div class="row gap">
+    <div class="row">
       <button id="btn-search" class="btn primary">検索</button>
-      <button id="btn-clear-history" class="btn secondary">履歴をクリア</button>
+      <button id="btn-clear-history" class="btn">履歴をクリア</button>
+      <button class="btn primary mode-btn" data-mode="shortest">最短</button>
+      <button class="btn mode-btn" data-mode="easy">楽チン</button>
+      <button class="btn mode-btn" data-mode="walkai">お散歩Ai</button>
+      <button class="btn mode-btn" data-mode="tour">観光案内</button>
     </div>
 
-    <!-- ルートモード：最短/楽チン/お散歩Ai/観光案内（横並び） -->
-    <div class="row gap">
-      <button class="mode-btn selected" data-mode="shortest">最短</button>
-      <button class="mode-btn" data-mode="easy">楽チン</button>
-      <button class="mode-btn" data-mode="walkai">お散歩Ai</button>
-      <button class="mode-btn" data-mode="tour">観光案内</button>
-    </div>
-
-    <!-- 言語：縦トグル -->
-    <details class="lang-accordion">
-      <summary class="summary-center">言語 / Language</summary>
-      <div class="langs">
-        <button class="lang-btn selected" data-lang="ja">日本語</button>
-        <button class="lang-btn" data-lang="en">English</button>
-        <button class="lang-btn" data-lang="de">Deutsch</button>
-        <button class="lang-btn" data-lang="it">Italiano</button>
-        <button class="lang-btn" data-lang="fr">Français</button>
-        <button class="lang-btn" data-lang="es">Español</button>
-        <button class="lang-btn" data-lang="ko">한국어</button>
-        <button class="lang-btn" data-lang="zh">中文</button>
+    <details class="lang-acc">
+      <summary>言語 / Language</summary>
+      <div class="row" style="flex-direction:column">
+        <button class="btn lang-btn primary" data-lang="ja">日本語</button>
+        <button class="btn lang-btn" data-lang="en">English</button>
+        <button class="btn lang-btn" data-lang="de">Deutsch</button>
+        <button class="btn lang-btn" data-lang="it">Italiano</button>
+        <button class="btn lang-btn" data-lang="fr">Français</button>
+        <button class="btn lang-btn" data-lang="es">Español</button>
+        <button class="btn lang-btn" data-lang="ko">한국어</button>
+        <button class="btn lang-btn" data-lang="zh">中文</button>
       </div>
     </details>
 
-    <!-- 位置入力（開始/目的） -->
-    <div class="grid2 gap section">
+    <div class="grid2">
       <div>
-        <div class="section-title">開始地点</div>
-        <div class="grid2 mini-gap">
-          <input id="start-lng" class="input center" placeholder="経度" />
-          <input id="start-lat" class="input center" placeholder="緯度" />
+        <div class="center" style="margin:6px 0 4px">開始地点</div>
+        <div class="grid2" style="gap:8px">
+          <input id="start-lng" class="input" placeholder="経度" />
+          <input id="start-lat" class="input" placeholder="緯度" />
         </div>
       </div>
       <div>
-        <div class="section-title">目的地点</div>
-        <div class="grid2 mini-gap">
-          <input id="end-lng" class="input center" placeholder="経度" />
-          <input id="end-lat" class="input center" placeholder="緯度" />
+        <div class="center" style="margin:6px 0 4px">目的地点</div>
+        <div class="grid2" style="gap:8px">
+          <input id="end-lng" class="input" placeholder="経度" />
+          <input id="end-lat" class="input" placeholder="緯度" />
         </div>
       </div>
     </div>
 
-    <!-- 保存/設定/案内 -->
-    <div class="row gap">
-      <button id="btn-save" class="btn green">現在地を保存</button>
-      <button id="btn-set-dest" class="btn blue">目的地に設定</button>
-      <button id="btn-start" class="btn green big">案内開始</button>
-      <button id="btn-stop"  class="btn red big">案内を停止</button>
+    <div class="row">
+      <button id="btn-save"      class="btn green">現在地を保存</button>
+      <button id="btn-set-dest"  class="btn blue">目的地に設定</button>
+      <button id="btn-start"     class="btn green">案内開始</button>
+      <button id="btn-stop"      class="btn red">案内を停止</button>
     </div>
 
-    <!-- 検索結果ビュー（スライド切替） -->
+    <!-- 検索結果（スライド） -->
     <div id="results" class="results">
-      <div class="results-head">
-        <div class="results-title">検索結果</div>
-        <button id="btn-close-results" class="btn ghost">×</button>
+      <div style="display:flex;align-items:center;justify-content:center;padding:10px;position:sticky;top:0;background:rgba(0,0,0,.45)">
+        <div style="flex:1;text-align:center;font-weight:700;">検索結果</div>
+        <button id="btn-close-results" class="btn">×</button>
       </div>
       <ul id="results-list"></ul>
     </div>
 
-    <!-- ステータス -->
-    <div id="status" class="status"></div>
+    <div id="status" class="center" style="margin-top:6px;opacity:.85"></div>
   </div>
 </body>
 </html>
