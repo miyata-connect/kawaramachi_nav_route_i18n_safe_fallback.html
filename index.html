@@ -1,55 +1,192 @@
-(() => {
-  if (window.__diagOn) { console.warn('DIAG already ON'); return; }
-  window.__diagOn = true;
-  const origFetch = window.fetch;
-  window.fetch = async (...args) => {
-    const url = String(args[0] || '');
-    const res = await origFetch(...args);
-    try {
-      const clone = res.clone();
-      const text = await clone.text();
-      let json=null; try{ json = JSON.parse(text); }catch(_){}
-      // ORS / ルート応答の形を判定
-      if (/openrouteservice|\/proxy\b/i.test(url)) {
-        let g=null;
-        if (json && json.routes && json.routes[0]) g = json.routes[0].geometry;
-        console.log('[DIAG/ORS]', {
-          status: res.status, url,
-          geometryType: (g && typeof g),
-          geojsonLen: (g && g.coordinates && g.coordinates.length) || null,
-          polylineSample: (typeof g==='string') ? String(g).slice(0,80) : null
-        });
-      }
-      // ジオコーダ（検索）応答の形をざっくり判定
-      if (/geocode|search|nominatim|photon|places/i.test(url)) {
-        const items = (json?.features || json?.results || json) || [];
-        const list = Array.isArray(items) ? items : (items.features || items.results || []);
-        const rows = (list || []).slice(0,10).map((it,i)=>({
-          i, name: it?.properties?.name || it?.name || it?.display_name,
-          dist: it?.properties?.distance || it?.distance || null
-        }));
-        console.log('[DIAG/SEARCH]', {count: rows.length, rows});
-      }
-    } catch(e) { console.warn('[DIAG ERR]', e); }
-    return res;
-  };
+/* ========== Reset & Layout ========== */
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; }
 
-  // 音声ログ
-  if (window.speechSynthesis?.speak) {
-    const origSpeak = window.speechSynthesis.speak.bind(window.speechSynthesis);
-    window.speechSynthesis.speak = (utt)=>{ console.log('[DIAG/SPEAK]', utt?.text); origSpeak(utt); };
-  }
+#map {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
 
-  // 方位イベントの生ログ（振れ幅を見る）
-  let lastAlpha=null, lastLog=0;
-  const logOrientation = (a) => {
-    const now=Date.now();
-    const d = (lastAlpha==null)? null : ((((a-lastAlpha+540)%360)-180).toFixed(1));
-    if (now-lastLog>800) { console.log('[DIAG/COMPASS]', {alpha: a?.toFixed?.(1), delta: d}); lastLog=now; }
-    lastAlpha=a;
-  };
-  const handler = (e)=> logOrientation(e.absolute===true ? e.alpha : e.webkitCompassHeading ?? e.alpha);
-  window.addEventListener('deviceorientationabsolute', handler, {passive:true});
-  window.addEventListener('deviceorientation', handler, {passive:true});
-  console.log('=== DIAG MODE ON ===');
-})();
+/* LeafletのUIを左下へ（板や右縦ボタンと衝突させない） */
+.leaflet-top.leaflet-left { top: auto; bottom: 12px; left: 12px; }
+.leaflet-control-zoom { box-shadow: 0 6px 18px rgba(0,0,0,.25); }
+
+/* ========== Glass Panel (1枚へ統合) ========== */
+.glass {
+  position: fixed;
+  z-index: 5;
+  left: 50%;
+  top: 8px;
+  transform: translateX(-50%);
+  width: min(960px, calc(100vw - 16px));
+  padding: 12px;
+  border-radius: 16px;
+  background: rgba(255,255,255,.25);
+  backdrop-filter: blur(12px) saturate(120%);
+  -webkit-backdrop-filter: blur(12px) saturate(120%);
+  box-shadow: 0 10px 30px rgba(0,0,0,.2);
+  color: #0b1633;
+}
+
+.row { display: flex; gap: 10px; align-items: center; }
+.gap { margin-top: 10px; }
+.mini-gap { gap: 6px; }
+.section { margin-top: 10px; }
+.section-title { font-weight: 700; margin-bottom: 6px; text-align: center; }
+
+/* 2カラム（開始/目的） */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 680px) { .grid2 { grid-template-columns: 1fr; } }
+
+/* 入力・ボタンは中央寄せ */
+.input, .btn, .mode-btn, .lang-btn, .btn-right, .btn-mini { text-align: center; }
+
+/* 入力 */
+.input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,.15);
+  background: rgba(255,255,255,.85);
+  font-size: 16px;
+}
+
+/* ボタン */
+.btn, .mode-btn, .lang-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 15px;
+  cursor: pointer;
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+}
+.btn:hover, .mode-btn:hover, .lang-btn:hover { filter: brightness(.95); }
+
+.primary { background: #2b7bff; color: #fff; }
+.secondary { background: #e9eef9; }
+.green { background: #21c17a; color: #fff; }
+.red { background: #ff4b55; color: #fff; }
+.blue { background: #1aa3ff; color: #fff; }
+.big { padding: 12px 18px; font-weight: 700; }
+
+/* マイク：録音中は赤、待機は緑 */
+.mic.green { background: #21c17a; color: #fff; }
+.mic.recording { background: #ff4b55 !important; color: #fff; }
+
+/* モードボタン */
+.mode-btn.selected { background: #2b7bff; color: #fff; }
+
+/* 言語アコーディオン（縦トグル） */
+.lang-accordion summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+}
+.summary-center { text-align: center; font-weight: 700; }
+.langs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 8px;
+}
+@media (max-width: 520px) {
+  .langs { grid-template-columns: repeat(2, 1fr); }
+}
+.lang-btn.selected { background: #2b7bff; color: #fff; }
+
+/* 検索結果ドロワー（板の内側でスライド） */
+.results {
+  margin-top: 10px;
+  max-height: 36vh;
+  overflow: auto;
+  border-radius: 12px;
+  background: rgba(255,255,255,.92);
+  padding: 6px;
+  transform-origin: top;
+  transition: .22s ease;
+  transform: scaleY(0);
+}
+.results.show { transform: scaleY(1); }
+
+.results-head {
+  display: flex; justify-content: space-between; align-items: center;
+  position: sticky; top: 0; background: rgba(255,255,255,.96);
+  padding: 6px; border-bottom: 1px solid rgba(0,0,0,.06);
+}
+.results-title { font-weight: 700; }
+
+#results-list { list-style: none; margin: 8px 0 0; padding: 0; }
+#results-list li {
+  padding: 10px 8px;
+  border-bottom: 1px dashed rgba(0,0,0,.12);
+  cursor: pointer;
+}
+#results-list li:hover { background: rgba(0,0,0,.04); }
+
+/* ステータス */
+.status { margin-top: 8px; font-size: 12px; color: #0b1633; opacity: .7; text-align: center; }
+
+/* ========== 右側の縦スタック（地図の上） ========== */
+.right-stack {
+  position: fixed;
+  right: 10px;
+  top: 100px;   /* 板や方位計と干渉しない高さ */
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.btn-right {
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #7db9ff;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,.18);
+}
+
+/* ========== 方位計（針は中心回転・盤内に収める） ========== */
+.compass-wrap {
+  position: fixed;
+  left: 10px;
+  top: 100px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.compass-dial {
+  width: 68px; height: 68px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.9);
+  box-shadow: inset 0 0 0 2px rgba(0,0,0,.1), 0 10px 22px rgba(0,0,0,.18);
+  position: relative;
+}
+.compass-needle {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 2px; height: 56%;
+  transform-origin: 50% calc(100% - 8px); /* 中心を基軸に回転 */
+  transform: translate(-50%, -100%) rotate(0);
+  background: linear-gradient(#ff4b55 0 50%, #1a64ff 50% 100%);
+  border-radius: 2px;
+}
+.heading-buttons { display: flex; flex-direction: column; gap: 6px; }
+.btn-mini {
+  padding: 6px 10px; border-radius: 10px; border: none;
+  background: rgba(255,255,255,.9); box-shadow: 0 6px 18px rgba(0,0,0,.12);
+  cursor: pointer; font-size: 12px;
+}
+
+/* モバイル：板が大きすぎて真っ白に見えないよう下余白を確保 */
+@media (max-width: 480px) {
+  .glass { padding: 10px; }
+  .btn, .mode-btn, .lang-btn { padding: 9px 10px; font-size: 14px; }
+}
