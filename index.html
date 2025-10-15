@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>ウォークナビ — ガラスUI（Google Maps + 音声案内）</title>
 
-<!-- Google Maps JavaScript API（ブラウザ用キーをそのまま使用・変更不可） -->
+<!-- Google Maps JavaScript API（提示されたブラウザ用キーを使用） -->
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4" defer></script>
 
 <style>
@@ -29,13 +29,14 @@ html,body{height:100%;margin:0;background:linear-gradient(135deg,#0a1321 0%,#0e1
 a{color:inherit}
 .app{position:relative;height:100dvh;overflow:hidden}
 
-/* Map 面（最低高さを追加：描画0pxの保険） */
+/* Map 面（最低高さの保険） */
 #map{position:absolute;inset:0;min-height:260px}
 
+/* 中央寄せ */
 .card, .row, input, button, select, .result, .title, label, .hint, .badge { text-align:center }
 
 /* ガラス板 */
-.glassbar{position:absolute;left:0;right:0;top:0;z-index:420;padding:10px 12px;pointer-events:none}
+.glassbar{position:absolute;left:0;right:0;top:0;z-index:420;padding:10px 12px;pointer-events:none;transition:transform .28s ease}
 .card{
   pointer-events:auto;background:var(--glass);border:1px solid var(--stroke);
   border-radius:16px;backdrop-filter: blur(14px) saturate(120%);-webkit-backdrop-filter: blur(14px) saturate(120%);
@@ -103,6 +104,19 @@ button.ghost{background:rgba(255,255,255,.06)}
 .result small{color:#bcd0e6}
 .badge{display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.08);margin-left:6px}
 
+/* —— 折り畳み：パネル退避時は上端にタブだけ残す —— */
+.panel-tab{
+  position:fixed;left:50%;top:8px;transform:translateX(-50%);
+  z-index:440;display:none;pointer-events:auto;
+  background:rgba(16,22,36,.68);border:1px solid var(--stroke);color:var(--text);
+  border-radius:999px;padding:6px 12px;font-size:14px;backdrop-filter:blur(10px);
+}
+body.panel-collapsed .panel-tab{display:inline-flex}
+body.panel-collapsed .glassbar{
+  /* パネル高さ - タブの見せ幅(約36px) 分だけ上に退避 */
+  transform:translateY(calc(-1 * (var(--panelH) - 36px)));
+}
+
 /* モバイル */
 @media (max-width:640px){
   .fab-col button{min-width:130px}
@@ -113,6 +127,9 @@ button.ghost{background:rgba(255,255,255,.06)}
 <body>
 <div class="app">
   <div id="map"></div>
+
+  <!-- 折り畳み復帰タブ（承認仕様） -->
+  <button id="panelTab" class="panel-tab" aria-controls="panel" aria-expanded="false">▼ パネルを開く</button>
 
   <div class="comp-wrap" id="compWrap" aria-hidden="true">
     <div class="compass" id="compass">
@@ -199,7 +216,7 @@ button.ghost{background:rgba(255,255,255,.06)}
 </div>
 
 <script>
-/* ====== Worker エンドポイント（変更なし） ====== */
+/* ====== Worker エンドポイント（既定のまま） ====== */
 const GMAP_PROXY = 'https://ors-proxy.miyata-connect-jp.workers.dev';
 
 /* 要素 */
@@ -213,7 +230,8 @@ const els={
   navStart:$('navStart'), navStop:$('navStop'), gotoStart:$('gotoStart'), gotoDest:$('gotoDest'), reroute:$('reroute'),
   savedList:$('savedList'), openSaveModal:$('openSaveModal'), setFromSaved:$('setFromSaved'), delSaved:$('delSaved'),
   langToggle:$('langToggle'), langList:$('langList'),
-  panel:$('panel'), needle:document.getElementById('needle'),
+  panel:$('panel'), panelTab:$('panelTab'),
+  needle:document.getElementById('needle'),
   northUp:$('northUp'), headUp:$('headUp')
 };
 
@@ -224,6 +242,14 @@ function updatePanelAnchors(){
 }
 new ResizeObserver(updatePanelAnchors).observe(els.panel);
 ['load','resize','orientationchange'].forEach(ev=>window.addEventListener(ev,updatePanelAnchors));
+
+/* 折り畳み（結果タップで退避／タブタップで戻す） */
+function collapsePanel(on){
+  document.body.classList.toggle('panel-collapsed', !!on);
+  els.panelTab.setAttribute('aria-expanded', on ? 'false' : 'true');
+  updatePanelAnchors();
+}
+els.panelTab.addEventListener('click', ()=>collapsePanel(false), {passive:true});
 
 /* 言語（Directions/TTS のみ切替） */
 const LANGS = [
@@ -271,10 +297,7 @@ function waitForGoogleThenInit(){
     setTimeout(waitForGoogleThenInit, 150);
   }
 }
-
-/* 起動フック（DOM準備 → Maps待ち） */
 document.addEventListener('DOMContentLoaded', ()=>{
-  // 3秒経ってもロードできなかったらUIに通知（コンソール不要）
   setTimeout(()=>{
     if(!initOnce && !(window.google && google.maps)){
       els.msg.textContent = '地図ライブラリの読み込みに失敗しました。APIキーのリファラー/課金設定やネットワークを確認してください。';
@@ -295,7 +318,7 @@ function initMapObj(){
   });
 }
 
-/* コンパス（見た目用。挙動は据え置き） */
+/* コンパス（見た目） */
 let compassMode='heading';
 const compass={angle:0,target:0,raf:null};
 const norm=x=>((x%360)+360)%360;
@@ -376,9 +399,6 @@ function setDest(lon,lat){
   }
 }
 
-/* 折り畳み（仕様据え置き・必要関数だけ残す） */
-function collapsePanel(on){ document.body.classList.toggle('panel-collapsed', !!on); updatePanelAnchors(); }
-
 /* Places 検索（Worker経由 v1 Text Search） */
 async function placesTextSearch(text, lat, lon){
   const body={
@@ -405,7 +425,7 @@ async function placesTextSearch(text, lat, lon){
   return items.slice(0,5);
 }
 
-/* Directions と Ai 風選択（据え置き） */
+/* Directions と Ai 風選択 */
 let navState={active:false, routeIndex:0, stepIndex:0, steps:[], lastSpoken:null};
 let mode='shortest';
 function asLatLng(v){ return (typeof v==='string')?v: new google.maps.LatLng(v.lat, v.lng); }
@@ -449,7 +469,7 @@ function chooseRouteIndex(routes){
   return 0;
 }
 
-/* 音声（据え置き） */
+/* 音声（簡易） */
 function speakOnce(text){
   try{ if(!text) return; window.speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(text); u.lang=currentTTS; window.speechSynthesis.speak(u); }catch{}
 }
@@ -508,7 +528,7 @@ async function reroute(){
   const res=await getRoute(); if(res) startNavigation();
 }
 
-/* 検索（据え置き） */
+/* 検索（音声含む） */
 function setMicBusy(b){ els.mic.classList.toggle('rec', !!b); }
 async function searchNearby(){
   const raw=els.q.value.trim(); if(!raw){ els.msg.textContent='検索ワードを入力してください'; return; }
@@ -534,9 +554,14 @@ function showResults(items){
       <small>${(isFinite(it.dist)?(it.dist/1000).toFixed(2)+' km　':'')+escapeHtml(it.addr||'')}
       <span class="badge">${it.lat.toFixed(5)}, ${it.lon.toFixed(5)}</span></small>`;
     div.addEventListener('click', async ()=>{
-      els.results.style.display='none';
+      els.results.style.display='none';              // 1) 即クローズ
       setDest(it.lon,it.lat); map.panTo({lat:it.lat,lng:it.lon}); map.setZoom(17);
-      const res=await getRoute(); if(res){ startNavigation(); }
+      const res=await getRoute();
+      if(res){
+        collapsePanel(true);                         // 2) 即パネル退避（タブだけ残す）
+        startNavigation();
+        document.getElementById('map').scrollIntoView({behavior:'smooth', block:'start'}); // 3) 地図へ遷移
+      }
     }, {passive:true});
     els.resultList.appendChild(div);
   });
@@ -592,7 +617,7 @@ function setFromSaved(){
   if(!val){ els.msg.textContent='地点を選んでください'; return; }
   const idx=parseInt(val,10); if(Number.isNaN(idx)||!arr[idx]){ els.msg.textContent='地点が不正です'; return; }
   setDest(arr[idx].lon,arr[idx].lat); map.panTo({lat:arr[idx].lat,lng:arr[idx].lon}); map.setZoom(17);
-  getRoute().then(res=>{ if(res) startNavigation(); });
+  getRoute().then(res=>{ if(res){ collapsePanel(true); startNavigation(); }});
 }
 function delSaved(){
   const val=els.savedList.value;
@@ -611,17 +636,6 @@ function setMode(m){
 els.modeShortest.addEventListener('click',()=>setMode('shortest'));
 els.modeEasy.addEventListener('click',()=>setMode('easy'));
 els.modeStroll.addEventListener('click',()=>setMode('stroll'));
-
-/* UIイベント */
-els.search.addEventListener('click',searchNearby);
-els.mic.addEventListener('click',startVoice);
-els.clearHistory.addEventListener('click',clearHistory);
-els.closeResults.addEventListener('click',()=>els.results.style.display='none');
-els.navStart.addEventListener('click',startNavigation);
-els.navStop.addEventListener('click',stopNavigation);
-els.gotoStart.addEventListener('click',()=>{ if(currentMarker) map.panTo(currentMarker.getPosition()); });
-els.gotoDest.addEventListener('click',()=>{ if(destMarker) map.panTo(destMarker.getPosition()); else els.msg.textContent='目的地が未設定です'; });
-els.reroute.addEventListener('click',reroute);
 
 /* 右クリック → 地図中心を目的地に */
 document.addEventListener('contextmenu',e=>{
