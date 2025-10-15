@@ -6,7 +6,7 @@
 <title>ウォークナビ — ガラスUI（Google Maps + 音声案内）</title>
 
 <!-- Google Maps JavaScript API（ブラウザ用キーを必ず設定） -->
-<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_BROWSER_API_KEY" defer></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4" defer></script>
 
 <style>
 :root{
@@ -359,7 +359,7 @@ async function placesTextSearch(text, lat, lon){
     textQuery:text,
     languageCode:currentLang||'ja',
     locationBias:(Number.isFinite(lat)&&Number.isFinite(lon))?{circle:{center:{latitude:lat,longitude:lon},radius:20000}}:undefined
-    // ← fieldMask は送らない
+    // ← fieldMask は送らない（Workerが X-Goog-FieldMask を付ける）
   };
   const r=await fetch(GMAP_PROXY+'/places',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok){
@@ -379,7 +379,7 @@ async function placesTextSearch(text, lat, lon){
   return items.slice(0,5);
 }
 
-/* ===== Aiランカー：（略：あなたの元コードのまま） ===== */
+/* ===== Aiランカー：（あなたの仕様どおり） ===== */
 function extractFeaturesFromRoutes(routes){
   return routes.map(r=>{
     const leg = r.legs?.[0] || {};
@@ -424,7 +424,7 @@ async function pickWithServerOrLocal(mode, routes){
   const idx = pickLocalIndex(mode, feats); console.debug('[AI rank] local', idx, feats); return idx;
 }
 
-/* 音声（日本語体裁・ゆっくり）など——元のまま */
+/* 音声（日本語体裁・ゆっくり） */
 function speakOnce(text){
   try{
     if(!text) return;
