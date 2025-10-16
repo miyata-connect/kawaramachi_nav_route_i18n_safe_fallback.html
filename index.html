@@ -528,6 +528,21 @@ function chooseRouteIndex(routes){
   return 0;
 }
 
+/* 🔥 ===== ルート名取得関数（全コース統一仕様） ===== */
+function getRouteSpeech(mode) {
+  if (mode === 'shortest') return '最短Aiで案内します';
+  if (mode === 'easy') return '楽チンAiで案内します';
+  if (mode === 'stroll') {
+    // お散歩Aiの長さ判定（距離で分類）
+    if (!lastLeg) return 'お散歩Aiで案内します';
+    const dist = lastLeg.distance?.value || 0;
+    if (dist >= 3000) return 'お散歩Aiで長めのルートで案内します';
+    if (dist >= 1500) return 'お散歩Aiで中程度のルートで案内します';
+    return 'お散歩Aiで短めのルートで案内します';
+  }
+  return '案内します';
+}
+
 /* ===== 音声（Web Speech） ===== */
 function speakOnce(text){
   try{
@@ -545,7 +560,9 @@ function stepToSpeech(step){
   // 「北西を北西へ」→「北西へ」（表現修正）
   base = base.replace(/(北|南|東|西)(北|南)?を\1(?:\2)?へ/g, s => s.replace(/を.+?へ/,'へ'));
   const dist = step.distance?.value||0;
-  if(currentLang==='ja') return `${base}（約${Math.round(dist)}メートル）`;
+  // 🔥 全コース統一仕様！
+  const routeName = getRouteSpeech(mode);
+  if(currentLang==='ja') return `${routeName}。${base}${Math.round(dist)}m進んでください。安全のため歩道を通行してください。`;
   return `${base} (${Math.round(dist)} meters)`;
 }
 
@@ -596,7 +613,7 @@ function modeLabelJa(){
 function startNavigation(){
   if(!lastLeg){ els.msg.textContent='先にルートを取得してください'; return; }
   navState.active=true; navState.stepIndex=0; navState.lastSpoken=null;
-  const pre = (currentLang==='ja') ? `${modeLabelJa()}で案内を開始します。` : `Starting guidance: ${mode}.`;
+  const pre = (currentLang==='ja') ? `${getRouteSpeech(mode)}。` : `Starting guidance: ${mode}.`;
   speakOnce(pre);
   const s0=navState.steps[0]; speakOnce(pre + ' ' + stepToSpeech(s0));
   els.msg.textContent='案内を開始しました';
