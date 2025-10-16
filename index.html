@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="ja">
 <head>
@@ -559,10 +560,10 @@ function stepToSpeech(step){
   let base = html2text(step.instructions||'');
   // 「北西を北西へ」→「北西へ」（表現修正）
   base = base.replace(/(北|南|東|西)(北|南)?を\1(?:\2)?へ/g, s => s.replace(/を.+?へ/,'へ'));
-  // 重複"進む"除去で自然に
-  base = base.replace(/進む$/, '');
+  // 「国道XXX号」を「国道XXX号線」に修正
+  base = base.replace(/国道(\d+)号/g, '国道$1号線');
   const dist = step.distance?.value||0;
-  if(currentLang==='ja') return `${base}約${Math.round(dist)}メートル進んでください。安全のため、歩道を通行してくださいね。`;
+  if(currentLang==='ja') return `${base}${Math.round(dist)}m進んでください。安全のため歩道を通行してください。`;
   return `${base} (${Math.round(dist)} meters)`;
 }
 
