@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="ja">
 <head>
@@ -560,9 +561,8 @@ function stepToSpeech(step){
   // 「北西を北西へ」→「北西へ」（表現修正）
   base = base.replace(/(北|南|東|西)(北|南)?を\1(?:\2)?へ/g, s => s.replace(/を.+?へ/,'へ'));
   const dist = step.distance?.value||0;
-  // 🔥 全コース統一仕様！
-  const routeName = getRouteSpeech(mode);
-  if(currentLang==='ja') return `${routeName}。${base}${Math.round(dist)}m進んでください。安全のため歩道を通行してください。`;
+  // 🔥 コース名を削除して指示だけ
+  if(currentLang==='ja') return `${base}${Math.round(dist)}m進んでください。安全のため歩道を通行してください。`;
   return `${base} (${Math.round(dist)} meters)`;
 }
 
@@ -613,9 +613,10 @@ function modeLabelJa(){
 function startNavigation(){
   if(!lastLeg){ els.msg.textContent='先にルートを取得してください'; return; }
   navState.active=true; navState.stepIndex=0; navState.lastSpoken=null;
-  const pre = (currentLang==='ja') ? `${getRouteSpeech(mode)}。` : `Starting guidance: ${mode}.`;
-  speakOnce(pre);
-  const s0=navState.steps[0]; speakOnce(pre + ' ' + stepToSpeech(s0));
+  const routeName = getRouteSpeech(mode);
+  const s0=navState.steps[0]; 
+  const instruction = stepToSpeech(s0);
+  speakOnce(`${routeName}。${instruction}`);
   els.msg.textContent='案内を開始しました';
   els.navText.classList.remove('hide'); els.timeRow.classList.remove('hide');
 }
@@ -801,3 +802,4 @@ function announceMode(){
 </script>
 </body>
 </html>
+```
