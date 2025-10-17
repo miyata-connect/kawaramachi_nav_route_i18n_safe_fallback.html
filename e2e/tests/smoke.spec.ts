@@ -1,76 +1,62 @@
-// tests/smoke.spec.ts
+// e2e/tests/smoke.spec.ts
 import { test, expect } from '@playwright/test';
 
-/**
- * Maps が「本当に」初期化完了したかを判定する関数。
- * - window.google / google.maps が存在
- * - .gm-style（Maps が必ず挿入するコンテナ）が可視 & サイズ>0
- */
+/** Google Maps の初期化を確実に待つユーティリティ */
 async function waitForGoogleMapReady(page: import('@playwright/test').Page) {
-  // Google Maps スクリプト自体のロード待ち
+  // スクリプトロード（google.maps が生えるまで）
   await page.waitForFunction(() => {
     // @ts-ignore
     return !!(window as any).google && !!(window as any).google.maps;
-  }, { timeout: 30_000 });
+  }, { timeout: 40_000 });
 
-  // 地図 DOM（.gm-style）が可視になりサイズが乗るまで待つ
+  // Maps のルートコンテナ（gm-style）が生成されるまで
+  const gmStyle = page.locator('.gm-style');
+  await expect(gmStyle).toBeVisible({ timeout: 40_000 });
+
+  // 著作権表記のコンテナ（gm-style-cc）は表示タイミングが前後するので「存在」までに緩める
+  const cc = page.locator('.gm-style-cc');
+  await expect(cc).toBeAttached({ timeout: 40_000 });
+
+  // タイルが1枚以上入るまで（img か canvas が子孫に現れる）
   await page.waitForFunction(() => {
-    const el = document.querySelector('.gm-style') as HTMLElement | null;
-    if (!el) return false;
-    const rect = el.getBoundingClientRect();
-    const style = window.getComputedStyle(el);
-    const visible = style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
-    return visible;
-  }, { timeout: 30_000 });
+    const root = document.querySelector('.gm-style');
+    if (!root) return false;
+    return !!root.querySelector('img[src*="googleapis.com"], img[src*="gstatic.com"], canvas');
+  }, { timeout: 40_000 });
 }
 
-/**
- * CI で位置情報を安定供給（現在地待ちで詰まらないように固定座標を付与）
- * ※ アプリ本体は触らない。テストの前処理で権限 & 座標を注入。
- */
+/** CI で位置情報を安定化（本体コードは変更しない） */
 const GEO = { latitude: 34.3408, longitude: 134.0641, accuracy: 5 };
 
 test.beforeEach(async ({ context, page }) => {
   await context.grantPermissions(['geolocation']);
   await context.setGeolocation(GEO);
 
-  // ページに入る前に geolocation を確実に提供（アプリの getCurrentPosition/ watchPosition から参照される）
+  // ページ読み込み前に geolocation をモック（getCurrentPosition / watchPosition）
   await page.addInitScript(({ lat, lng }) => {
     const fixed = { coords: { latitude: lat, longitude: lng, accuracy: 5 }, timestamp: Date.now() };
-    const ok = (success: PositionCallback) => setTimeout(() => success(fixed as any), 10);
-    const err = (_: PositionErrorCallback) => {};
+    const ok = (fn: any) => setTimeout(() => fn(fixed), 10);
     // @ts-ignore
-    navigator.geolocation.getCurrentPosition = (succ: any, _fail?: any) => ok(succ);
+    navigator.geolocation.getCurrentPosition = (succ: any) => ok(succ);
     // @ts-ignore
-    navigator.geolocation.watchPosition = (succ: any, _fail?: any) => {
-      ok(succ);
-      return 1; // watchId
-    };
+    navigator.geolocation.watchPosition = (succ: any) => { ok(succ); return 1; };
   }, { lat: GEO.latitude, lng: GEO.longitude });
 });
 
-test('smoke: Google Maps が表示され、主要UIが生きている', async ({ page }) => {
-  // 1) トップへ
+test('Smoke: Maps が描画され主要UIが生存している', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' });
 
-  // 2) Google Maps 初期化完了を厳密に待つ
   await waitForGoogleMapReady(page);
 
-  // 3) 地図の可視性（真っ白誤検知を避ける）
-  const mapContainer = page.locator('.gm-style');
-  await expect(mapContainer).toBeVisible();
+  // 地図の根要素が可視
+  await expect(page.locator('.gm-style')).toBeVisible();
 
-  // 4) 主要UIが最低限生きている（例：検索ボタン、音声ボタン）
-  //    実アプリのテキストに合わせる（日本語UI前提）
-  const searchBtn = page.getByRole('button', { name: /検索/ });
-  await expect(searchBtn).toBeVisible();
+  // 主要UI（例：検索ボタン / 音声ボタン）が生きている
+  await expect(page.getByRole('button', { name: /検索/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /音声/ })).toBeVisible();
 
-  const voiceBtn = page.getByRole('button', { name: /音声/ });
-  await expect(voiceBtn).toBeVisible();
-
-  // 5) ズームや移動が可能（地図がホントに生きてるか軽く触る）
-  //    Maps キーボード/マウスイベントは重いので、DOM スクロールで代替の軽い生存確認でも可。
-  await page.mouse.wheel(0, -400); // 上方向へスクロール
-  await page.waitForTimeout(300);
-  await page.mouse.wheel(0, 400);  // 戻す
+  // 軽くインタラクション（スクロールで視差変化）
+  await page.mouse.wheel(0, -300);
+  await page.waitForTimeout(200);
+  await page.mouse.wheel(0, 300);
 });
