@@ -1,31 +1,31 @@
 // e2e/tests/smoke.spec.ts
 import { test, expect } from '@playwright/test';
 
-const BASE =
-  process.env.E2E_BASE_URL || 'https://miyata-connect.github.io/walk-nav/';
+// BASE は config の use.baseURL 優先。未設定なら直接 URL。
+const BASE = process.env.E2E_BASE_URL || 'https://miyata-connect.github.io/walk-nav/';
 
 test.describe('Smoke', () => {
   test('ページが開けて地図の著作権表記が DOM に存在する', async ({ page }) => {
-    // 1) ページ遷移 → ネットワーク静穏まで
     await page.goto(BASE, { waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('networkidle');
 
-    // 2) 地図コンテナが少なくとも1つある（レンダラーが起動している）こと
-    await expect(page.locator('.gm-style').first()).toBeVisible({ timeout: 15000 });
+    // 1) マップ本体が初期化されるまで待つ（Google Maps の共通クラス）
+    await expect(page.locator('.gm-style')).toBeVisible({ timeout: 20000 });
 
-    // 3) 著作権表記の候補を「コンテナ or 代表テキスト」で幅広く拾う
-    //    ・.gm-style-cc … Google Maps の著作権/利用規約ブロック
-    //    ・text=...     … 言語や構造が違っても引っかかる代表語句
-    const candidates = page.locator(
-      '.gm-style-cc, text=/\\b(Map data|地図データ|Terms of Use|利用規約)\\b/i'
-    );
+    // 2) コピーライトコンテナを取得（ここに "Map data © 20xx / Terms of Use / 地図データ / 利用規約" が入る）
+    const copyrightBox = page.locator('.gm-style-cc');
 
-    // 4) 可視ではなく「存在」を確認（ヘッドレスで hidden になる揺らぎを回避）
+    // 3) 文字列は言語で揺れるので正規表現でゆるく拾う
+    //    例: "Map data ©2025", "Terms of Use", "地図データ ©2025", "利用規約" など
+    const candidates = copyrightBox.filter({
+      hasText: /\b(Map data|地図データ|Terms of Use|利用規約)\b/i,
+    });
+
+    // 4) 「可視」を直接要求すると hidden 判定に揺れることがあるため、
+    //    まず DOM に何かしら該当があることを確認（= 0 でない）
     const count = await candidates.count();
-    // 失敗時に状況を残す
-    if (count === 0) {
-      await page.screenshot({ path: 'test-results/smoke-fail.png', fullPage: true });
-    }
     expect(count).toBeGreaterThan(0);
+
+    // 5) 最初の要素は可視であること（多少待つ）
+    await expect(candidates.first()).toBeVisible({ timeout: 20000 });
   });
 });
