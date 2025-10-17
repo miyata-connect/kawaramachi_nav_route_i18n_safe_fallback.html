@@ -1,0 +1,4 @@
+.github/workflows/e2e.yml
+playwright.config.ts
+tests/smoke.spec.ts
+package.json   ←無ければ置く。既にある場合は devDependencies だけ追加。
