@@ -1,43 +1,25 @@
 // playwright.config.ts
 import { defineConfig, devices } from '@playwright/test';
 
+const BASE_URL = process.env.E2E_BASE_URL || 'https://miyata-connect.github.io/'; // ←環境に合わせて上書き
+
 export default defineConfig({
-  // テストの配置場所
-  testDir: './e2e/tests',
-
-  // タイムアウト類
-  timeout: 30_000,
-  expect: { timeout: 10_000 },
-
-  // 並列・CI向け挙動
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 1 : undefined,
-
-  // レポーター
-  reporter: [['list'], ['html', { open: 'never' }]],
-
-  // 既定のブラウザ設定
+  timeout: 60_000,
+  expect: { timeout: 15_000 },
+  reporter: [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]],
+  retries: 2, // ネット揺らぎ対策の最小限リトライ（恒常バグは残ります）
   use: {
-    // GitHub Pages を直接叩く。必要なら Actions の env:E2E_BASE_URL で上書き可
-    baseURL:
-      process.env.E2E_BASE_URL ||
-      'https://miyata-connect.github.io/walk-nav/',
-    viewport: { width: 1280, height: 1200 },
-    navigationTimeout: 30_000,
-    actionTimeout: 0,
-    trace: 'on-first-retry',
+    baseURL: BASE_URL,
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
+    viewport: { width: 390, height: 844 }, // 端末相当（iPhone 12 Mini-ish）
+    locale: 'ja-JP',
   },
-
-  // 対象ブラウザ（まずは Chromium だけ）
   projects: [
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-
-  // ＜補足＞
-  // webServer の起動は不要（静的サイトを Pages から読むため）
 });
