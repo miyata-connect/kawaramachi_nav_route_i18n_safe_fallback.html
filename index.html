@@ -2,180 +2,106 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1,maximum-scale=1" />
-<title>WalkNav – rollback</title>
-<style>
-  /* ==== 地図は常に100%確保（白地図防止） ==== */
-  html, body { height:100%; margin:0; padding:0; background:#0c1622; }
-  #map { position:fixed; inset:0; }
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>ウォークナビ — ガラスUI（Google Maps + 音声案内）</title>
 
-  /* ==== 方位計 & 切替ボタン（左上固定） ==== */
-  .compass-wrap{ position:fixed; left:14px; top:14px; z-index:20; display:flex; flex-direction:column; gap:10px; }
-  .compass{ width:94px;height:94px;border-radius:50%; background:#26323f; box-shadow:0 6px 18px rgba(0,0,0,.35) inset, 0 1px 8px rgba(0,0,0,.25); position:relative; }
-  .compass:before{ content:"N"; position:absolute; top:8px; left:50%; transform:translateX(-50%); font:bold 16px/1 system-ui; color:#ffd65a; }
-  .needle{ position:absolute; left:50%; top:50%; width:64px; height:6px; background:#ff5a5a; border-radius:3px; transform-origin:0% 50%; transform:translate(0,-50%) rotate(0deg); }
-  .row{ display:flex; gap:10px; }
-  .btn{ -webkit-tap-highlight-color:transparent; user-select:none; cursor:pointer; border:none; border-radius:14px; padding:10px 16px; font:600 14px/1.1 system-ui; }
-  .btn-ghost{ background:#1e2a36; color:#fff; box-shadow:0 6px 18px rgba(0,0,0,.25); }
-  .btn-green{ background:#23b26b; color:#fff; }
-  .btn-red{ background:#ff6767; color:#fff; }
-  .btn-blue{ background:#6bb2ff; color:#0b1a2b; }
-  .chip{ padding:10px 14px; border-radius:16px; background:#111a24cc; color:#dfe9f6; }
+<!-- Google Maps JavaScript API（ブラウザ用キーをそのまま使用） -->
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4" defer></script>
 
-  /* ==== パネル（下付き／下方向に収納） ==== */
-  .panel{ position:fixed; left:14px; right:14px; bottom:14px; z-index:30;
-          background:rgba(22,33,46,.86); color:#eaf2ff; border-radius:18px;
-          backdrop-filter: blur(8px); box-shadow:0 12px 32px rgba(0,0,0,.35);
-          padding:16px; transition:transform .28s ease; }
-  .panel.hide{ transform:translateY(calc(100% + 20px)); }
-  .panel h3{ margin:10px 0; font:700 18px/1.2 system-ui; }
-  .field{ background:#0f1a26; border-radius:12px; padding:14px; color:#cfe0f6; box-shadow:inset 0 0 0 1px rgba(255,255,255,.06); }
-  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .grid-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
-  .row-split{ display:flex; gap:10px; align-items:center; }
-  .help{ color:#9fb4cc; font:600 12px/1.2 system-ui; opacity:.9; }
-
-  /* パネル呼び出しタブ（画面底中央） */
-  .tab{ position:fixed; left:50%; transform:translateX(-50%); bottom:18px; z-index:25;
-        background:#0e1722e6; color:#fff; padding:12px 18px; border-radius:18px;
-        box-shadow:0 8px 24px rgba(0,0,0,.35); }
-  .tab.hide{ display:none; }
-
-  /* 仕様：パネル表示中は地図UIを隠す */
-  .ui-hidden{ display:none !important; }
-</style>
+<!-- 分割：スタイルを外部化（中身はapp.cssへ移動のみ） -->
+<link rel="stylesheet" href="./app.css" />
 </head>
 <body>
+<div class="app">
+  <div id="map"></div>
 
-<div id="map"></div>
+  <div class="comp-wrap" id="compWrap" aria-hidden="true">
+    <div class="compass" id="compass">
+      <svg viewBox="0 0 76 76">
+        <defs><radialGradient id="g" cx="50%" cy="50%" r="60%">
+          <stop offset="0%"  stop-color="#0b1626"/><stop offset="60%" stop-color="#0a1422"/><stop offset="100%" stop-color="#09121f"/>
+        </radialGradient></defs>
+        <circle cx="38" cy="38" r="34" fill="url(#g)" stroke="rgba(255,255,255,.10)"/>
+        <text x="38" y="12" text-anchor="middle">N</text>
+        <g class="needle" id="needle"><polygon points="38,14 34,38 42,38" fill="#ff5252"/></g>
+      </svg>
+    </div>
+    <div class="comp-btns">
+      <button id="northUp" class="ghost" title="北固定（ヘディングノース）">北固定</button>
+      <button id="headUp"  class="ghost" title="進行方向（ヘディングアップ）">進行方向</button>
+    </div>
+  </div>
 
-<!-- 左上：方位計 + ノース/ヘディング（パネル表示時は自動で消える） -->
-<div id="compassWrap" class="compass-wrap">
-  <div class="compass"><div id="needle" class="needle"></div></div>
-  <div class="row">
-    <button id="northBtn" class="btn btn-ghost">ノースアップ</button>
-    <button id="headBtn" class="btn btn-ghost">ヘディングアップ</button>
+  <div class="glassbar">
+    <div class="card" id="panel">
+      <div class="row">
+        <input id="q" class="grow" placeholder="店舗名・住所・電話番号で検索" autocomplete="off" />
+        <button id="mic" class="ghost">🎤 音声</button>
+        <button id="search" class="primary">検索</button>
+        <button id="clearHistory" class="ghost">履歴をクリア</button>
+        <span id="busy" style="margin-left:6px;display:none">検索中…</span>
+      </div>
+
+      <div class="row" style="margin-top:8px">
+        <div class="modes">
+          <button class="mode active" id="modeShortest">最短Ai</button>
+          <button class="mode" id="modeEasy">楽チンAi</button>
+          <button class="mode" id="modeStroll">お散歩Ai</button>
+          </div>
+        <details id="langToggle" class="lang-toggle">
+          <summary>言語 / Language</summary>
+          <div class="langlist" id="langList"></div>
+        </details>
+      </div>
+
+      <div class="coord-wrap" style="margin-top:6px">
+        <div class="coord">
+          <div class="title">開始地点</div>
+          <div class="grid">
+            <div><label>経度</label><input id="startLon" placeholder="経度" inputmode="decimal" /></div>
+            <div><label>緯度</label><input id="startLat" placeholder="緯度" inputmode="decimal" /></div>
+          </div>
+        </div>
+        <div class="coord">
+          <div class="title">目的地点</div>
+          <div class="grid">
+            <div><label>経度</label><input id="destLon" placeholder="経度" inputmode="decimal" /></div>
+            <div><label>緯度</label><input id="destLat" placeholder="緯度" inputmode="decimal" /></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:8px">
+        <select id="savedList" class="grow"></select>
+        <button id="openSaveModal" class="ok">現在地を保存</button>
+        <button id="setFromSaved" class="primary">目的地に設定</button>
+        <button id="delSaved" class="danger">削除</button>
+      </div>
+
+      <div class="row" style="margin-top:4px"><div id="msg" class="hint">準備完了。目的地を設定してください。</div></div>
+    </div>
+  </div>
+
+  <div class="fab-col" id="fabCol">
+    <button id="navStart" class="ok">案内開始</button>
+    <button id="navStop"  class="danger">案内を停止</button>
+    <button id="gotoStart" class="primary">現在地</button>
+    <button id="gotoDest"  class="primary">目的地</button>
+    <button id="reroute"   class="primary">リルート</button>
+  </div>
+
+  <div class="results" id="results">
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <div style="width:100%">検索結果（上位5件）</div>
+        <button id="closeResults" class="ghost">閉じる</button>
+      </div>
+      <div id="resultList"></div>
+    </div>
   </div>
 </div>
 
-<!-- 画面底中央：パネルを表示 -->
-<button id="panelTab" class="tab">▲ パネルを表示</button>
-
-<!-- 下付き操作パネル（表示中は方位計・タブを隠す：JSで制御） -->
-<div id="panel" class="panel">
-  <div class="row-split">
-    <div class="chip">店舗名・住所・電話番号で検索</div>
-    <button id="voiceBtn" class="btn btn-green">🎤 音声</button>
-  </div>
-
-  <div class="grid" style="margin-top:12px;">
-    <button id="searchBtn" class="btn btn-blue">検索</button>
-    <button id="clearBtn"  class="btn btn-ghost">履歴をクリア</button>
-  </div>
-
-  <div class="grid-3" style="margin-top:10px;">
-    <button class="btn btn-blue">最短Ai</button>
-    <button class="btn btn-ghost">楽チンAi</button>
-    <button class="btn btn-ghost">お散歩Ai</button>
-  </div>
-
-  <div class="row-split" style="margin-top:10px;">
-    <span class="chip">▶ 言語 / Language</span>
-  </div>
-
-  <h3>開始地点</h3>
-  <div class="grid">
-    <div class="field" id="curLng">現在地経度</div>
-    <div class="field" id="curLat">現在地緯度</div>
-  </div>
-
-  <h3 style="margin-top:12px;">目的地点</h3>
-  <div class="grid">
-    <div class="field">目的地経度</div>
-    <div class="field">目的地緯度</div>
-  </div>
-
-  <div class="grid" style="margin-top:12px;">
-    <div class="field">(未選択)</div>
-    <button id="saveHereBtn" class="btn btn-green">現在地を保存</button>
-  </div>
-
-  <div class="grid" style="margin-top:12px;">
-    <button class="btn btn-blue">目的地に設定</button>
-    <button class="btn btn-red">削除</button>
-  </div>
-
-  <div class="grid" style="margin-top:12px;">
-    <button id="closePanelBtn" class="btn btn-blue">操作パネルを閉じる</button>
-  </div>
-
-  <div class="help" style="margin-top:8px;">準備完了。目的地を設定してください。</div>
-</div>
-
-<script>
-  /* =========================================================
-     Rollback版：余計な手は加えず、以前の構成に戻すだけ
-  ========================================================== */
-
-  // 仕様：パネル表示/収納に応じてUIを出し分け
-  const panel = document.getElementById('panel');
-  const tab   = document.getElementById('panelTab');
-  const compassWrap = document.getElementById('compassWrap');
-  function showPanel() {
-    panel.classList.remove('hide');
-    tab.classList.add('hide');          // パネル表示中はタブを出さない
-    compassWrap.classList.add('ui-hidden'); // パネル表示中は方位計/切替を隠す
-  }
-  function hidePanel() {
-    panel.classList.add('hide');
-    tab.classList.remove('hide');       // 収納中のみタブを出す
-    compassWrap.classList.remove('ui-hidden'); // 収納中は方位計/切替を出す
-  }
-  document.getElementById('closePanelBtn').addEventListener('click', hidePanel);
-  tab.addEventListener('click', showPanel);
-  // 初期状態：仕様に合わせて「表示」から開始（必要なら hidePanel() に変更）
-  showPanel();
-
-  // 音声ボタンの色（待機=緑／録音=赤）だけを復元
-  const voiceBtn = document.getElementById('voiceBtn');
-  let listening = false;
-  voiceBtn.addEventListener('click', () => {
-    listening = !listening;
-    voiceBtn.className = 'btn ' + (listening ? 'btn-red' : 'btn-green');
-    voiceBtn.textContent = listening ? '🎤 録音中' : '🎤 音声';
-  });
-
-  // 簡易コンパス表示（ロールバック：挙動は以前と同等の最小）
-  const needle = document.getElementById('needle');
-  let headingMode = 'north'; // 'north' | 'heading'
-  document.getElementById('northBtn').addEventListener('click', ()=> headingMode='north');
-  document.getElementById('headBtn').addEventListener('click',  ()=> headingMode='heading');
-  if (window.DeviceOrientationEvent && typeof DeviceOrientationEvent.requestPermission === 'function') {
-    // iOS系：ユーザー操作時に許可を求める（ここではボタンに割当てない＝ロールバック）
-  } else {
-    window.addEventListener('deviceorientation', (e)=>{
-      const deg = (e.webkitCompassHeading!=null) ? e.webkitCompassHeading : (360 - (e.alpha||0));
-      needle.style.transform = `translate(0,-50%) rotate(${deg}deg)`;
-    }, true);
-  }
-
-  // ==== Google Maps 初期化（ロールバック：callback=initMap のみ） ====
-  let map;
-  function initMap() {  // ← グローバル関数宣言。window.* 代入はしない
-    map = new google.maps.Map(document.getElementById('map'), {
-      center:{lat:34.0408, lng:134.0641}, zoom:16,
-      disableDefaultUI:true, clickableIcons:true, mapTypeControl:false
-    });
-    // 現在地に移動（失敗してもそのまま）
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => map.setCenter({lat:pos.coords.latitude, lng:pos.coords.longitude}),
-        ()=>{}
-      );
-    }
-  }
-</script>
-<!-- ★ここを書き換えてください：配布済み“ブラウザ用”APIキー -->
-<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_BROWSER_API_KEY_HERE&libraries=places&callback=initMap" async defer></script>
+<!-- 分割：スクリプトを外部化（中身はapp.jsへ移動のみ） -->
+<script defer src="./app.js"></script>
 </body>
 </html>
