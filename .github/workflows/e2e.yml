@@ -1,33 +1,41 @@
 name: E2E
 
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
+  push:
+    paths:
+      - 'e2e/**'
+      - 'playwright.config.ts'
+      - '.github/workflows/e2e.yml'
+      - 'package.json'
 
 jobs:
   test:
     runs-on: ubuntu-latest
 
-    env:
-      # テストが開くURL。Pagesの公開URLに合わせる
-      E2E_BASE_URL: https://miyata-connect.github.io/walk-nav/
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      # ← ここが「Node セットアップ」。lock ファイルが無い環境でもコケない設定にしてある
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: '20'
+        # ※ cache は lockfile が無いと失敗しがちなので明示的に使わない
 
-      - name: Install deps
-        run: npm install
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci --no-audit --no-fund
+          else
+            npm install --no-audit --no-fund
+          fi
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      - name: Run tests (headless)
-        run: npx playwright test
+      - name: Run Playwright tests
+        env:
+          E2E_BASE_URL: https://miyata-connect.github.io/walk-nav/
+        run: npx playwright test --reporter=line
