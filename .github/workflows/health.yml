@@ -1,4 +1,5 @@
-name: places-proxy health
+# enable auto run on push to main
+name: places-proxy healthname: places-proxy health
 
 on:
   push:
