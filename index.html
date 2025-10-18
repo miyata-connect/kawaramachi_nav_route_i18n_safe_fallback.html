@@ -5,7 +5,10 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>ウォークナビ — ガラスUI（Google Maps + 音声案内）</title>
 
-<!-- Google Maps JavaScript API（ブラウザ用キーをそのまま使用） -->
+<!-- WS-1: フロント→Worker の接続先を1か所で定義（この1行のみ追加） -->
+<script>window.GMAP_PROXY='https://ors-proxy.miyata-connect-jp.workers.dev';</script>
+
+<!-- Google Maps JavaScript API（配布済みブラウザ用キーをそのまま使用） -->
 <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4" defer></script>
 
 <style>
@@ -71,7 +74,7 @@ button.ghost{background:rgba(255,255,255,.06)}
 #busy{color:var(--accent);font-weight:800;font-size:15px}
 #mic{background:var(--mic-green)} #mic.rec{background:var(--mic-red)}
 #search{min-width:96px} #clearHistory{min-width:120px}
-/* コンパス */
+/* コンパス/ボタン群の位置は現状のまま（デザイン無変更） */
 .comp-wrap{position:absolute;left:10px;top:calc(var(--panelH) + 12px);z-index:425}
 .compass{width:90px;height:90px;background:var(--glass);border:1px solid var(--stroke);border-radius:50%;backdrop-filter: blur(10px) saturate(120%);-webkit-backdrop-filter: blur(10px) saturate(120%);box-shadow:0 10px 26px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
 .compass svg{width:76px;height:76px}
@@ -180,18 +183,8 @@ button.ghost{background:rgba(255,255,255,.06)}
 </div>
 
 <script>
-/***********************
- * 定数定義（フロント側設定）
- * ※ 既存仕様は維持。追記のみ。
- ***********************/
-const GMAP_PROXY = 'https://ors-proxy.miyata-connect-jp.workers.dev'; // Cloudflare Worker
-const PLACES_SEARCH_URL = `${GMAP_PROXY}/places`;                      // Worker 側で /v1/places:searchText に中継
-const DIRECTIONS_URL   = `${GMAP_PROXY}/maps/api/directions/json`;     // Directions プロキシ（既存仕様）
-let currentLang = 'ja';                                                // 言語（UIは固定、日本語/音声・Directionsに反映用）
-let currentTTS  = 'ja-JP';
-let mode = 'shortest'; // shortest | easy | stroll
-
-/* ===== 以降は既存のロジック（あなたが配布した版と同一）。変更なし ===== */
+/* ====== WS-1: 既存ロジックを変えず、接続先だけをこの定数に統一 ====== */
+const GMAP_PROXY = window.GMAP_PROXY;
 
 /* 要素 */
 const $=id=>document.getElementById(id);
@@ -228,6 +221,7 @@ const LANGS = [
   {code:'ko', tts:'ko-KR', label:'한국어'},
   {code:'zh', tts:'zh-CN', label:'中文'}
 ];
+let currentLang='ja', currentTTS='ja-JP';
 function buildLang(){
   els.langList.innerHTML='';
   LANGS.forEach(x=>{
@@ -343,7 +337,6 @@ async function placesTextSearch(text, lat, lon){
     locationBias:(Number.isFinite(lat)&&Number.isFinite(lon))?{circle:{center:{latitude:lat,longitude:lon},radius:20000}}:undefined,
     fieldMask:"places.displayName,places.formattedAddress,places.location,places.types"
   };
-  // 既存仕様： /places へPOST（Workerが fieldMask を削除しヘッダに移して中継）
   const r=await fetch(GMAP_PROXY+'/places',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   if(!r.ok){
     const t=await r.text().catch(()=>String(r.status));
@@ -397,6 +390,7 @@ async function getRoute(){
   });
 }
 
+let mode='shortest';
 function chooseRouteIndex(routes){
   const legs=routes.map(r=>r.legs?.[0]).filter(Boolean);
   if(!legs.length) return 0;
