@@ -1,12 +1,11 @@
-# enable auto run on push to main
-name: places-proxy healthname: places-proxy health
+name: places-proxy health
 
 on:
   push:
-    branches: [ main ]        # ← main へ push 時に自動実行
+    branches: [ main ]
   pull_request:
-    branches: [ main ]        # ← PR 作成・更新時に実行
-  workflow_dispatch:          # ← 手動実行も許可
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   health-check:
