@@ -1,9 +1,11 @@
 name: places-proxy health
 
 on:
+  push:
+    branches: [ main ]        # ← main へ push 時に自動実行
   pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+    branches: [ main ]        # ← PR 作成・更新時に実行
+  workflow_dispatch:          # ← 手動実行も許可
 
 jobs:
   health-check:
