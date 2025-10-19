@@ -1,2 +1,2 @@
-# walk-nav
-Multilingual pedestrian navigator for Kawaramachi, Takamatsu
+## Docs
+- Walk-Voice & Routing Rules: [/docs/walk-voice-rules.md](./docs/walk-voice-rules.md)
