@@ -1,129 +1,160 @@
 // v1 Router for Walk-Nav (Cloudflare Worker)
+// - GET /v1/health  : 稼働確認
+// - GET /v1/places  : Google Places(New) 検索の安全プロキシ（POSTに変換）
+
 export default {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
+    const url  = new URL(request.url);
     const path = url.pathname.replace(/\/+$/, ""); // trim trailing slash
 
-    // Common CORS (GETのみ短期キャッシュを想定)
+    // CORS (GET/OPTIONSのみ)
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders() });
     }
 
+    // ルーティング
     try {
+      if (request.method !== "GET") {
+        return json({ error: "Method Not Allowed" }, 405);
+      }
+
       if (path === "/v1/health") {
         return health(env);
       }
 
       if (path === "/v1/places") {
-        // Google Places Proxy
         return placesProxy(request, url, env);
       }
 
-      if (path === "/v1/weather") {
-        // 天候・暑熱情報: まずは 501 スタブ（後で実装）
-        return json(
-          { message: "weather endpoint not implemented yet" },
-          501
-        );
-      }
-
-      if (path === "/v1/incidents") {
-        // 事件・事故サマリ: まずは 501 スタブ（後で実装）
-        return json(
-          { message: "incidents endpoint not implemented yet" },
-          501
-        );
-      }
-
-      // Not Found
       return json({ error: "Not Found" }, 404);
     } catch (err) {
+      // 予期せぬ失敗は 500
       return json({ error: "Internal Error", detail: String(err) }, 500);
     }
   },
 };
 
-/* ---------- handlers ---------- */
-
+/* ------------------------
+   /v1/health
+-------------------------*/
 function health(env) {
   const body = {
     status: "ok",
-    revision: env.COMMIT_SHA ?? env.GIT_REV ?? "unknown",
-    buildTime: env.BUILD_TIME ?? new Date().toISOString(),
+    revision: env?.GIT_SHA || env?.CF_PAGES_COMMIT_SHA || null,
+    buildTime: env?.BUILD_TIME || new Date().toISOString(),
   };
   return json(body, 200, { "Cache-Control": "no-store" });
 }
 
-async function placesProxy(request, url, env) {
-  // 必要パラメータはクエリとしてそのまま転送
-  // 例: /v1/places?text=…&lang=ja
-  const apiKey = env.GMAPS_API_KEY; // Cloudflareの環境変数に設定
-  if (!apiKey) {
-    return json({ error: "GMAPS_API_KEY missing" }, 500);
+/* ------------------------
+   /v1/places  (Google Places API New)
+   クエリ:
+     text (必須), lat/lng/radius (任意), fieldmask=X-Goog-FieldMask をヘッダまたはクエリでも可
+-------------------------*/
+async function placesProxy(_request, url, env) {
+  // 受入条件チェック
+  const text = url.searchParams.get("text");
+  if (!text) return json({ error: "text is required" }, 400);
+
+  const lat    = url.searchParams.get("lat");
+  const lng    = url.searchParams.get("lng");
+  const radius = url.searchParams.get("radius"); // meters
+
+  // FieldMask は必須（最小応答）
+  const fieldMask =
+    _request.headers.get("x-goog-fieldmask") ||
+    url.searchParams.get("fieldmask");
+  if (!fieldMask) {
+    return json({ error: "X-Goog-FieldMask header is required" }, 400);
   }
 
-  // Text Search（新しい Places API）にフォワード
-  const target = new URL("https://places.googleapis.com/v1/places:searchText");
-  // 入力テキスト
-  const textQuery = url.searchParams.get("text");
-  if (!textQuery) return json({ error: "query `text` is required" }, 400);
+  // API キー
+  const apiKey = env?.GMAPS_API_KEY;
+  if (!apiKey) return json({ error: "Server misconfig: GMAPS_API_KEY missing" }, 500);
 
-  // 言語など任意
-  const languageCode = url.searchParams.get("lang") ?? "ja";
-  const regionCode = url.searchParams.get("region") ?? "JP";
-  const fieldMask =
-    url.searchParams.get("fields") ??
-    // 安全な既定（必要最小限）
-    "places.id,places.displayName,places.formattedAddress,places.location,places.rating";
+  // Places(New) endpoint
+  const endpoint = "https://places.googleapis.com/v1/places:searchText";
 
-  const gReq = new Request(target.toString(), {
+  // GET を POST に変換して検索
+  const body = { textQuery: text };
+
+  // 位置バイアス（任意）
+  if (lat && lng && radius) {
+    body.locationBias = {
+      circle: {
+        center: { latitude: Number(lat), longitude: Number(lng) },
+        radius: Number(radius),
+      },
+    };
+  }
+
+  // 外向きリクエスト
+  const res = await fetch(endpoint, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json; charset=utf-8",
+      "Content-Type": "application/json",
       "X-Goog-Api-Key": apiKey,
       "X-Goog-FieldMask": fieldMask,
     },
-    body: JSON.stringify({
-      textQuery,
-      languageCode,
-      regionCode,
-    }),
-    // キャッシュは短期 or no-store。まずは no-store に統一
-    cf: { cacheEverything: false },
+    body: JSON.stringify(body),
   });
 
-  const gRes = await fetch(gReq);
-  const body = await gRes.text();
+  // ステータスの正規化
+  if (res.status === 200) {
+    // そのままJSONを返却（短期キャッシュ可）
+    const data = await res.text();
+    return new Response(data, {
+      status: 200,
+      headers: {
+        ...corsHeaders(),
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=60",
+      },
+    });
+  }
 
-  return new Response(body, {
-    status: gRes.status,
-    headers: {
-      ...corsHeaders(),
-      "Content-Type": gRes.headers.get("content-type") ?? "application/json",
-      "Cache-Control": "no-store",
-    },
-  });
+  // 上流由来のエラー → 502 へ丸める（メッセージは透過）
+  let detail;
+  try {
+    detail = await res.json();
+  } catch {
+    detail = await res.text();
+  }
+
+  // レート超過の表現
+  if (res.status === 429) {
+    return json({ error: "Upstream rate limit", detail }, 429);
+  }
+
+  // クエリ不足などは 400 に寄せる
+  if (res.status >= 400 && res.status < 500) {
+    return json({ error: "Bad Request to upstream", detail }, 400);
+  }
+
+  // それ以外は 502
+  return json({ error: "Upstream error", detail }, 502);
 }
 
-/* ---------- helpers ---------- */
+/* ------------------------
+   ユーティリティ
+-------------------------*/
+function corsHeaders(extra = {}) {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-Goog-FieldMask",
+    ...extra,
+  };
+}
 
-function json(obj, status = 200, extra = {}) {
+function json(obj, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(obj), {
     status,
     headers: {
       ...corsHeaders(),
       "Content-Type": "application/json; charset=utf-8",
-      ...extra,
+      "Cache-Control": "no-store",
+      ...extraHeaders,
     },
   });
-}
-
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*", // 公開API方針。必要なら制限へ
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers":
-      "Content-Type, X-Goog-Api-Key, X-Goog-FieldMask",
-    "Access-Control-Max-Age": "600",
-  };
 }
