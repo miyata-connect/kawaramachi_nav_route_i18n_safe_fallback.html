@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-URL="https://ors-proxy.miyata-connect-jp.workers.dev/places"
+URL="https://ors-proxy.miyata-connect-jp.workers.dev/v1/places"
 PAYLOAD='{"text":"徳島駅 コンビニ","limit":5,"lang":"ja","lat":34.07324,"lng":134.55066,"radius":1200}'
 
 resp="$(curl -sS -X POST "$URL" -H "Content-Type: application/json" --data-binary "$PAYLOAD")" || {
@@ -9,7 +9,7 @@ resp="$(curl -sS -X POST "$URL" -H "Content-Type: application/json" --data-binar
   exit 1
 }
 
-# jq が無い環境でも動く最小判定
+# jq が無い環境でも最小判定
 if echo "$resp" | grep -q '"places":'; then
   echo "OK"
   exit 0
