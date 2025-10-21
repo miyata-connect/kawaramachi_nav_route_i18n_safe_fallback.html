@@ -2,7 +2,8 @@
 
 発行日：2025-10-22 (Asia/Tokyo)  
 対象：Cloudflare Worker（`worker.js`）が提供する API 群  
-バージョン：v1（上書き確定版）
+バージョン：v1（上書き確定版）  
+更新版：v0.2.0（/v1/incidents v1 追加）
 
 ---
 
@@ -13,8 +14,8 @@
   - `GET /v1/health` …… 稼働/疎通確認  
   - `POST /v1/places` …… Google Places (New) の `places:searchText` プロキシ  
   - `GET /v1/weather` …… Open-Meteo 多時刻天気（**今 / +3h / +6h**, 日本語対応, 5分キャッシュ）  
-  - `GET /v1/incidents` …… 周辺道路・通行止情報（Open Data / Provider混合）  
-- UI/クライアントの見た目・文言は不要（本仕様はサーバ API と内部アルゴリズムのみ）。
+  - `GET /v1/incidents` …… 周辺道路・通行止情報（Open Data / Provider混合, TTL=300）  
+- UI/クライアントの見た目・文言は不要（本仕様はサーバ API と内部アルゴリズムのみ対象）。
 
 ---
 
