@@ -1,155 +1,198 @@
-// Walk-Nav Cloudflare Worker v1 Router
-// Endpoints:
-// - GET /v1/health
-// - GET /v1/places  : Google Places(New) Text Search を安全にプロキシ
-
+/**
+ * walk-nav Cloudflare Worker
+ * Endpoints:
+ *  - GET  /v1/health
+ *  - POST /v1/places
+ *  - GET  /v1/weather
+ *
+ * Secret:
+ *  - GMAPS_API_KEY : Google Places API (New)
+ */
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
-    const path = url.pathname.replace(/\/+$/, "");
-
-    // CORS Preflight
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders() });
-    }
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type,Accept-Language,X-Admin-Token",
+    };
+    if (request.method === "OPTIONS") return new Response(null, { headers: cors });
 
     try {
-      if (path === "/v1/health") {
-        return health(env);
+      if (url.pathname === "/v1/health" && request.method === "GET") {
+        return json({ status: "ok", time: new Date().toISOString(), region: env.CF?.colo ?? "edge" }, 200, cors);
       }
 
-      if (path === "/v1/places") {
-        if (request.method !== "GET") {
-          return withCORS(json({ error: "method_not_allowed" }), 405);
-        }
-        return placesProxy(request, env);
+      if (url.pathname === "/v1/places" && request.method === "POST") {
+        return handlePlaces(request, env, cors);
       }
 
-      return withCORS(json({ error: "not_found" }), 404);
-    } catch (err) {
-      return withCORS(json({ error: "bad_gateway" }), 502);
+      if (url.pathname === "/v1/weather" && request.method === "GET") {
+        return handleWeather(request, env, cors, ctx);
+      }
+
+      return json({ error: { code: "not_found", message: "route not found" } }, 404, cors);
+    } catch (e) {
+      return json({ error: { code: "internal_error", message: String(e?.message ?? e) } }, 500, cors);
     }
   },
 };
 
-// -------------------- /v1/health --------------------
-function health(env) {
-  const body = {
-    status: "ok",
-    revision: env?.COMMIT_SHA || env?.CF_PAGES_COMMIT_SHA || "",
-    buildTime: env?.BUILD_TIME || new Date().toISOString(),
-  };
-  return withCORS(json(body), 200, shortCache());
-}
-
-// -------------------- /v1/places --------------------
-async function placesProxy(request, env) {
-  const url = new URL(request.url);
-
-  // 必須: text
-  const text = (url.searchParams.get("text") || "").trim();
-  if (!text) return withCORS(json({ error: "missing_text" }), 400);
-
-  // 必須: FieldMask（最小応答）
-  const fieldMask =
-    request.headers.get("x-goog-fieldmask") ||
-    url.searchParams.get("fieldmask") ||
-    "";
-  if (!fieldMask) return withCORS(json({ error: "missing_fieldmask" }), 400);
-
-  // サーバ側 API キー
-  if (!env?.GMAPS_API_KEY) {
-    return withCORS(json({ error: "server_misconfigured" }), 502);
+/* ----------------------------- /v1/places ------------------------------ */
+async function handlePlaces(request, env, cors) {
+  if (!env.GMAPS_API_KEY) {
+    return json({ error: { code: "missing_secret", message: "GMAPS_API_KEY is not set" } }, 500, cors);
   }
 
-  // 受信ヘッダの Accept-Language を優先採用（なければ ja 固定）
-  const acceptLang = (request.headers.get("accept-language") || "").toLowerCase();
-  const lang = pickLang(acceptLang) || "ja";   // 例: "ja", "en"
-  const region = "JP";                         // 日本の結果を優先
+  const bodyIn = await request.json().catch(() => ({}));
+  const { fieldMask, ...body } = bodyIn ?? {};
+  const fieldMaskHeader =
+    typeof fieldMask === "string" && fieldMask.trim()
+      ? fieldMask.trim()
+      : "id,displayName,formattedAddress,location";
 
-  // 任意: 位置バイアス
-  const lat = parseFloat(url.searchParams.get("lat"));
-  const lng = parseFloat(url.searchParams.get("lng"));
-  const radius = parseInt(url.searchParams.get("radius") || "0", 10);
+  const acceptLang = request.headers.get("Accept-Language")?.trim() || "ja-JP";
 
-  const body = {
-    textQuery: text,
-    languageCode: lang,  // ★ 日本語優先（Accept-Language があればそれを優先）
-    regionCode: region,  // ★ 日本の結果を優先
-  };
-
-  if (Number.isFinite(lat) && Number.isFinite(lng) && Number.isFinite(radius) && radius > 0) {
-    body.locationBias = {
-      circle: {
-        center: { latitude: lat, longitude: lng },
-        radius: radius,
-      },
-    };
-  }
-
-  const gmUrl = "https://places.googleapis.com/v1/places:searchText";
-  const gmReq = new Request(gmUrl, {
+  const res = await fetch("https://places.googleapis.com/v1/places:searchText", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       "X-Goog-Api-Key": env.GMAPS_API_KEY,
-      "X-Goog-FieldMask": fieldMask,
+      "X-Goog-FieldMask": fieldMaskHeader,
+      "Accept-Language": acceptLang,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(body ?? {}),
   });
 
-  const gmRes = await fetch(gmReq);
-
-  let status = 200;
-  if (gmRes.status === 400) status = 400;
-  else if (gmRes.status === 429) status = 429;
-  else if (gmRes.status >= 500) status = 502;
-
-  const data = await gmRes.text();
-  const headers = {
-    "Content-Type": "application/json; charset=utf-8",
-    ...shortCache(),
-  };
-  return withCORS(new Response(data, { status, headers }));
-}
-
-// -------------------- ヘルパ --------------------
-function json(obj) {
-  return new Response(JSON.stringify(obj), {
-    headers: { "Content-Type": "application/json; charset=utf-8" },
+  const data = await res.text();
+  return new Response(data, {
+    status: res.status,
+    headers: { ...cors, "Content-Type": res.headers.get("Content-Type") || "application/json; charset=utf-8" },
   });
 }
 
-function corsHeaders() {
-  return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, OPTIONS",
-    "Access-Control-Allow-Headers":
-      "Content-Type, Authorization, X-Requested-With, X-Goog-FieldMask",
-    Vary: "Origin",
-  };
-}
+/* ----------------------------- /v1/weather ----------------------------- */
+/**
+ * Open-Meteo から now / +3h / +6h を取得し軽量整形。
+ * - 5分キャッシュ（CF Cache）
+ * - 座標 0.05° 丸め
+ * - 日本語/英語の cond マッピング
+ * 例: /v1/weather?lat=34.067&lng=134.553&lang=ja&units=metric
+ */
+async function handleWeather(request, env, cors, ctx) {
+  const url = new URL(request.url);
+  const lat = toNum(url.searchParams.get("lat"));
+  const lng = toNum(url.searchParams.get("lng"));
+  const lang = normLang(url.searchParams.get("lang") || "ja");
+  const units = (url.searchParams.get("units") || "metric").toLowerCase();
 
-function withCORS(res, status, extraHeaders = {}) {
-  const base = res instanceof Response ? res : new Response(res?.body || "", res);
-  const headers = new Headers(base.headers);
-  Object.entries(corsHeaders()).forEach(([k, v]) => headers.set(k, v));
-  Object.entries(extraHeaders).forEach(([k, v]) => headers.set(k, v));
-  return new Response(base.body, { status: status ?? base.status, headers });
-}
+  if (!isFinite(lat) || !isFinite(lng)) return json({ error: { code: "bad_request", message: "lat/lng required" } }, 400, cors);
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return json({ error: { code: "bad_request", message: "lat [-90,90], lng [-180,180]" } }, 400, cors);
+  if (!["ja", "en"].includes(lang)) return json({ error: { code: "bad_request", message: "lang must be 'ja' or 'en'" } }, 400, cors);
+  if (!["metric", "imperial"].includes(units)) return json({ error: { code: "bad_request", message: "units must be 'metric' or 'imperial'" } }, 400, cors);
 
-function shortCache() {
-  return { "Cache-Control": "public, max-age=60, must-revalidate" };
-}
+  const latR = roundTo(lat, 0.05);
+  const lngR = roundTo(lng, 0.05);
+  const cacheKey = new Request(`${url.origin}/__cache/weather?lat=${latR}&lng=${lngR}&lang=${lang}&units=${units}`, { method: "GET" });
+  const cache = caches.default;
+  const hit = await cache.match(cacheKey);
+  if (hit) return new Response(await hit.arrayBuffer(), { status: hit.status, headers: withCors(hit.headers, cors) });
 
-// Accept-Language 文字列から "ja" や "en" など最有力の言語コードを抽出
-function pickLang(al) {
-  if (!al) return "";
-  // "ja, en;q=0.8" → ["ja","en"]
-  const items = al.split(",").map(s => s.trim().split(";")[0]);
-  for (const it of items) {
-    const m = it.match(/^[a-z]{2}/i);
-    if (m) return m[0].toLowerCase();
+  const tz = "Asia/Tokyo";
+  const api = new URL("https://api.open-meteo.com/v1/forecast");
+  api.searchParams.set("latitude", String(latR));
+  api.searchParams.set("longitude", String(lngR));
+  api.searchParams.set("hourly", "temperature_2m,precipitation,weather_code");
+  api.searchParams.set("timezone", tz);
+  if (units === "imperial") {
+    api.searchParams.set("temperature_unit", "fahrenheit");
+    api.searchParams.set("precipitation_unit", "inch");
+  } else {
+    api.searchParams.set("temperature_unit", "celsius");
+    api.searchParams.set("precipitation_unit", "mm");
   }
-  return "";
+
+  const upstream = await fetch(api.toString());
+  if (!upstream.ok) return json({ error: { code: "upstream_error", message: `open-meteo ${upstream.status}` } }, 502, cors);
+  const om = await upstream.json();
+
+  const hourly = om?.hourly || {};
+  const times = hourly.time || [];
+  const temps = hourly.temperature_2m || [];
+  const precs = hourly.precipitation || [];
+  const codes = hourly.weather_code || [];
+
+  const nowJST = new Date().toLocaleString("sv-SE", { timeZone: tz });
+  const nowIso = new Date(nowJST.replace(" ", "T") + "+09:00");
+  const idx = nearestIndex(times, nowIso);
+  const make = (i) => {
+    if (i < 0 || i >= times.length) return null;
+    const t = times[i];
+    const temp = numOrNull(temps[i]);
+    const precip = numOrNull(precs[i]);
+    const code = codes[i];
+    return {
+      time: `${t}:00+09:00`,
+      tempC: units === "imperial" ? undefined : temp,
+      tempF: units === "imperial" ? temp : undefined,
+      cond: mapWmo(code, lang),
+      precipMm: units === "imperial" ? undefined : (precip ?? 0),
+      precipIn: units === "imperial" ? (precip ?? 0) : undefined,
+    };
+  };
+
+  const payload = {
+    coord: { lat: latR, lng: lngR },
+    now: make(idx),
+    "t+3h": make(idx + 3),
+    "t+6h": make(idx + 6),
+    provider: "open-meteo",
+    ttlSec: 300,
+  };
+
+  const res = json(payload, 200, { ...cors, "Cache-Control": "public, s-maxage=300, max-age=60" });
+  ctx.waitUntil(cache.put(cacheKey, res.clone()));
+  return res;
+}
+
+/* -------------------------------- utils -------------------------------- */
+function json(obj, status = 200, headers = {}) {
+  return new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json; charset=utf-8", ...headers } });
+}
+function toNum(v) { const n = Number(v); return Number.isFinite(n) ? n : NaN; }
+function roundTo(x, step) { return Math.round(x / step) * step; }
+function normLang(x) { return String(x || "").toLowerCase().replace("_", "-").startsWith("ja") ? "ja" : "en"; }
+function withCors(h, cors) { const hh = new Headers(h); for (const [k, v] of Object.entries(cors)) hh.set(k, v); return hh; }
+function numOrNull(x) { const n = Number(x); return Number.isFinite(n) ? n : null; }
+function nearestIndex(arr, target) {
+  if (!Array.isArray(arr) || arr.length === 0) return 0;
+  let k = 0, d = Infinity;
+  for (let i = 0; i < arr.length; i++) {
+    const t = new Date(arr[i] + ":00+09:00");
+    const dd = Math.abs(t.getTime() - target.getTime());
+    if (dd < d) { d = dd; k = i; }
+  }
+  return k;
+}
+function mapWmo(code, lang) {
+  const ja = {
+    0: "晴れ", 1: "薄曇り", 2: "一時くもり", 3: "くもり", 45: "霧", 48: "霧氷を伴う霧",
+    51: "霧雨（弱）", 53: "霧雨（中）", 55: "霧雨（強）", 56: "着氷性霧雨（弱）", 57: "着氷性霧雨（強）",
+    61: "雨（弱）", 63: "雨（中）", 65: "雨（強）", 66: "着氷性の雨（弱）", 67: "着氷性の雨（強）",
+    71: "雪（弱）", 73: "雪（中）", 75: "雪（強）", 77: "雪あられ",
+    80: "にわか雨（弱）", 81: "にわか雨（中）", 82: "にわか雨（強）",
+    85: "にわか雪（弱）", 86: "にわか雪（強）",
+    95: "雷雨", 96: "ひょうを伴う雷雨（弱/中）", 99: "ひょうを伴う雷雨（強）",
+  };
+  const en = {
+    0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast", 45: "Fog", 48: "Depositing rime fog",
+    51: "Drizzle: light", 53: "Drizzle: moderate", 55: "Drizzle: dense", 56: "Freezing drizzle: light", 57: "Freezing drizzle: dense",
+    61: "Rain: slight", 63: "Rain: moderate", 65: "Rain: heavy", 66: "Freezing rain: light", 67: "Freezing rain: heavy",
+    71: "Snow fall: slight", 73: "Snow fall: moderate", 75: "Snow fall: heavy", 77: "Snow grains",
+    80: "Rain showers: slight", 81: "Rain showers: moderate", 82: "Rain showers: violent",
+    85: "Snow showers: slight", 86: "Snow showers: heavy",
+    95: "Thunderstorm", 96: "Thunderstorm with slight hail", 99: "Thunderstorm with heavy hail",
+  };
+  const t = lang === "ja" ? ja : en;
+  return t?.[code] ?? (lang === "ja" ? "不明" : "Unknown");
 }
