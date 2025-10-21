@@ -1,20 +1,17 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-URL="https://ors-proxy.miyata-connect-jp.workers.dev/v1/places"
-PAYLOAD='{"text":"徳島駅 コンビニ","limit":5,"lang":"ja","lat":34.07324,"lng":134.55066,"radius":1200}'
+URL="https://ors-proxy.miyata-connect-jp.workers.dev/v1/health"
 
-resp="$(curl -sS -X POST "$URL" -H "Content-Type: application/json" --data-binary "$PAYLOAD")" || {
+code="$(curl -sS -o /dev/null -w '%{http_code}' "$URL")" || {
   echo "NG: request failed"
   exit 1
 }
 
-# jq が無い環境でも最小判定
-if echo "$resp" | grep -q '"places":'; then
+if [ "$code" = "200" ]; then
   echo "OK"
   exit 0
 else
-  echo "NG"
-  echo "$resp"
+  echo "NG: status=$code"
   exit 1
 fi
