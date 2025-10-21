@@ -4,6 +4,7 @@
  *  - GET  /v1/health
  *  - POST /v1/places
  *  - GET  /v1/weather
+ *  - GET  /v1/incidents
  *
  * Secret:
  *  - GMAPS_API_KEY : Google Places API (New)
@@ -20,20 +21,20 @@ export default {
 
     try {
       if (url.pathname === "/v1/health" && request.method === "GET") {
-        return json({ status: "ok", time: new Date().toISOString(), region: env.CF?.colo ?? "edge" }, 200, cors);
+        return j({ status: "ok", time: new Date().toISOString(), region: env.CF?.colo ?? "edge" }, 200, cors);
       }
-
       if (url.pathname === "/v1/places" && request.method === "POST") {
         return handlePlaces(request, env, cors);
       }
-
       if (url.pathname === "/v1/weather" && request.method === "GET") {
         return handleWeather(request, env, cors, ctx);
       }
-
-      return json({ error: { code: "not_found", message: "route not found" } }, 404, cors);
+      if (url.pathname === "/v1/incidents" && request.method === "GET") {
+        return handleIncidents(request, env, cors, ctx);
+      }
+      return j({ error: { code: "not_found", message: "route not found" } }, 404, cors);
     } catch (e) {
-      return json({ error: { code: "internal_error", message: String(e?.message ?? e) } }, 500, cors);
+      return j({ error: { code: "internal_error", message: String(e?.message ?? e) } }, 500, cors);
     }
   },
 };
@@ -41,9 +42,8 @@ export default {
 /* ----------------------------- /v1/places ------------------------------ */
 async function handlePlaces(request, env, cors) {
   if (!env.GMAPS_API_KEY) {
-    return json({ error: { code: "missing_secret", message: "GMAPS_API_KEY is not set" } }, 500, cors);
+    return j({ error: { code: "missing_secret", message: "GMAPS_API_KEY is not set" } }, 500, cors);
   }
-
   const bodyIn = await request.json().catch(() => ({}));
   const { fieldMask, ...body } = bodyIn ?? {};
   const fieldMaskHeader =
@@ -72,13 +72,6 @@ async function handlePlaces(request, env, cors) {
 }
 
 /* ----------------------------- /v1/weather ----------------------------- */
-/**
- * Open-Meteo から now / +3h / +6h を取得し軽量整形。
- * - 5分キャッシュ（CF Cache）
- * - 座標 0.05° 丸め
- * - 日本語/英語の cond マッピング
- * 例: /v1/weather?lat=34.067&lng=134.553&lang=ja&units=metric
- */
 async function handleWeather(request, env, cors, ctx) {
   const url = new URL(request.url);
   const lat = toNum(url.searchParams.get("lat"));
@@ -86,17 +79,18 @@ async function handleWeather(request, env, cors, ctx) {
   const lang = normLang(url.searchParams.get("lang") || "ja");
   const units = (url.searchParams.get("units") || "metric").toLowerCase();
 
-  if (!isFinite(lat) || !isFinite(lng)) return json({ error: { code: "bad_request", message: "lat/lng required" } }, 400, cors);
-  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return json({ error: { code: "bad_request", message: "lat [-90,90], lng [-180,180]" } }, 400, cors);
-  if (!["ja", "en"].includes(lang)) return json({ error: { code: "bad_request", message: "lang must be 'ja' or 'en'" } }, 400, cors);
-  if (!["metric", "imperial"].includes(units)) return json({ error: { code: "bad_request", message: "units must be 'metric' or 'imperial'" } }, 400, cors);
+  if (!isFinite(lat) || !isFinite(lng)) return j({ error: { code: "bad_request", message: "lat/lng required" } }, 400, cors);
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return j({ error: { code: "bad_request", message: "lat [-90,90], lng [-180,180]" } }, 400, cors);
+  if (!["ja", "en"].includes(lang)) return j({ error: { code: "bad_request", message: "lang must be 'ja' or 'en'" } }, 400, cors);
+  if (!["metric", "imperial"].includes(units)) return j({ error: { code: "bad_request", message: "units must be 'metric' or 'imperial'" } }, 400, cors);
 
   const latR = roundTo(lat, 0.05);
   const lngR = roundTo(lng, 0.05);
+
   const cacheKey = new Request(`${url.origin}/__cache/weather?lat=${latR}&lng=${lngR}&lang=${lang}&units=${units}`, { method: "GET" });
   const cache = caches.default;
   const hit = await cache.match(cacheKey);
-  if (hit) return new Response(await hit.arrayBuffer(), { status: hit.status, headers: withCors(hit.headers, cors) });
+  if (hit) return withCors(hit, cors);
 
   const tz = "Asia/Tokyo";
   const api = new URL("https://api.open-meteo.com/v1/forecast");
@@ -113,7 +107,7 @@ async function handleWeather(request, env, cors, ctx) {
   }
 
   const upstream = await fetch(api.toString());
-  if (!upstream.ok) return json({ error: { code: "upstream_error", message: `open-meteo ${upstream.status}` } }, 502, cors);
+  if (!upstream.ok) return j({ error: { code: "upstream_error", message: `open-meteo ${upstream.status}` } }, 502, cors);
   const om = await upstream.json();
 
   const hourly = om?.hourly || {};
@@ -125,6 +119,7 @@ async function handleWeather(request, env, cors, ctx) {
   const nowJST = new Date().toLocaleString("sv-SE", { timeZone: tz });
   const nowIso = new Date(nowJST.replace(" ", "T") + "+09:00");
   const idx = nearestIndex(times, nowIso);
+
   const make = (i) => {
     if (i < 0 || i >= times.length) return null;
     const t = times[i];
@@ -150,19 +145,61 @@ async function handleWeather(request, env, cors, ctx) {
     ttlSec: 300,
   };
 
-  const res = json(payload, 200, { ...cors, "Cache-Control": "public, s-maxage=300, max-age=60" });
+  const res = j(payload, 200, { "Cache-Control": "public, s-maxage=300, max-age=60" });
   ctx.waitUntil(cache.put(cacheKey, res.clone()));
-  return res;
+  return withCors(res, cors);
+}
+
+/* ---------------------------- /v1/incidents ---------------------------- */
+/**
+ * v1: 軽量スタブ（将来: provider連携）
+ * Query:
+ *  - lat (required), lng (required)
+ *  - radius (m) default 1000, max 5000
+ *  - limit default 20, max 100
+ * Cache: s-maxage=300
+ */
+async function handleIncidents(request, env, cors, ctx) {
+  const url = new URL(request.url);
+  const lat = toNum(url.searchParams.get("lat"));
+  const lng = toNum(url.searchParams.get("lng"));
+  let radius = toNum(url.searchParams.get("radius") ?? 1000);
+  let limit = toNum(url.searchParams.get("limit") ?? 20);
+
+  if (!isFinite(lat) || !isFinite(lng)) return j({ error: { code: "bad_request", message: "lat/lng required" } }, 400, cors);
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return j({ error: { code: "bad_request", message: "lat [-90,90], lng [-180,180]" } }, 400, cors);
+
+  if (!isFinite(radius) || radius <= 0) radius = 1000;
+  radius = Math.min(Math.max(radius, 10), 5000);
+
+  if (!isFinite(limit) || limit <= 0) limit = 20;
+  limit = Math.min(Math.max(limit, 1), 100);
+
+  const payload = {
+    items: [], // v1はスタブ（将来: open-data / provider / manual）
+    ttlSec: 300,
+    provider: "stub",
+  };
+
+  const res = j(payload, 200, { "Cache-Control": "public, s-maxage=300, max-age=60" });
+  return withCors(res, cors);
 }
 
 /* -------------------------------- utils -------------------------------- */
-function json(obj, status = 200, headers = {}) {
-  return new Response(JSON.stringify(obj), { status, headers: { "Content-Type": "application/json; charset=utf-8", ...headers } });
+function j(obj, status = 200, headers = {}) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8", ...headers },
+  });
+}
+function withCors(res, cors) {
+  const out = new Response(res.body, res);
+  Object.entries(cors).forEach(([k, v]) => out.headers.set(k, v));
+  return out;
 }
 function toNum(v) { const n = Number(v); return Number.isFinite(n) ? n : NaN; }
 function roundTo(x, step) { return Math.round(x / step) * step; }
 function normLang(x) { return String(x || "").toLowerCase().replace("_", "-").startsWith("ja") ? "ja" : "en"; }
-function withCors(h, cors) { const hh = new Headers(h); for (const [k, v] of Object.entries(cors)) hh.set(k, v); return hh; }
 function numOrNull(x) { const n = Number(x); return Number.isFinite(n) ? n : null; }
 function nearestIndex(arr, target) {
   if (!Array.isArray(arr) || arr.length === 0) return 0;
