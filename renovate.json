@@ -4,6 +4,8 @@
   "labels": ["dependencies"],
   "timezone": "Asia/Tokyo",
 
+  "dependencyDashboard": true,
+
   "prHourlyLimit": 2,
   "prConcurrentLimit": 5,
 
