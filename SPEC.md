@@ -35,3 +35,33 @@
 **Response**
 ```json
 { "status": "ok", "uptimeSec": 12345 }
+
+### 寒さ規定 v1  
+- `/v1/weather` 応答の `now.tempC` 値から寒さステージ (`stage`) を決定する。  
+- ステージ区分: `>15`→`none`、`10–15`→`prefer`、`≤10`→`strong`。  
+- ステージが `prefer` または `strong` の場合、経路探索では屋内・公共施設・商業施設内のセグメントを優先する。`strong` の場合は特に強く優先し、屋外部分のスコアを減点する。  
+
+### GET /v1/incidents  
+- 概要: 周辺の事故・工事・通行止情報を軽量に取得するエンドポイント。ルート探索時の危険回避や案内に利用する。  
+- クエリパラメータ:  
+  - `lat`、`lng`：取得地点（必須）  
+  - `radius`：半径[m]。省略時は 500 m。  
+  - `limit`：最大件数。省略時は 10。  
+- レスポンス: 以下の構造を持つ JSON。  
+```json  
+{  
+  "items": [  
+    {  
+      "id": "string",  
+      "lat": 0,  
+      "lng": 0,  
+      "category": "accident" | "construction" | "closure",  
+      "message": "string",  
+      "source": "provider name",  
+      "updatedAt": "ISO8601"  
+    }  
+  ],  
+  "ttlSec": 300  
+}  
+```  
+- `ttlSec` はこのデータのキャッシュ保持期間（秒）。現在は 300。
