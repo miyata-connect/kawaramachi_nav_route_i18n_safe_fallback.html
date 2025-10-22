@@ -19,7 +19,7 @@ jobs:
 
       # ← ここが「Node セットアップ」。lock ファイルが無い環境でもコケない設定にしてある
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: '20'
         # ※ cache は lockfile が無いと失敗しがちなので明示的に使わない
