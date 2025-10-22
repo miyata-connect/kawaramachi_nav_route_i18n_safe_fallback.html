@@ -1,24 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:base"
-  ],
-  "dependencyDashboard": true,
+  "extends": ["config:base"],
   "enabledManagers": ["npm", "github-actions"],
-  "prCreation": "immediate",
-  "updateNotScheduled": false,
-  "rebaseWhen": "behind-base-branch",
-  "automerge": false,
-  "labels": ["dependencies"],
-  "onboarding": false,
-  "onboardingBranch": "renovate/onboarding",
-  "logLevel": "info",
-  "branchConcurrentLimit": 5,
-  "prHourlyLimit": 5,
-  "schedule": ["at any time"],
-  "ignorePaths": [
-    "**/node_modules/**",
-    "**/dist/**"
-  ]
+  "dependencyDashboard": true,
+  "labels": ["dependencies"]
 }
-
