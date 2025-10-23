@@ -418,3 +418,44 @@ document.addEventListener('contextmenu',e=>{
   const c = map.getCenter(); setDest(c.lng(), c.lat());
   els.msg.textContent='目的地を設定しました（地図中心）';
 });
+
+/* ----- 追加機能：オフライン地図設定・避難所検索・災害Wi-Fi ----- */
+(function() {
+  // 設定(毛兵)ボタンを言語切り替えの隠りに追加
+  const settingsBtn = document.createElement('button');
+  settingsBtn.id = 'settingsBtn';
+  settingsBtn.className = 'ghost';
+  settingsBtn.textContent = '\u2699\uFE0F \u8a2d\u5b9a';
+  const langToggleEl = document.getElementById('langToggle');
+  if (langToggleEl && langToggleEl.parentNode) {
+    langToggleEl.parentNode.appendChild(settingsBtn);
+  }
+  settingsBtn.addEventListener('click', () => {
+    els.msg.textContent = 'オフライン地図ダウンロードは現在未実装です';
+  });
+
+  // 避難所検索ボタンをナビアクションエリアに追加
+  const shelterBtn = document.createElement('button');
+  shelterBtn.id = 'shelterBtn';
+  shelterBtn.className = 'primary';
+  shelterBtn.textContent = '\u907f\u96e3\u6240';
+  const navActions = document.getElementById('nav-actions');
+  if (navActions) {
+    navActions.appendChild(shelterBtn);
+  }
+  shelterBtn.addEventListener('click', () => {
+    els.msg.textContent = '避難所検索機能は現在未実装です';
+  });
+
+  // 災害Wi-Fiボタンを追加
+  const wifiBtn = document.createElement('button');
+  wifiBtn.id = 'wifiBtn';
+  wifiBtn.className = 'primary';
+  wifiBtn.textContent = '\u707d\u5bb3Wi-Fi';
+  if (navActions) {
+    navActions.appendChild(wifiBtn);
+  }
+  wifiBtn.addEventListener('click', () => {
+    els.msg.textContent = '災害用Wi-Fi一覧機能は現在未実装です';
+  });
+})();
