@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>WalkNav</title>
+  <title>WalkNav（完全復元版）</title>
 
-  <!-- スタイル -->
-  <link rel="stylesheet" href="style.css" />
+  <!-- ===== CSS ===== -->
+  <link rel="stylesheet" href="app.css" />
 
-  <!-- メインスクリプト -->
+  <!-- ===== メインスクリプト ===== -->
   <script defer src="app.js"></script>
 </head>
 
@@ -35,7 +35,7 @@
       <button id="settings-btn" class="icon-button">⚙️</button>
     </div>
 
-    <!-- 検索入力欄 -->
+    <!-- 検索 -->
     <div class="search-section">
       <input id="searchBox" type="text" placeholder="場所を検索" />
       <button id="searchBtn" class="btn search-btn">検索</button>
@@ -43,7 +43,7 @@
       <button id="locBtn" class="btn loc-btn">📍</button>
     </div>
 
-    <!-- 案内ボタン群 -->
+    <!-- 案内ボタン -->
     <div class="action-buttons">
       <button id="start-nav" class="pill-button start">案内開始</button>
       <button id="stop-nav" class="pill-button stop">案内停止</button>
@@ -106,10 +106,10 @@
   <!-- 下部タブ -->
   <div id="tab">▲</div>
 
-  <!-- エラーバナー -->
+  <!-- エラー表示 -->
   <div id="error-banner" class="error-banner hidden"></div>
 
-  <!-- ✅ Google Maps JavaScript API（ブラウザ用キー埋込、HTTPリファラー制限想定） -->
+  <!-- ✅ Google Maps JavaScript API（ブラウザ用キー・HTTPリファラー制限前提） -->
   <script async defer
     src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places&callback=initMap">
   </script>
