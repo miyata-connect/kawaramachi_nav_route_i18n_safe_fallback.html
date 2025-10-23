@@ -4,7 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>WalkNav</title>
+
+  <!-- スタイル -->
   <link rel="stylesheet" href="style.css" />
+
+  <!-- メインスクリプト -->
   <script defer src="app.js"></script>
 </head>
 
@@ -12,26 +16,26 @@
   <!-- ステータス表示 -->
   <div id="status">地図を読み込み中...</div>
 
-  <!-- 地図本体 -->
+  <!-- 地図 -->
   <div id="map" class="map-container"></div>
 
   <!-- コンパス -->
   <div id="compass">N</div>
 
-  <!-- 右側縦ボタン群 -->
+  <!-- 右側ボタン群 -->
   <div id="right-buttons">
     <button id="zoomIn">＋</button>
     <button id="zoomOut">－</button>
   </div>
 
-  <!-- ガラス風操作パネル -->
+  <!-- 操作パネル -->
   <div id="panel" class="glass-panel">
     <div class="panel-header">
       <h1 class="app-title">WalkNav</h1>
       <button id="settings-btn" class="icon-button">⚙️</button>
     </div>
 
-    <!-- 検索入力 -->
+    <!-- 検索入力欄 -->
     <div class="search-section">
       <input id="searchBox" type="text" placeholder="場所を検索" />
       <button id="searchBtn" class="btn search-btn">検索</button>
@@ -46,7 +50,7 @@
       <button id="reroute-btn" class="pill-button reroute">リルート</button>
     </div>
 
-    <!-- 天気セクション -->
+    <!-- 天気 -->
     <div id="weather" class="weather-container">
       <div class="weather-item now">
         <span class="time-label">今</span>
@@ -72,6 +76,7 @@
   <!-- 設定モーダル -->
   <div id="settings-modal" class="modal hidden">
     <h2>設定</h2>
+
     <div class="setting-item">
       <label for="offline-mode">オフライン地図：</label>
       <select id="offline-mode">
@@ -101,10 +106,12 @@
   <!-- 下部タブ -->
   <div id="tab">▲</div>
 
-  <!-- エラーメッセージ -->
+  <!-- エラーバナー -->
   <div id="error-banner" class="error-banner hidden"></div>
 
-  <!-- Google Maps API -->
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&callback=initMap"></script>
+  <!-- ✅ Google Maps JavaScript API（ブラウザ用キー埋込、HTTPリファラー制限想定） -->
+  <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places&callback=initMap">
+  </script>
 </body>
 </html>
