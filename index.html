@@ -2,238 +2,109 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WalkNav（完全修正版）</title>
-  <style>
-    html, body { height: 100%; margin: 0; padding: 0; font-family: sans-serif; background: #000; color: #fff; }
-    #map { height: 100%; width: 100%; }
-
-    /* ステータスラベル */
-    #status {
-      position: absolute; top: 8px; left: 8px;
-      background: rgba(0, 0, 0, 0.6);
-      padding: 6px 10px; border-radius: 8px; font-size: 13px; z-index: 9999;
-    }
-
-    /* パネル */
-    #panel {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      background: rgba(30, 30, 30, 0.95);
-      border-top-left-radius: 16px;
-      border-top-right-radius: 16px;
-      padding: 10px 12px;
-      transform: translateY(0%);
-      transition: transform 0.3s ease-in-out;
-      z-index: 9998;
-    }
-    #panel.hidden { transform: translateY(100%); }
-
-    /* タブ */
-    #tab {
-      position: absolute;
-      bottom: 0; left: 50%;
-      transform: translateX(-50%);
-      background: #fff;
-      color: #000;
-      border-radius: 10px 10px 0 0;
-      padding: 4px 16px;
-      font-size: 14px;
-      cursor: pointer;
-      z-index: 10000;
-    }
-
-    /* ボタン */
-    .btn {
-      border: none; outline: none;
-      border-radius: 12px;
-      padding: 8px 12px;
-      margin: 4px;
-      font-size: 14px;
-      cursor: pointer;
-      color: #fff;
-    }
-    .search-btn { background: #1e90ff; }
-    .mic-btn { background: #ff4444; }
-    .loc-btn { background: #00c851; }
-
-    /* 右側ボタン縦並び */
-    #right-buttons {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      z-index: 9997;
-    }
-    #right-buttons button {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      border: none;
-      background: rgba(0,0,0,0.6);
-      color: #fff;
-      font-size: 20px;
-      cursor: pointer;
-    }
-
-    /* コンパス */
-    #compass {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 9996;
-      width: 50px; height: 50px;
-      background: rgba(0,0,0,0.6);
-      border-radius: 50%;
-      color: #fff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>WalkNav</title>
+  <link rel="stylesheet" href="style.css" />
+  <script defer src="app.js"></script>
 </head>
 
 <body>
+  <!-- ステータス表示 -->
   <div id="status">地図を読み込み中...</div>
-  <div id="map"></div>
+
+  <!-- 地図本体 -->
+  <div id="map" class="map-container"></div>
 
   <!-- コンパス -->
   <div id="compass">N</div>
 
-  <!-- 右側縦ボタン -->
+  <!-- 右側縦ボタン群 -->
   <div id="right-buttons">
     <button id="zoomIn">＋</button>
     <button id="zoomOut">－</button>
   </div>
 
-  <!-- パネル -->
-  <div id="panel">
-    <input id="searchBox" type="text" placeholder="場所を検索" style="width:70%;padding:6px;border-radius:6px;border:none;">
-    <button id="searchBtn" class="btn search-btn">検索</button>
-    <button id="micBtn" class="btn mic-btn">🎤</button>
-    <button id="locBtn" class="btn loc-btn">📍</button>
+  <!-- ガラス風操作パネル -->
+  <div id="panel" class="glass-panel">
+    <div class="panel-header">
+      <h1 class="app-title">WalkNav</h1>
+      <button id="settings-btn" class="icon-button">⚙️</button>
+    </div>
+
+    <!-- 検索入力 -->
+    <div class="search-section">
+      <input id="searchBox" type="text" placeholder="場所を検索" />
+      <button id="searchBtn" class="btn search-btn">検索</button>
+      <button id="micBtn" class="btn mic-btn">🎤</button>
+      <button id="locBtn" class="btn loc-btn">📍</button>
+    </div>
+
+    <!-- 案内ボタン群 -->
+    <div class="action-buttons">
+      <button id="start-nav" class="pill-button start">案内開始</button>
+      <button id="stop-nav" class="pill-button stop">案内停止</button>
+      <button id="reroute-btn" class="pill-button reroute">リルート</button>
+    </div>
+
+    <!-- 天気セクション -->
+    <div id="weather" class="weather-container">
+      <div class="weather-item now">
+        <span class="time-label">今</span>
+        <span id="weather-now"></span>
+      </div>
+      <div class="weather-item next3h">
+        <span class="time-label">3h</span>
+        <span id="weather-3h"></span>
+      </div>
+      <div class="weather-item next6h">
+        <span class="time-label">6h</span>
+        <span id="weather-6h"></span>
+      </div>
+    </div>
+
+    <!-- プログレスバー -->
+    <div id="progress-container" class="progress-container hidden">
+      <div id="progress-bar" class="progress-bar"></div>
+      <button id="cancel-download" class="cancel-button">キャンセル</button>
+    </div>
   </div>
 
-  <!-- タブ -->
+  <!-- 設定モーダル -->
+  <div id="settings-modal" class="modal hidden">
+    <h2>設定</h2>
+    <div class="setting-item">
+      <label for="offline-mode">オフライン地図：</label>
+      <select id="offline-mode">
+        <option value="auto">任意</option>
+        <option value="always">常に</option>
+        <option value="never">しない</option>
+      </select>
+    </div>
+
+    <div class="setting-item">
+      <label for="language-select">言語：</label>
+      <select id="language-select">
+        <option value="ja">日本語</option>
+        <option value="en">English</option>
+        <option value="ko">한국어</option>
+        <option value="zh">中文</option>
+        <option value="es">Español</option>
+        <option value="de">Deutsch</option>
+        <option value="fr">Français</option>
+        <option value="it">Italiano</option>
+      </select>
+    </div>
+
+    <button id="close-settings" class="secondary-button">閉じる</button>
+  </div>
+
+  <!-- 下部タブ -->
   <div id="tab">▲</div>
 
-  <script>
-    let map, marker, watchId, panelVisible = true;
-    const tab = document.getElementById("tab");
-    const panel = document.getElementById("panel");
-    const micBtn = document.getElementById("micBtn");
-    const searchBtn = document.getElementById("searchBtn");
-    const searchBox = document.getElementById("searchBox");
-    const locBtn = document.getElementById("locBtn");
-    const compass = document.getElementById("compass");
-    const status = document.getElementById("status");
+  <!-- エラーメッセージ -->
+  <div id="error-banner" class="error-banner hidden"></div>
 
-    let recognition;
-
-    function initMap() {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            const center = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            map = new google.maps.Map(document.getElementById("map"), {
-              center, zoom: 16, mapTypeControl: false,
-              fullscreenControl: false, streetViewControl: false
-            });
-            marker = new google.maps.Marker({ position: center, map, title: "現在地" });
-            status.textContent = "現在地を表示中";
-          },
-          () => fallbackMap()
-        );
-      } else fallbackMap();
-    }
-
-    function fallbackMap() {
-      const tokyo = { lat: 35.681236, lng: 139.767125 };
-      map = new google.maps.Map(document.getElementById("map"), { center: tokyo, zoom: 14 });
-      marker = new google.maps.Marker({ position: tokyo, map, title: "東京駅（仮）" });
-      status.textContent = "位置情報が取得できません。";
-    }
-
-    // パネル開閉
-    tab.onclick = () => {
-      panelVisible = !panelVisible;
-      panel.classList.toggle("hidden", !panelVisible);
-      tab.textContent = panelVisible ? "▲" : "▼";
-    };
-
-    // 音声検索
-    if ("webkitSpeechRecognition" in window) {
-      recognition = new webkitSpeechRecognition();
-      recognition.lang = "ja-JP";
-      recognition.interimResults = false;
-      recognition.onresult = (e) => {
-        searchBox.value = e.results[0][0].transcript;
-        searchPlace();
-      };
-    }
-
-    let micActive = false;
-    micBtn.onclick = () => {
-      if (!recognition) return alert("音声認識が利用できません。");
-      if (micActive) {
-        recognition.stop();
-        micBtn.style.background = "#ff4444";
-      } else {
-        recognition.start();
-        micBtn.style.background = "#00c851";
-      }
-      micActive = !micActive;
-    };
-
-    // 現在地ボタン
-    locBtn.onclick = () => {
-      if (navigator.geolocation)
-        navigator.geolocation.getCurrentPosition((pos) => {
-          const p = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          map.panTo(p);
-          marker.setPosition(p);
-        });
-    };
-
-    // 検索
-    searchBtn.onclick = searchPlace;
-    function searchPlace() {
-      const q = searchBox.value.trim();
-      if (!q) return;
-      fetch("https://ors-proxy.miyata-connect-jp.workers.dev/places", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ textQuery: q })
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (!data.places || !data.places[0]) return alert("結果が見つかりません。");
-        const loc = data.places[0].location;
-        map.panTo(loc);
-        marker.setPosition(loc);
-        new google.maps.InfoWindow({ content: data.places[0].displayName.text }).open(map, marker);
-      })
-      .catch(() => alert("検索エラー"));
-    }
-
-    // ズーム
-    document.getElementById("zoomIn").onclick = () => map.setZoom(map.getZoom() + 1);
-    document.getElementById("zoomOut").onclick = () => map.setZoom(map.getZoom() - 1);
-
-    // コンパス更新
-    if (window.DeviceOrientationEvent) {
-      window.addEventListener("deviceorientation", (e) => {
-        const heading = e.webkitCompassHeading || Math.abs(e.alpha - 360);
-        compass.style.transform = `rotate(${-heading}deg)`;
-      });
-    }
-  </script>
-
-  <!-- ✅ 正規ブラウザ用キー（WalkNav-MapsJS-Prod） -->
+  <!-- Google Maps API -->
   <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&callback=initMap"></script>
 </body>
 </html>
