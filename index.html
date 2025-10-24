@@ -1,117 +1,99 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>WalkNav（完全復元版）</title>
-
-  <!-- ===== CSS ===== -->
-  <link rel="stylesheet" href="stylesheet.css" />
-
-  <!-- ===== メインスクリプト ===== -->
-  <script defer src="app.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>WalkNav</title>
+  <meta name="description" content="音声認識・ルート案内・天気表示を統合したブラウザ用ナビアプリ" />
+  <meta name="theme-color" content="#0e1a2d" />
+  <link rel="stylesheet" href="./app.css" />
+  <style>
+    /* 規約許容の最小限追加（既存構成を壊さない） */
+    .hidden{display:none}
+    .sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  </style>
 </head>
-
 <body>
-  <!-- ステータス表示 -->
-  <div id="status">地図を読み込み中...</div>
+  <div class="app" id="app">
+    <!-- 地図 -->
+    <div id="map" role="application" aria-label="地図表示エリア"></div>
 
-  <!-- 地図 -->
-  <div id="map" class="map-container"></div>
-
-  <!-- コンパス -->
-  <div id="compass">N</div>
-
-  <!-- 右側ボタン群 -->
-  <div id="right-buttons">
-    <button id="zoomIn">＋</button>
-    <button id="zoomOut">－</button>
-  </div>
-
-  <!-- 操作パネル -->
-  <div id="panel" class="glass-panel">
-    <div class="panel-header">
-      <h1 class="app-title">WalkNav</h1>
-      <button id="settings-btn" class="icon-button">⚙️</button>
-    </div>
-
-    <!-- 検索 -->
-    <div class="search-section">
-      <input id="searchBox" type="text" placeholder="場所を検索" />
-      <button id="searchBtn" class="btn search-btn">検索</button>
-      <button id="micBtn" class="btn mic-btn">🎤</button>
-      <button id="locBtn" class="btn loc-btn">📍</button>
-    </div>
-
-    <!-- 案内ボタン -->
-    <div class="action-buttons">
-      <button id="start-nav" class="pill-button start">案内開始</button>
-      <button id="stop-nav" class="pill-button stop">案内停止</button>
-      <button id="reroute-btn" class="pill-button reroute">リルート</button>
-    </div>
-
-    <!-- 天気 -->
-    <div id="weather" class="weather-container">
-      <div class="weather-item now">
-        <span class="time-label">今</span>
-        <span id="weather-now"></span>
-      </div>
-      <div class="weather-item next3h">
-        <span class="time-label">3h</span>
-        <span id="weather-3h"></span>
-      </div>
-      <div class="weather-item next6h">
-        <span class="time-label">6h</span>
-        <span id="weather-6h"></span>
+    <!-- ===== 操作パネル（ガラス板） ===== -->
+    <div class="glassbar" id="glassbar">
+      <div class="card">
+        <div class="row">
+          <label class="sr-only" for="searchBox">目的地を検索</label>
+          <input id="searchBox" class="grow" type="search" placeholder="目的地を検索（例：東京駅）" autocomplete="off" />
+          <button id="micBtn" class="ok" aria-pressed="false" title="音声検索">🎤 音声</button>
+          <button id="searchBtn" class="primary" title="検索">検索</button>
+          <button id="locBtn" class="ghost" title="現在地へ移動">現在地</button>
+        </div>
+        <div class="row">
+          <div id="status" class="hint" aria-live="polite"></div>
+        </div>
       </div>
     </div>
 
-    <!-- プログレスバー -->
-    <div id="progress-container" class="progress-container hidden">
-      <div id="progress-bar" class="progress-bar"></div>
-      <button id="cancel-download" class="cancel-button">キャンセル</button>
+    <!-- ===== コンパス＋補助UI（パネル高に追従） ===== -->
+    <div class="comp-wrap">
+      <div class="compass" aria-hidden="true">
+        <svg viewBox="0 0 76 76" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="38" cy="38" r="35" fill="none" stroke="rgba(255,255,255,.25)" />
+          <polygon class="needle" points="38,10 42,38 38,34 34,38" fill="#f45c5c"/>
+          <text x="36" y="14">N</text>
+        </svg>
+      </div>
+      <div class="comp-btns">
+        <button id="zoomIn" class="ghost" title="ズームイン">＋ ズーム</button>
+        <button id="zoomOut" class="ghost" title="ズームアウト">－ ズーム</button>
+      </div>
+    </div>
+
+    <!-- ===== 右側ボタン列（FAB） ===== -->
+    <div class="fab-col" aria-label="操作ボタン">
+      <button id="start-nav" class="ok">案内開始</button>
+      <button id="stop-nav" class="danger">案内を停止</button>
+      <button id="reroute-btn" class="ghost">リルート</button>
+    </div>
+
+    <!-- ===== 検索結果パネル（必要時にJSで使用） ===== -->
+    <div class="results" id="results" aria-live="polite"></div>
+
+    <!-- ===== エラーバナー ===== -->
+    <div id="error-banner" class="card hidden" role="alert" style="position:absolute;left:12px;right:12px;bottom:12px;z-index:999;">
+      <strong>エラー：</strong> <span id="error-text"></span>
     </div>
   </div>
 
-  <!-- 設定モーダル -->
-  <div id="settings-modal" class="modal hidden">
-    <h2>設定</h2>
-
-    <div class="setting-item">
-      <label for="offline-mode">オフライン地図：</label>
-      <select id="offline-mode">
-        <option value="auto">任意</option>
-        <option value="always">常に</option>
-        <option value="never">しない</option>
-      </select>
-    </div>
-
-    <div class="setting-item">
-      <label for="language-select">言語：</label>
-      <select id="language-select">
-        <option value="ja">日本語</option>
-        <option value="en">English</option>
-        <option value="ko">한국어</option>
-        <option value="zh">中文</option>
-        <option value="es">Español</option>
-        <option value="de">Deutsch</option>
-        <option value="fr">Français</option>
-        <option value="it">Italiano</option>
-      </select>
-    </div>
-
-    <button id="close-settings" class="secondary-button">閉じる</button>
-  </div>
-
-  <!-- 下部タブ -->
-  <div id="tab">▲</div>
-
-  <!-- エラー表示 -->
-  <div id="error-banner" class="error-banner hidden"></div>
-
-  <!-- ✅ Google Maps JavaScript API（ブラウザ用キー・HTTPリファラー制限前提） -->
-  <script async defer
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places&callback=initMap">
+  <!-- 追加ユーティリティ：ガラス板の高さをCSS変数へ反映（UI干渉回避） -->
+  <script>
+    (function () {
+      const applyPanelH = () => {
+        const el = document.getElementById('glassbar');
+        const h = el ? Math.ceil(el.getBoundingClientRect().height) : 0;
+        document.documentElement.style.setProperty('--panelH', h + 'px');
+      };
+      addEventListener('load', applyPanelH, { once: true });
+      addEventListener('resize', applyPanelH);
+      addEventListener('orientationchange', applyPanelH);
+      // SpeechRecognition 対応警告（フォールバック表示）
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        const banner = document.getElementById('error-banner');
+        const text = document.getElementById('error-text');
+        if (banner && text) {
+          text.textContent = "このブラウザは音声認識に対応していません。最新の Chrome などをご利用ください。";
+          banner.classList.remove('hidden');
+          setTimeout(()=>banner.classList.add('hidden'), 6000);
+        }
+      }
+    })();
   </script>
+
+  <!-- アプリ本体 -->
+  <script src="./app.js" defer></script>
+
+  <!-- Google Maps JavaScript API（HTML末尾／ブラウザキーを差し替え・リファラー制限必須） -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_BROWSER_API_KEY&callback=initMap"></script>
 </body>
 </html>
