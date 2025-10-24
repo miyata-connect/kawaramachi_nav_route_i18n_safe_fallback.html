@@ -1,4 +1,4 @@
-:root{
+:root {
   --glass: rgba(20,28,44,.54);
   --glass-strong: rgba(16,22,36,.68);
   --stroke: rgba(255,255,255,.14);
@@ -10,117 +10,30 @@
   --accent:#64d2ff;
   --mic-green:#0cb35a;
   --mic-red:#d53d3d;
-  --panelH: 240px; /* JSで実測更新 */
+  --panelH: 240px;
 }
-
-html,body{height:100%;margin:0;background:linear-gradient(135deg,#0a1321 0%,#0e1a2d 100%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",Meiryo,sans-serif}
+html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP",Meiryo,sans-serif}
 *{box-sizing:border-box}
 a{color:inherit}
 .app{position:relative;height:100dvh;overflow:hidden}
-
-/* Map 面 */
 #map{position:absolute;inset:0}
-
-/* すべて中央寄せ */
-.card, .row, input, button, select, .result, .title, label, .hint, .badge { text-align:center }
-
-/* ===== ガラス板（検索+座標+保存の1枚板） ===== */
+.card, .row, input, button, select, .result, .title, label, .hint, .badge{text-align:center}
 .glassbar{position:absolute;left:0;right:0;top:0;z-index:420;padding:10px 12px;pointer-events:none}
-.card{
-  pointer-events:auto;background:var(--glass);border:1px solid var(--stroke);
-  border-radius:16px;backdrop-filter: blur(14px) saturate(120%);-webkit-backdrop-filter: blur(14px) saturate(120%);
-  box-shadow:0 10px 30px rgba(0,0,0,.35);padding:10px 12px;
-  width:min(1100px, 96vw); /* はみ出し防止 */
-  margin:0 auto;
-}
+.card{pointer-events:auto;background:var(--glass);border:1px solid var(--stroke);border-radius:16px;backdrop-filter:blur(14px);box-shadow:0 10px 30px rgba(0,0,0,.35);padding:10px 12px;width:min(1100px,96vw);margin:0 auto}
 .row{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
 .grow{flex:1 1 220px}
-input,button,select{
-  background:var(--glass-strong);border:1px solid var(--stroke);color:var(--text);
-  border-radius:12px;padding:11px 13px;font-size:16px;outline:none;min-height:44px;max-width:100%;
-}
-input::placeholder{color:#8fb0d2}
+input,button{background:var(--glass-strong);border:1px solid var(--stroke);color:var(--text);border-radius:12px;padding:11px 13px;font-size:16px;outline:none;min-height:44px}
 button.primary{background:rgba(95,177,255,.92);border:none;font-weight:700}
 button.ok{background:var(--ok);border:none;font-weight:700}
 button.danger{background:var(--danger);border:none;font-weight:700}
-button.ghost{background:rgba(255,255,255,.06)}
-
+button.reroute{background:var(--accent);border:none;color:#fff;font-weight:700}
+button.reroute:hover{background:#00c2ff}
+#micBtn{background:var(--mic-green)}
+#micBtn.rec{background:var(--mic-red)}
 .hint{color:var(--muted);font-size:13px}
-
-/* ====== 座標ブロックを2行・省スペース ====== */
-.coord-wrap{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:14px;
-  align-items:stretch;
-  justify-content:center;
-}
-.coord{
-  background:rgba(255,255,255,.03);
-  border:1px solid var(--stroke);
-  border-radius:12px;
-  padding:8px;
-}
-.coord .title{font-weight:800;color:#cfe0ff;margin:2px 4px 6px}
-.coord .grid{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap:8px;
-}
-.coord label{display:block;font-size:12px;color:#b8c7d8;margin:2px 4px}
-.coord input{width:100%}
-
-/* モード（横並び・3つだけ） */
-.modes{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-.mode{padding:8px 12px;border-radius:999px;border:1px solid var(--stroke);background:rgba(255,255,255,.06);cursor:pointer}
-.mode.active{background:rgba(95,177,255,.92);border:none;font-weight:700}
-
-/* 言語：縦型トグル */
-.lang-toggle{display:inline-block}
-.lang-toggle summary{
-  list-style:none;cursor:pointer;user-select:none;
-  padding:6px 12px;border-radius:999px;border:1px solid var(--stroke);
-  background:rgba(255,255,255,.06)
-}
-.lang-toggle[open] summary{background:rgba(255,255,255,.14)}
-.langlist{display:flex;flex-direction:column;gap:6px;margin-top:8px}
-.langlist button{padding:8px;border-radius:10px;border:1px solid var(--stroke);background:rgba(255,255,255,.06)}
-.langlist button.active{background:rgba(255,255,255,.18);border-color:rgba(255,255,255,.28)}
-
-/* 検索状態 */
-#busy{color:var(--accent);font-weight:800;font-size:15px}
-
-/* マイク色 */
-#mic{background:var(--mic-green)}
-#mic.rec{background:var(--mic-red)}
-#search{min-width:96px}
-#clearHistory{min-width:120px}
-
-/* 地図上ウィジェット：ガラス板の高さに追従して干渉回避 */
-.comp-wrap{position:absolute;left:10px;top:calc(var(--panelH) + 12px);z-index:425}
-.compass{
-  width:90px;height:90px;background:var(--glass);border:1px solid var(--stroke);border-radius:50%;
-  backdrop-filter: blur(10px) saturate(120%);-webkit-backdrop-filter: blur(10px) saturate(120%);
-  box-shadow:0 10px 26px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center
-}
-.compass svg{width:76px;height:76px}
-.compass .needle{transform-origin:38px 38px;transform:rotate(0deg)}
-.compass text{font-size:10px;fill:#f6d58b}
-.comp-btns{margin-top:8px;display:flex;flex-direction:column;gap:6px}
-.comp-btns button{padding:6px 8px;font-size:12px}
-
-/* 右側ボタン列：パネルの下から開始（重なり解消） */
-.fab-col{position:absolute;right:12px;top:calc(var(--panelH) + 12px);z-index:430;display:flex;flex-direction:column;gap:10px}
+.comp-wrap{position:absolute;left:10px;top:calc(var(--panelH)+12px);z-index:425}
+.compass{width:90px;height:90px;background:var(--glass);border:1px solid var(--stroke);border-radius:50%;backdrop-filter:blur(10px);box-shadow:0 10px 26px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
+.compass .needle{transform-origin:38px 38px;transition:transform .15s linear}
+.fab-col{position:absolute;right:12px;top:calc(var(--panelH)+12px);z-index:430;display:flex;flex-direction:column;gap:10px}
 .fab-col button{min-width:150px;box-shadow:0 12px 26px rgba(0,0,0,.45)}
-
-/* 検索結果パネル（下部） */
-.results{position:absolute;left:12px;right:12px;bottom:12px;z-index:420;display:none}
-.result{background:rgba(10,16,26,.7);border:1px solid var(--stroke);padding:10px;border-radius:12px;margin-top:8px;cursor:pointer}
-.result small{color:#bcd0e6}
-.badge{display:inline-block;padding:2px 8px;border-radius:999px;background:rgba(255,255,255,.08);margin-left:6px}
-
-/* モバイル */
-@media (max-width:640px){
-  .fab-col button{min-width:130px}
-  .coord-wrap{grid-template-columns: 1fr;}
-}
+.hidden{display:none}
