@@ -1,96 +1,56 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>WalkNav</title>
-  <meta name="description" content="音声認識・ルート案内・天気表示を統合したブラウザ用ナビアプリ" />
-  <meta name="theme-color" content="#0e1a2d" />
-  <link rel="stylesheet" href="./app.css" />
-  <style>
-    .hidden{display:none}
-    .sr-only{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-  </style>
+  <link rel="stylesheet" href="app.css">
 </head>
 <body>
-  <div class="app" id="app">
-    <div id="map" role="application" aria-label="地図表示エリア"></div>
+  <div id="loading-screen" style="position:fixed;inset:0;background:#0a1321;color:#eaf2ff;display:flex;align-items:center;justify-content:center;font-size:20px;">現在地取得中…</div>
 
-    <!-- ===== 操作パネル（ガラス板） ===== -->
-    <div class="glassbar" id="glassbar">
+  <div class="app" style="display:none;">
+    <div id="map"></div>
+
+    <!-- 検索バー -->
+    <div class="glassbar">
       <div class="card">
         <div class="row">
-          <label class="sr-only" for="searchBox">目的地を検索</label>
-          <input id="searchBox" class="grow" type="search" placeholder="目的地を検索（例：東京駅）" autocomplete="off" />
-          <button id="micBtn" class="ok" aria-pressed="false" title="音声検索">🎤 音声</button>
-          <button id="searchBtn" class="primary" title="検索">検索</button>
-          <button id="locBtn" class="ghost" title="現在地へ移動">現在地</button>
+          <input id="searchBox" placeholder="行き先を検索" class="grow">
+          <button id="searchBtn" class="primary">検索</button>
+          <button id="micBtn">🎤</button>
+          <button id="locBtn">現在地</button>
         </div>
-        <div class="row">
-          <div id="status" class="hint" aria-live="polite"></div>
-        </div>
+        <div id="status" class="hint"></div>
       </div>
     </div>
 
-    <!-- ===== コンパス・ズームUI ===== -->
+    <!-- 方位計＆右側ボタン群 -->
     <div class="comp-wrap">
-      <div class="compass" aria-hidden="true">
-        <svg viewBox="0 0 76 76" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="38" cy="38" r="35" fill="none" stroke="rgba(255,255,255,.25)" />
-          <polygon class="needle" points="38,10 42,38 38,34 34,38" fill="#f45c5c"/>
-          <text x="36" y="14">N</text>
+      <div class="compass">
+        <svg viewBox="0 0 76 76">
+          <circle cx="38" cy="38" r="36" stroke="#bcd0e6" stroke-width="1" fill="none"/>
+          <polygon class="needle" points="38,10 42,38 38,66 34,38" fill="#ff6565"/>
+          <text x="35" y="12">N</text>
         </svg>
       </div>
-      <div class="comp-btns">
-        <button id="zoomIn" class="ghost" title="ズームイン">＋ ズーム</button>
-        <button id="zoomOut" class="ghost" title="ズームアウト">－ ズーム</button>
-      </div>
     </div>
 
-    <!-- ===== 右側ボタン列 ===== -->
-    <div class="fab-col" aria-label="操作ボタン">
+    <div class="fab-col">
       <button id="start-nav" class="ok">案内開始</button>
-      <button id="stop-nav" class="danger">案内を停止</button>
-      <button id="reroute-btn" class="ghost">リルート</button>
+      <button id="stop-nav" class="danger">案内停止</button>
+      <button id="reroute-btn" class="reroute">リルート</button>
+      <button id="zoomIn">ズーム＋</button>
+      <button id="zoomOut">ズーム−</button>
     </div>
 
-    <div class="results" id="results" aria-live="polite"></div>
-
-    <!-- ===== エラーバナー ===== -->
-    <div id="error-banner" class="card hidden" role="alert" style="position:absolute;left:12px;right:12px;bottom:12px;z-index:999;">
-      <strong>エラー：</strong> <span id="error-text"></span>
+    <!-- エラーバナー -->
+    <div id="error-banner" class="hidden" style="position:fixed;bottom:0;left:0;right:0;background:#d53d3d;color:#fff;text-align:center;padding:10px;font-weight:700;">
+      <span id="error-text"></span>
     </div>
   </div>
 
-  <!-- ===== UI補助スクリプト ===== -->
-  <script>
-    (function () {
-      const applyPanelH = () => {
-        const el = document.getElementById('glassbar');
-        const h = el ? Math.ceil(el.getBoundingClientRect().height) : 0;
-        document.documentElement.style.setProperty('--panelH', h + 'px');
-      };
-      addEventListener('load', applyPanelH, { once: true });
-      addEventListener('resize', applyPanelH);
-      addEventListener('orientationchange', applyPanelH);
-
-      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) {
-        const banner = document.getElementById('error-banner');
-        const text = document.getElementById('error-text');
-        if (banner && text) {
-          text.textContent = "このブラウザは音声認識に対応していません。最新の Chrome などをご利用ください。";
-          banner.classList.remove('hidden');
-          setTimeout(()=>banner.classList.add('hidden'), 6000);
-        }
-      }
-    })();
-  </script>
-
-  <!-- ===== アプリ本体 ===== -->
-  <script src="./app.js" defer></script>
-
-  <!-- ===== Google Maps JavaScript API（更新済みキー） ===== -->
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&callback=initMap"></script>
+  <script src="app.js"></script>
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&callback=initMap&libraries=geometry,places"></script>
 </body>
 </html>
