@@ -1,77 +1,51 @@
-// ===========================
-// WalkNav 第2段階改修版 app.js（完全差し替え）
-// 要件：音声検索 / 現在地追従 / 検索（Places New via Worker） / 経路案内 / 案内制御
-// index.html は変更禁止
-// ===========================
-
 "use strict";
 
-/* ====== グローバル ====== */
 let map;
 let directionsService;
 let directionsRenderer;
-
 let currentPositionMarker = null;
 let destinationMarker = null;
-
 let watchId = null;
 let isNavigating = false;
-
 let recognition = null;
 let recognizing = false;
 
 const PLACES_PROXY = "https://ors-proxy.miyata-connect-jp.workers.dev/places";
 const TRAVEL_MODE = google.maps.TravelMode.WALKING;
 
-// 自動リルートのスロットリング
-let lastRerouteAt = 0;
-const REROUTE_MIN_INTERVAL_MS = 5000;
-
-/* ====== 初期化 ====== */
 function initMap() {
-  // 既存レイアウトを壊さずに地図を初期化（地図は既に表示済み前提）
   map = new google.maps.Map(document.getElementById("map"), {
     center: { lat: 35.681236, lng: 139.767125 },
-    zoom: 15,
+    zoom: 16,
     mapTypeControl: false,
     streetViewControl: false,
     fullscreenControl: false,
   });
-
   directionsService = new google.maps.DirectionsService();
   directionsRenderer = new google.maps.DirectionsRenderer({ map });
 
-  // イベントバインド
-  const $ = (sel) => document.querySelector(sel);
-  $("#searchBtn")?.addEventListener("click", searchPlace);
-  $("#micBtn")?.addEventListener("click", initVoiceRecognition);
-  $("#locBtn")?.addEventListener("click", locate);
-  $("#start-nav")?.addEventListener("click", startNav);
-  $("#stop-nav")?.addEventListener("click", stopNav);
-  $("#reroute-btn")?.addEventListener("click", reroute);
-  $("#searchBox")?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      searchPlace();
-    }
-  });
-
-  // 音声認識非対応ブラウザ警告（自動）
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    showError("このブラウザは音声認識に対応していません。最新の Chrome などをご利用ください。");
-  }
-
-  // 起動時に現在地追従を開始
+  bindUI();
   locate();
   startLocationWatch();
 }
 
-/* ====== 現在地取得（単発） ====== */
+function bindUI() {
+  const $ = (s) => document.querySelector(s);
+  $("#searchBtn").onclick = searchPlace;
+  $("#micBtn").onclick = initVoiceRecognition;
+  $("#locBtn").onclick = locate;
+  $("#start-nav").onclick = startNav;
+  $("#stop-nav").onclick = stopNav;
+  $("#reroute-btn").onclick = () => reroute(true);
+  $("#searchBox").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") searchPlace();
+  });
+}
+
 function locate() {
-  setStatus("現在地を取得中…");
+  setStatus("現在地取得中…");
   if (!navigator.geolocation) {
-    showError("位置情報がサポートされていません。");
+    showError("位置情報が利用できません。");
     return;
   }
   navigator.geolocation.getCurrentPosition(
@@ -81,14 +55,11 @@ function locate() {
       map.setCenter(latlng);
       setStatus("現在地を更新しました。");
     },
-    (err) => {
-      showError(`位置情報を取得できません: ${err.message}`);
-    },
-    { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
+    (err) => showError("現在地取得失敗: " + err.message),
+    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
   );
 }
 
-/* ====== 現在地追従（watchPosition） ====== */
 function startLocationWatch() {
   if (!navigator.geolocation) return;
   if (watchId) navigator.geolocation.clearWatch(watchId);
@@ -96,26 +67,16 @@ function startLocationWatch() {
     (pos) => {
       const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
       updateCurrentMarker(latlng);
-      // 案内中は一定間隔で自動リルート
-      if (isNavigating) {
-        const now = Date.now();
-        if (now - lastRerouteAt >= REROUTE_MIN_INTERVAL_MS) {
-          lastRerouteAt = now;
-          reroute(false);
-        }
-      }
+      if (isNavigating) reroute(false);
     },
-    (err) => {
-      showError(`位置情報の監視に失敗しました: ${err.message}`);
-    },
-    { enableHighAccuracy: true, maximumAge: 3000, timeout: 10000 }
+    (err) => showError("追従エラー: " + err.message),
+    { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
   );
 }
 
 function updateCurrentMarker(latlng) {
-  if (currentPositionMarker) {
-    currentPositionMarker.setPosition(latlng);
-  } else {
+  if (currentPositionMarker) currentPositionMarker.setPosition(latlng);
+  else {
     currentPositionMarker = new google.maps.Marker({
       position: latlng,
       map,
@@ -126,106 +87,57 @@ function updateCurrentMarker(latlng) {
         fillOpacity: 1,
         strokeWeight: 1,
       },
-      title: "現在地",
     });
   }
 }
 
-/* ====== 検索（Places Text Search via Worker） ====== */
 async function searchPlace() {
-  const input = document.querySelector("#searchBox");
-  const query = (input?.value || "").trim();
-  if (!query) {
-    showError("検索ワードを入力してください。");
-    return;
-  }
-
+  const q = document.querySelector("#searchBox").value.trim();
+  if (!q) return showError("検索ワードを入力してください。");
   setStatus("検索中…");
 
-  // locationBias（任意）
-  let bias;
-  if (currentPositionMarker?.getPosition) {
-    const p = currentPositionMarker.getPosition();
-    bias = {
-      circle: {
-        center: { latitude: p.lat(), longitude: p.lng() },
-        radius: 20000,
-      },
-    };
-  }
-
   try {
+    const loc = currentPositionMarker?.getPosition();
     const res = await fetch(PLACES_PROXY, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        textQuery: query,
-        locationBias: bias,
+        textQuery: q,
+        locationBias: loc
+          ? { circle: { center: { latitude: loc.lat(), longitude: loc.lng() }, radius: 20000 } }
+          : undefined,
       }),
     });
-
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
+    if (!data?.places?.length) return showError("該当する場所が見つかりません。");
 
-    if (!data?.places?.length) {
-      showError("該当する場所が見つかりません。");
-      setStatus("");
-      return;
-    }
+    const p = data.places[0];
+    const lat = p.location.latitude;
+    const lng = p.location.longitude;
+    const name = p.displayName?.text || q;
 
-    const place = data.places[0];
-    const lat = place.location?.latitude;
-    const lng = place.location?.longitude;
-    const name = place.displayName?.text || query;
-
-    if (typeof lat !== "number" || typeof lng !== "number") {
-      showError("検索結果の位置情報を取得できません。");
-      setStatus("");
-      return;
-    }
-
-    // 目的地マーカー更新
-    const dest = { lat, lng };
     if (destinationMarker) destinationMarker.setMap(null);
-    destinationMarker = new google.maps.Marker({
-      position: dest,
-      map,
-      title: name,
-    });
-
-    map.panTo(dest);
-    setStatus(`検索完了：${name}`);
-  } catch (e) {
-    console.error(e);
-    showError("検索中にエラーが発生しました。");
-    setStatus("");
+    destinationMarker = new google.maps.Marker({ position: { lat, lng }, map, title: name });
+    map.setCenter({ lat, lng });
+    setStatus(`検索完了: ${name}`);
+  } catch {
+    showError("検索エラーが発生しました。");
   }
 }
 
-/* ====== 経路案内 ====== */
 function startNav() {
-  if (!currentPositionMarker || !destinationMarker) {
-    showError("現在地または目的地が未設定です。");
-    return;
-  }
+  if (!currentPositionMarker || !destinationMarker)
+    return showError("現在地または目的地が未設定です。");
+
   const origin = currentPositionMarker.getPosition();
-  const destination = destinationMarker.getPosition();
-  setStatus("経路を計算中…");
+  const dest = destinationMarker.getPosition();
+  setStatus("経路計算中…");
 
   directionsService.route(
-    {
-      origin,
-      destination,
-      travelMode: TRAVEL_MODE,
-      provideRouteAlternatives: true,
-    },
-    (result, status) => {
-      if (status !== "OK" || !result?.routes?.length) {
-        showError("経路を取得できません。");
-        return;
-      }
-      directionsRenderer.setDirections(result);
-      directionsRenderer.setRouteIndex(selectShortest(result.routes));
+    { origin, destination: dest, travelMode: TRAVEL_MODE },
+    (res, status) => {
+      if (status !== "OK") return showError("経路を取得できません。");
+      directionsRenderer.setDirections(res);
       isNavigating = true;
       speak("案内を開始します。");
       setStatus("案内中");
@@ -234,132 +146,78 @@ function startNav() {
 }
 
 function stopNav() {
-  directionsRenderer?.setDirections({ routes: [] });
+  directionsRenderer.setDirections({ routes: [] });
   isNavigating = false;
   speak("案内を終了します。");
   setStatus("案内を停止しました。");
 }
 
-function reroute(manual = true) {
+function reroute(manual) {
   if (!isNavigating) {
     if (manual) showError("案内が開始されていません。");
     return;
   }
   if (!currentPositionMarker || !destinationMarker) return;
-
   const origin = currentPositionMarker.getPosition();
-  const destination = destinationMarker.getPosition();
-  setStatus("リルート中…");
-
+  const dest = destinationMarker.getPosition();
   directionsService.route(
-    {
-      origin,
-      destination,
-      travelMode: TRAVEL_MODE,
-      provideRouteAlternatives: true,
-    },
-    (result, status) => {
-      if (status !== "OK" || !result?.routes?.length) {
-        showError("リルートに失敗しました。");
-        return;
-      }
-      directionsRenderer.setDirections(result);
-      directionsRenderer.setRouteIndex(selectShortest(result.routes));
+    { origin, destination: dest, travelMode: TRAVEL_MODE },
+    (res, status) => {
+      if (status !== "OK") return showError("リルートに失敗しました。");
+      directionsRenderer.setDirections(res);
       if (manual) speak("リルートしました。");
-      setStatus("案内中（更新）");
+      setStatus("案内更新中");
     }
   );
 }
 
-function selectShortest(routes) {
-  let idx = 0;
-  let best = Infinity;
-  for (let i = 0; i < routes.length; i++) {
-    const d =
-      routes[i].legs?.reduce((acc, leg) => acc + (leg.distance?.value || 0), 0) ??
-      Infinity;
-    if (d < best) {
-      best = d;
-      idx = i;
-    }
-  }
-  return idx;
-}
-
-/* ====== 音声検索 ====== */
 function initVoiceRecognition() {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    showError("このブラウザは音声認識に対応していません。最新の Chrome などをご利用ください。");
-    return;
-  }
-
+  if (!SR) return showError("音声認識に対応していません。");
   if (recognizing && recognition) {
     recognition.stop();
     return;
   }
-
   recognition = new SR();
   recognition.lang = "ja-JP";
-  recognition.interimResults = false;
-  recognition.continuous = false;
-
   recognition.onstart = () => {
     recognizing = true;
     setStatus("音声入力中…");
     document.querySelector("#micBtn")?.classList.add("rec");
   };
-
   recognition.onresult = (e) => {
-    const text = e.results?.[0]?.[0]?.transcript || "";
-    const box = document.querySelector("#searchBox");
-    if (box) box.value = text;
+    const text = e.results[0][0].transcript;
+    document.querySelector("#searchBox").value = text;
     searchPlace();
   };
-
-  recognition.onerror = () => {
-    showError("音声入力に失敗しました。");
-  };
-
+  recognition.onerror = () => showError("音声入力に失敗しました。");
   recognition.onend = () => {
     recognizing = false;
     document.querySelector("#micBtn")?.classList.remove("rec");
     setStatus("");
   };
-
   recognition.start();
 }
 
-/* ====== エラー共通処理 ====== */
 function showError(msg) {
-  const banner = document.getElementById("error-banner");
-  const text = document.getElementById("error-text");
-  if (text) text.textContent = msg;
-  if (banner) {
-    banner.classList.remove("hidden");
-    setTimeout(() => banner.classList.add("hidden"), 4000);
-  }
+  const b = document.getElementById("error-banner");
+  const t = document.getElementById("error-text");
+  t.textContent = msg;
+  b.classList.remove("hidden");
+  setTimeout(() => b.classList.add("hidden"), 4000);
   speak(msg);
 }
 
-/* ====== ステータス表示 ====== */
-function setStatus(t) {
+function setStatus(s) {
   const el = document.getElementById("status");
-  if (el) el.textContent = t || "";
+  if (el) el.textContent = s;
 }
 
-/* ====== 音声合成 ====== */
-function speak(text) {
-  try {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "ja-JP";
-    u.rate = 0.88;
-    window.speechSynthesis.speak(u);
-  } catch {}
+function speak(t) {
+  const u = new SpeechSynthesisUtterance(t);
+  u.lang = "ja-JP";
+  u.rate = 0.88;
+  speechSynthesis.speak(u);
 }
 
-// デバッグログ
-console.log("WalkNav app.js 第2段階改修版ロード完了");
-
-// グローバル公開（Maps callback から参照）
 window.initMap = initMap;
