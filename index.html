@@ -16,6 +16,7 @@
   <div class="app" id="app">
     <div id="map" role="application" aria-label="地図表示エリア"></div>
 
+    <!-- ===== 操作パネル（ガラス板） ===== -->
     <div class="glassbar" id="glassbar">
       <div class="card">
         <div class="row">
@@ -31,6 +32,7 @@
       </div>
     </div>
 
+    <!-- ===== コンパス・ズームUI ===== -->
     <div class="comp-wrap">
       <div class="compass" aria-hidden="true">
         <svg viewBox="0 0 76 76" xmlns="http://www.w3.org/2000/svg">
@@ -45,6 +47,7 @@
       </div>
     </div>
 
+    <!-- ===== 右側ボタン列 ===== -->
     <div class="fab-col" aria-label="操作ボタン">
       <button id="start-nav" class="ok">案内開始</button>
       <button id="stop-nav" class="danger">案内を停止</button>
@@ -53,11 +56,13 @@
 
     <div class="results" id="results" aria-live="polite"></div>
 
+    <!-- ===== エラーバナー ===== -->
     <div id="error-banner" class="card hidden" role="alert" style="position:absolute;left:12px;right:12px;bottom:12px;z-index:999;">
       <strong>エラー：</strong> <span id="error-text"></span>
     </div>
   </div>
 
+  <!-- ===== UI補助スクリプト ===== -->
   <script>
     (function () {
       const applyPanelH = () => {
@@ -82,9 +87,10 @@
     })();
   </script>
 
+  <!-- ===== アプリ本体 ===== -->
   <script src="./app.js" defer></script>
 
-  <!-- Google Maps JavaScript API：ブラウザキー埋め込み済み -->
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSy*****************************yFy4&callback=initMap"></script>
+  <!-- ===== Google Maps JavaScript API（更新済みキー） ===== -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&callback=initMap"></script>
 </body>
 </html>
