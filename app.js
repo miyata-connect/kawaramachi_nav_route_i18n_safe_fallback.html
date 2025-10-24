@@ -1,20 +1,23 @@
 // ===========================
-// WalkNav 完全復元版 app.js
+// WalkNav 修正版 app.js（方位更新＋クリック修正＋天気連動）
+// 規約：全ファイル差し替え・ワンブロック提出
 // ===========================
 
-// --- グローバル変数 ---
+/* ====== グローバル ====== */
 let map;
-let marker;
+let marker;                         // 目的地マーカー
+let currentPositionMarker;          // 現在地マーカー
 let directionsService;
 let directionsRenderer;
-let recognition;
+let recognition;                    // 音声認識
+let isRecognizing = false;
 let isNavigating = false;
-let currentPositionMarker;
-let watchId;
+let watchId = null;
 
-// --- 地図初期化 ---
+const PLACES_PROXY = "https://ors-proxy.miyata-connect-jp.workers.dev/places";
+
+/* ====== 初期化 ====== */
 function initMap() {
-  console.log("initMap called");
   map = new google.maps.Map(document.getElementById("map"), {
     center: { lat: 35.681236, lng: 139.767125 }, // 東京駅
     zoom: 15,
@@ -24,83 +27,179 @@ function initMap() {
   });
 
   directionsService = new google.maps.DirectionsService();
-  directionsRenderer = new google.maps.DirectionsRenderer({ map });
+  directionsRenderer = new google.maps.DirectionsRenderer({
+    map,
+    suppressMarkers: false,
+    preserveViewport: false
+  });
 
-  setupButtons();
-  getCurrentLocation();
+  // コンパスUIのクリック干渉を無効化（ズームボタン操作を通す）
+  const compass = document.querySelector(".compass");
+  if (compass) compass.style.pointerEvents = "none";
+
+  // 方位センサーで針を更新
+  const oriEvt = ("ondeviceorientationabsolute" in window) ? "deviceorientationabsolute" : "deviceorientation";
+  window.addEventListener(oriEvt, (e) => {
+    const alpha = (typeof e.alpha === "number") ? e.alpha : null;
+    if (alpha === null) return;
+    const needle = document.querySelector(".needle");
+    if (needle) needle.style.transform = `rotate(${alpha}deg)`;
+  });
+
+  bindUI();
+  measurePanelHeight();
+  getCurrentLocation(true);
+  setupGeolocationWatch();
 }
 
-// --- 現在地取得 ---
-function getCurrentLocation() {
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        if (currentPositionMarker) currentPositionMarker.setMap(null);
-        currentPositionMarker = new google.maps.Marker({
-          position: latlng,
-          map,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 8,
-            fillColor: "#5fb1ff",
-            fillOpacity: 1,
-            strokeWeight: 1,
-          },
-        });
-        map.setCenter(latlng);
-      },
-      err => {
-        showError(`位置情報を取得できません: ${err.message}`);
-      }
-    );
-  } else {
-    showError("この端末では位置情報がサポートされていません。");
+/* ====== UIバインド ====== */
+function bindUI() {
+  qs("#searchBtn")?.addEventListener("click", performSearch);
+  qs("#locBtn")?.addEventListener("click", () => getCurrentLocation(false));
+  qs("#start-nav")?.addEventListener("click", startNavigation);
+  qs("#stop-nav")?.addEventListener("click", stopNavigation);
+  qs("#reroute-btn")?.addEventListener("click", () => reroute(true));
+  qs("#zoomIn")?.addEventListener("click", () => map.setZoom(map.getZoom() + 1));
+  qs("#zoomOut")?.addEventListener("click", () => map.setZoom(map.getZoom() - 1));
+
+  // マイク（トグル：再押下で停止）
+  qs("#micBtn")?.addEventListener("click", toggleMic);
+
+  // Enterで検索実行
+  qs("#searchBox")?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      performSearch();
+    }
+  });
+
+  // マップタップでパネル復帰
+  map.addListener("click", () => restorePanel());
+}
+
+/* ====== パネル制御 ====== */
+function measurePanelHeight() {
+  const glass = qs(".glassbar");
+  const h = glass ? Math.ceil(glass.getBoundingClientRect().height) : 0;
+  document.documentElement.style.setProperty("--panelH", `${h}px`);
+}
+function collapsePanel() {
+  const glass = qs(".glassbar");
+  if (!glass) return;
+  glass.style.display = "none";
+  toggleMapWidgetsVisibility(true);
+}
+function restorePanel() {
+  const glass = qs(".glassbar");
+  if (!glass) return;
+  glass.style.display = "";
+  measurePanelHeight();
+  toggleMapWidgetsVisibility(false);
+}
+function toggleMapWidgetsVisibility(show) {
+  qs(".fab-col") && (qs(".fab-col").style.display = show ? "" : "none");
+  qs(".comp-wrap") && (qs(".comp-wrap").style.display = show ? "" : "none");
+  const controls = map.getDiv().querySelectorAll(".gmnoprint, .gm-fullscreen-control, .gm-bundled-control, .gm-svpc");
+  controls.forEach(el => el.style.display = show ? "" : "none");
+}
+
+/* ====== 現在地 ====== */
+function getCurrentLocation(centerMap) {
+  if (!navigator.geolocation) {
+    return showError("この端末では位置情報がサポートされていません。");
   }
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      if (currentPositionMarker) currentPositionMarker.setMap(null);
+      currentPositionMarker = new google.maps.Marker({
+        position: latlng,
+        map,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 8,
+          fillColor: "#5fb1ff",
+          fillOpacity: 1,
+          strokeWeight: 1,
+        },
+      });
+      if (centerMap) map.setCenter(latlng);
+      // 天気の自動取得（表示はステータス簡易連携）
+      updateWeather(latlng).catch(()=>{});
+    },
+    err => showError(`位置情報を取得できません: ${err.message}`)
+  );
+}
+function setupGeolocationWatch() {
+  if (!navigator.geolocation) return;
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+  watchId = navigator.geolocation.watchPosition(pos => {
+    const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    if (currentPositionMarker) currentPositionMarker.setPosition(latlng);
+    if (isNavigating) map.panTo(latlng);
+  });
 }
 
-// --- 検索処理 ---
+/* ====== 検索（Places New via Worker） ====== */
 async function performSearch() {
-  const query = document.getElementById("searchBox").value.trim();
+  const query = (qs("#searchBox")?.value || "").trim();
   if (!query) return showError("検索ワードを入力してください。");
 
+  setStatus("検索中...");
   try {
-    document.getElementById("status").textContent = "検索中...";
-    const res = await fetch("https://ors-proxy.miyata-connect-jp.workers.dev/places", {
+    const body = {
+      textQuery: query,
+      locationBias: currentPositionMarker
+        ? {
+            circle: {
+              center: {
+                latitude: currentPositionMarker.getPosition().lat(),
+                longitude: currentPositionMarker.getPosition().lng(),
+              },
+              radius: 20000
+            }
+          }
+        : undefined
+    };
+
+    const res = await fetch(PLACES_PROXY, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ textQuery: query }),
+      body: JSON.stringify(body),
     });
-
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    if (!data.places || data.places.length === 0) {
-      showError("該当する場所が見つかりません。");
-      return;
+
+    if (!data.places || !data.places.length) {
+      setStatus("");
+      return showError("該当する場所が見つかりません。");
     }
 
-    const place = data.places[0];
-    const lat = place.location.latitude;
-    const lng = place.location.longitude;
-    map.setCenter({ lat, lng });
+    const p = data.places[0];
+    const lat = p.location.latitude;
+    const lng = p.location.longitude;
 
+    map.setCenter({ lat, lng });
     if (marker) marker.setMap(null);
     marker = new google.maps.Marker({
       map,
       position: { lat, lng },
-      title: place.displayName.text || "目的地",
+      title: p.displayName?.text || "目的地",
     });
-    document.getElementById("status").textContent = `検索完了: ${place.displayName.text}`;
+
+    setStatus(`検索完了: ${p.displayName?.text || ""}`);
+    collapsePanel(); // 検索確定で自動収納
   } catch (e) {
-    showError("検索中にエラーが発生しました。");
     console.error(e);
+    showError("検索中にエラーが発生しました。");
+    setStatus("");
   }
 }
 
-// --- 案内開始 ---
+/* ====== ルート計算・案内 ====== */
 function startNavigation() {
   if (!marker || !currentPositionMarker) {
-    showError("現在地または目的地が未設定です。");
-    return;
+    return showError("現在地または目的地が未設定です。");
   }
 
   const origin = currentPositionMarker.getPosition();
@@ -111,84 +210,116 @@ function startNavigation() {
       origin,
       destination,
       travelMode: google.maps.TravelMode.WALKING,
+      provideRouteAlternatives: true
     },
     (result, status) => {
-      if (status === "OK") {
-        directionsRenderer.setDirections(result);
-        speak("案内を開始します。");
-        isNavigating = true;
-      } else {
-        showError("経路を取得できません。");
+      if (status !== "OK" || !result?.routes?.length) {
+        return showError("経路を取得できません。");
       }
+      // 最短を優先（代替案があれば距離短いもの）
+      const idx = selectShortest(result.routes);
+      directionsRenderer.setDirections(result);
+      directionsRenderer.setRouteIndex(idx);
+
+      speak("案内を開始します。");
+      isNavigating = true;
     }
   );
 }
-
-// --- 案内停止 ---
 function stopNavigation() {
   if (directionsRenderer) directionsRenderer.setDirections({ routes: [] });
   speak("案内を終了します。");
   isNavigating = false;
 }
-
-// --- リルート ---
-function reroute() {
+function reroute(center) {
   if (!isNavigating) {
-    showError("案内が開始されていません。");
-    return;
+    return showError("案内が開始されていません。");
   }
-  getCurrentLocation();
+  getCurrentLocation(!!center);
   startNavigation();
 }
 
-// --- 音声認識 ---
-function startMic() {
-  if (!("webkitSpeechRecognition" in window)) {
-    showError("音声認識がこのブラウザでサポートされていません。");
+/* ====== 音声認識（トグル） ====== */
+function toggleMic() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return showError("音声認識がこのブラウザでサポートされていません。");
+
+  if (isRecognizing && recognition) {
+    recognition.stop();
     return;
   }
 
-  recognition = new webkitSpeechRecognition();
+  recognition = new SR();
   recognition.lang = "ja-JP";
-  recognition.start();
+  recognition.interimResults = false;
+  recognition.continuous = false;
 
-  document.getElementById("micBtn").classList.add("rec");
-  recognition.onresult = event => {
+  recognition.onstart = () => {
+    isRecognizing = true;
+    qs("#micBtn")?.classList.add("rec");
+  };
+  recognition.onresult = (event) => {
     const transcript = event.results[0][0].transcript;
-    document.getElementById("searchBox").value = transcript;
+    const box = qs("#searchBox");
+    if (box) box.value = transcript;
     performSearch();
   };
   recognition.onerror = () => showError("音声入力に失敗しました。");
-  recognition.onend = () => document.getElementById("micBtn").classList.remove("rec");
+  recognition.onend = () => {
+    isRecognizing = false;
+    qs("#micBtn")?.classList.remove("rec");
+  };
+  recognition.start();
 }
 
-// --- 音声案内 ---
+/* ====== 音声案内 ====== */
 function speak(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "ja-JP";
-  u.rate = 0.88;
+  u.rate = 0.88; // 規約：低速
   speechSynthesis.speak(u);
 }
 
-// --- エラー表示 ---
+/* ====== 天気（OpenWeather連動・視覚UI変更なし） ====== */
+async function updateWeather(latlng) {
+  // OpenWeatherのAPIキーは localStorage "WALKNAV_OPENWEATHER_KEY" に保存しておく想定（UI変更禁止のため）
+  const key = localStorage.getItem("WALKNAV_OPENWEATHER_KEY");
+  if (!key || !latlng) return;
+
+  try {
+    const url = `https://api.openweathermap.org/data/2.5/weather?lat=${latlng.lat}&lon=${latlng.lng}&appid=${key}&units=metric&lang=ja`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`weather ${r.status}`);
+    const w = await r.json();
+    const desc = (w.weather && w.weather[0] && w.weather[0].description) ? w.weather[0].description : "";
+    const temp = (w.main && typeof w.main.temp === "number") ? Math.round(w.main.temp) : null;
+    if (temp !== null) setStatus(`現在地の天気：${desc}／${temp}℃`);
+  } catch (e) {
+    // サイレント運用（UI変更禁止のため、致命ではない）
+    console.warn(e);
+  }
+}
+
+/* ====== ユーティリティ ====== */
+function qs(sel){ return document.querySelector(sel); }
+function setStatus(t){ const s = qs("#status"); if (s) s.textContent = t || ""; }
 function showError(msg) {
   const banner = document.getElementById("error-banner");
-  banner.textContent = msg;
-  banner.classList.remove("hidden");
-  setTimeout(() => banner.classList.add("hidden"), 4000);
+  const text = document.getElementById("error-text");
+  if (text) text.textContent = msg;
+  if (banner) {
+    banner.classList.remove("hidden");
+    setTimeout(() => banner.classList.add("hidden"), 4000);
+  }
+}
+function selectShortest(routes){
+  let idx = 0, best = Infinity;
+  routes.forEach((r, i) => {
+    const d = r.legs?.reduce((a,b)=>a+(b.distance?.value||0),0) || Infinity;
+    if (d < best){ best = d; idx = i; }
+  });
+  return idx;
 }
 
-// --- イベント設定 ---
-function setupButtons() {
-  document.getElementById("searchBtn").onclick = performSearch;
-  document.getElementById("start-nav").onclick = startNavigation;
-  document.getElementById("stop-nav").onclick = stopNavigation;
-  document.getElementById("reroute-btn").onclick = reroute;
-  document.getElementById("locBtn").onclick = getCurrentLocation;
-  document.getElementById("micBtn").onclick = startMic;
-  document.getElementById("zoomIn").onclick = () => map.setZoom(map.getZoom() + 1);
-  document.getElementById("zoomOut").onclick = () => map.setZoom(map.getZoom() - 1);
-}
-
-// --- デバッグログ ---
-console.log("WalkNav app.js loaded");
+// デバッグ
+console.log("WalkNav app.js loaded (rev: orientation+weather+clickfix)");
