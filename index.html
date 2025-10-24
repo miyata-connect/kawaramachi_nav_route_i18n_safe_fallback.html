@@ -1,56 +1,46 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>WalkNav</title>
-  <link rel="stylesheet" href="app.css">
-</head>
-<body>
-  <div id="loading-screen" style="position:fixed;inset:0;background:#0a1321;color:#eaf2ff;display:flex;align-items:center;justify-content:center;font-size:20px;">現在地取得中…</div>
+:root{
+  --glass: rgba(20,28,44,.54);
+  --glass-strong: rgba(16,22,36,.68);
+  --stroke: rgba(255,255,255,.14);
+  --text: #eaf2ff;
+  --muted:#a7b8ce;
+  --primary:#5fb1ff;
+  --ok:#25d07a;
+  --danger:#ff6565;
+  --accent:#64d2ff;
+  --mic-green:#0cb35a;
+  --mic-red:#d53d3d;
+}
+html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP",Meiryo,sans-serif}
+*{box-sizing:border-box}
+.app{position:relative;height:100dvh;overflow:hidden}
+#map{position:absolute;inset:0}
+.glassbar{position:absolute;left:0;right:0;top:0;z-index:420;padding:10px 12px;pointer-events:none}
+.card{pointer-events:auto;background:var(--glass);border:1px solid var(--stroke);border-radius:16px;backdrop-filter: blur(14px) saturate(120%);-webkit-backdrop-filter: blur(14px) saturate(120%);box-shadow:0 10px 30px rgba(0,0,0,.35);padding:10px 12px;width:min(1100px,96vw);margin:0 auto}
+.row{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
+.grow{flex:1 1 220px}
+input,button{background:var(--glass-strong);border:1px solid var(--stroke);color:var(--text);border-radius:12px;padding:11px 13px;font-size:16px;outline:none;min-height:44px}
+button.primary{background:rgba(95,177,255,.92);border:none;font-weight:700}
+button.ok{background:var(--ok);border:none;font-weight:700}
+button.danger{background:var(--danger);border:none;font-weight:700}
+button.reroute{background:var(--accent);border:none;color:#fff;font-weight:700}
+button.reroute:hover{background:#00c2ff}
+#micBtn{background:var(--mic-green)}
+#micBtn.rec{background:var(--mic-red)}
+.hint{color:var(--muted);font-size:13px}
+.comp-wrap{position:absolute;left:10px;top:150px;z-index:425}
+.compass{width:90px;height:90px;background:var(--glass);border:1px solid var(--stroke);border-radius:50%;backdrop-filter:blur(10px) saturate(120%);-webkit-backdrop-filter:blur(10px) saturate(120%);box-shadow:0 10px 26px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
+.compass .needle{transform-origin:38px 38px;transition:transform .15s linear}
+.fab-col{position:absolute;right:12px;bottom:18%;z-index:430;display:flex;flex-direction:column;gap:10px}
+.fab-col button{min-width:150px;box-shadow:0 12px 26px rgba(0,0,0,.45)}
+.hidden{display:none}
 
-  <div class="app" style="display:none;">
-    <div id="map"></div>
+/* Loading */
+.loading-screen{position:fixed;inset:0;background:#0e1a2d;display:flex;align-items:center;justify-content:center;z-index:1000;opacity:1;transition:opacity .4s}
+.loading-screen.hide{opacity:0;pointer-events:none}
+.loading-inner{text-align:center;padding:24px}
+.loading-title{font-size:22px;font-weight:800;color:#ffffff;margin-bottom:10px}
+.loading-sub{font-size:14px;color:#cfe0ff}
 
-    <!-- 検索バー -->
-    <div class="glassbar">
-      <div class="card">
-        <div class="row">
-          <input id="searchBox" placeholder="行き先を検索" class="grow">
-          <button id="searchBtn" class="primary">検索</button>
-          <button id="micBtn">🎤</button>
-          <button id="locBtn">現在地</button>
-        </div>
-        <div id="status" class="hint"></div>
-      </div>
-    </div>
-
-    <!-- 方位計＆右側ボタン群 -->
-    <div class="comp-wrap">
-      <div class="compass">
-        <svg viewBox="0 0 76 76">
-          <circle cx="38" cy="38" r="36" stroke="#bcd0e6" stroke-width="1" fill="none"/>
-          <polygon class="needle" points="38,10 42,38 38,66 34,38" fill="#ff6565"/>
-          <text x="35" y="12">N</text>
-        </svg>
-      </div>
-    </div>
-
-    <div class="fab-col">
-      <button id="start-nav" class="ok">案内開始</button>
-      <button id="stop-nav" class="danger">案内停止</button>
-      <button id="reroute-btn" class="reroute">リルート</button>
-      <button id="zoomIn">ズーム＋</button>
-      <button id="zoomOut">ズーム−</button>
-    </div>
-
-    <!-- エラーバナー -->
-    <div id="error-banner" class="hidden" style="position:fixed;bottom:0;left:0;right:0;background:#d53d3d;color:#fff;text-align:center;padding:10px;font-weight:700;">
-      <span id="error-text"></span>
-    </div>
-  </div>
-
-  <script src="app.js"></script>
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&callback=initMap&libraries=geometry,places"></script>
-</body>
-</html>
+/* Error banner */
+.error-banner{position:absolute;left:12px;right:12px;bottom:12px;z-index:999;background:#d53d3d;color:#fff;border-radius:10px;padding:10px 12px;text-align:center;font-weight:700;box-shadow:0 10px 20px rgba(0,0,0,.35)}
