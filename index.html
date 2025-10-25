@@ -95,19 +95,19 @@ input{
 .info-panel.show{display:block}
 
 .route-main{
-  font-size:16px;
+  font-size:18px;
   font-weight:700;
-  margin-bottom:8px;
+  margin-bottom:10px;
   line-height:1.4;
   text-align:center;
 }
 .route-time{
-  font-size:15px;
+  font-size:16px;
   color:var(--text);
   display:flex;
-  gap:16px;
+  gap:20px;
   font-weight:600;
-  margin-bottom:10px;
+  margin-bottom:12px;
   justify-content:center;
 }
 .route-time span{
@@ -156,7 +156,7 @@ input{
 .compass{
   position:absolute;
   right:10px;
-  top:200px;
+  top:280px;
   width:60px;
   height:60px;
   background:var(--glass);
@@ -182,21 +182,21 @@ input{
 .map-mode-buttons{
   position:absolute;
   right:10px;
-  top:270px;
+  top:350px;
   z-index:420;
   display:flex;
   flex-direction:column;
-  gap:6px;
+  gap:10px;
 }
 .map-mode-buttons.hidden{display:none}
 .mode-btn{
-  width:60px;
-  height:45px;
+  width:70px;
+  height:55px;
   background:var(--glass-strong);
   border:1px solid var(--stroke);
-  border-radius:8px;
+  border-radius:10px;
   color:var(--text);
-  font-size:11px;
+  font-size:12px;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -209,13 +209,17 @@ input{
 .nav-buttons{
   position:absolute;
   right:10px;
-  top:380px;
+  top:470px;
   z-index:450;
   display:flex;
   flex-direction:column;
   gap:10px;
 }
 .nav-buttons.hidden{display:none}
+.nav-row{
+  display:flex;
+  gap:10px;
+}
 .nav-btn{
   width:70px;
   height:55px;
@@ -234,6 +238,31 @@ input{
 .nav-btn.ok{background:var(--ok);border:none}
 .nav-btn.danger{background:var(--danger);border:none}
 .nav-btn.accent{background:var(--accent);border:none}
+
+/* 下部ボタン */
+.bottom-buttons{
+  position:absolute;
+  right:10px;
+  bottom:80px;
+  z-index:450;
+  display:flex;
+  gap:10px;
+}
+.bottom-buttons.hidden{display:none}
+.bottom-btn{
+  width:55px;
+  height:55px;
+  background:var(--glass-strong);
+  border:1px solid var(--stroke);
+  border-radius:10px;
+  color:var(--text);
+  font-size:20px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+.bottom-btn.primary{background:var(--primary);border:none}
 
 /* 検索結果 */
 .results-panel{
@@ -407,8 +436,15 @@ input{
       <div class="nav-btn primary" onclick="goToDestination()">目的地</div>
       <div class="nav-btn ok" onclick="startNav()">案内開始</div>
       <div class="nav-btn danger" onclick="stopNav()">案内停止</div>
-      <div class="nav-btn accent" onclick="reroute()">リルート</div>
-      <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()">🎤</div>
+      <div class="nav-row">
+        <div class="nav-btn accent" onclick="reroute()">リルート</div>
+        <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()">🎤</div>
+      </div>
+    </div>
+    
+    <!-- 下部ボタン（全画面） -->
+    <div id="bottomButtons" class="bottom-buttons">
+      <div class="bottom-btn" onclick="toggleFullscreen()">⛶</div>
     </div>
     
     <!-- 検索結果 -->
@@ -461,6 +497,7 @@ function hideAllElements(){
   document.getElementById("compass").classList.add("hidden");
   document.getElementById("mapModeButtons").classList.add("hidden");
   document.getElementById("navButtons").classList.add("hidden");
+  document.getElementById("bottomButtons").classList.add("hidden");
   document.getElementById("infoPanel").classList.remove("show");
 }
 
@@ -468,6 +505,7 @@ function showAllElements(){
   document.getElementById("compass").classList.remove("hidden");
   document.getElementById("mapModeButtons").classList.remove("hidden");
   document.getElementById("navButtons").classList.remove("hidden");
+  document.getElementById("bottomButtons").classList.remove("hidden");
   document.getElementById("infoPanel").classList.add("show");
 }
 
@@ -505,10 +543,11 @@ function initMap(){
     document.getElementById("map").style.display="block";
     document.getElementById("loading").classList.add("hide");
     
-    // 初期状態: 方位計、N-UP/H-UP、統合パネル、タブを表示
+    // 初期状態: 方位計、N-UP/H-UP、統合パネル、タブ、下部ボタンを表示
     setTimeout(()=>{
       document.getElementById("compass").classList.remove("hidden");
       document.getElementById("mapModeButtons").classList.remove("hidden");
+      document.getElementById("bottomButtons").classList.remove("hidden");
       document.getElementById("infoPanel").classList.add("show");
       document.getElementById("panelToggle").classList.add("show");
       
@@ -545,9 +584,12 @@ function setupCompass(){
       if(typeof e.alpha==="number"){
         targetAlpha=e.alpha;
         
-        // H-UPモードの時のみ地図を回転
+        // H-UPモードの時のみ地図を回転（N-UPモードでは地図を北に固定）
         if(headingMode==="heading"){
           map.setHeading(360-e.alpha);
+        }else{
+          // N-UPモードでは常に北を指す
+          map.setHeading(0);
         }
       }
     });
@@ -572,6 +614,14 @@ function setHeadingUp(){
   document.getElementById("nupBtn").classList.remove("active");
   document.getElementById("hupBtn").classList.add("active");
   speak("ヘディングアップモード");
+}
+
+function toggleFullscreen(){
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen();
+  }else{
+    document.exitFullscreen();
+  }
 }
 
 function startWatch(){
