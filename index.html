@@ -87,7 +87,7 @@ input{
 .compass{
   position:absolute;
   left:10px;
-  top:110px;
+  top:130px;
   width:60px;
   height:60px;
   background:var(--glass);
@@ -123,15 +123,30 @@ input{
   border:1px solid var(--stroke);
   border-radius:12px;
   backdrop-filter:blur(14px);
-  padding:12px;
+  padding:14px;
   z-index:460;
   color:var(--text);
-  font-size:14px;
-  line-height:1.5;
   display:none;
 }
 .route-info.show{
   display:block;
+}
+.route-main{
+  font-size:16px;
+  font-weight:700;
+  margin-bottom:8px;
+  line-height:1.4;
+}
+.route-time{
+  font-size:13px;
+  color:var(--muted);
+  display:flex;
+  gap:12px;
+}
+.route-time span{
+  display:flex;
+  align-items:center;
+  gap:4px;
 }
 
 /* ナビボタン */
@@ -258,7 +273,11 @@ input{
     
     <!-- ルート案内窓 -->
     <div id="routeInfo" class="route-info">
-      <div id="routeText"></div>
+      <div class="route-main" id="routeText"></div>
+      <div class="route-time">
+        <span>🕐 現在: <span id="currentTime"></span></span>
+        <span>🎯 到着: <span id="arrivalTime"></span></span>
+      </div>
     </div>
     
     <!-- 操作パネル -->
@@ -374,9 +393,11 @@ function initMap(){
     document.getElementById("map").style.display="block";
     document.getElementById("loading").classList.add("hide");
     
-    // 初期状態で方位計とパネルタブを表示
-    document.getElementById("compass").classList.remove("hidden");
-    document.getElementById("panelToggle").classList.add("show");
+    // 初期状態: 方位計とタブを表示
+    setTimeout(()=>{
+      document.getElementById("compass").classList.remove("hidden");
+      document.getElementById("panelToggle").classList.add("show");
+    },100);
     
     setupCompass();
     startWatch();
@@ -563,6 +584,14 @@ function startNav(){
     
     const routeText=`目的地まで約${dist}km、所要時間は約${dur}分`;
     document.getElementById("routeText").textContent=routeText;
+    
+    // 現在時刻と到着予定時刻を計算
+    const now=new Date();
+    const arrival=new Date(now.getTime()+leg.duration.value*1000);
+    
+    document.getElementById("currentTime").textContent=formatTime(now);
+    document.getElementById("arrivalTime").textContent=formatTime(arrival);
+    
     document.getElementById("routeInfo").classList.add("show");
     
     speak(`案内を開始します。${routeText}です。`);
@@ -573,13 +602,22 @@ function startNav(){
   });
 }
 
+function formatTime(date){
+  const h=date.getHours();
+  const m=date.getMinutes().toString().padStart(2,'0');
+  return `${h}:${m}`;
+}
+
 function stopNav(){
   if(!stopAnnounced){
     stopAnnounced=!0;
     speak("案内停止ボタンが押されましたので、案内を終了します。");
   }
   
-  directionsRenderer.setDirections({routes:[]});
+  // ルートを完全に削除
+  directionsRenderer.setMap(null);
+  directionsRenderer=new google.maps.DirectionsRenderer({map});
+  
   isNavigating=!1;
   
   document.getElementById("routeInfo").classList.remove("show");
@@ -616,6 +654,12 @@ function reroute(manual=!0){
     
     const routeText=`別ルート: 約${dist}km、所要時間は約${dur}分`;
     document.getElementById("routeText").textContent=routeText;
+    
+    // 時刻を更新
+    const now=new Date();
+    const arrival=new Date(now.getTime()+leg.duration.value*1000);
+    document.getElementById("currentTime").textContent=formatTime(now);
+    document.getElementById("arrivalTime").textContent=formatTime(arrival);
     
     manual&&speak("別のルートで案内します");
   });
