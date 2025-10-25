@@ -71,7 +71,6 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
   cursor:pointer;
 }
 .panel-btn.primary{background:var(--primary);border:none}
-.panel-btn.ok{background:var(--ok);border:none}
 
 input{
   width:100%;
@@ -83,11 +82,55 @@ input{
   font-size:14px;
 }
 
+/* 方位計 */
+.compass{
+  position:absolute;
+  left:15px;
+  top:120px;
+  width:80px;
+  height:80px;
+  background:var(--glass);
+  border:1px solid var(--stroke);
+  border-radius:50%;
+  backdrop-filter:blur(10px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:420;
+}
+.compass.hidden{
+  display:none;
+}
+.compass .needle{
+  transform-origin:35px 35px;
+}
+
+/* ルート案内窓 */
+.route-info{
+  position:absolute;
+  left:10px;
+  right:10px;
+  top:10px;
+  background:var(--glass);
+  border:1px solid var(--stroke);
+  border-radius:12px;
+  backdrop-filter:blur(14px);
+  padding:12px;
+  z-index:460;
+  color:var(--text);
+  font-size:14px;
+  line-height:1.5;
+  display:none;
+}
+.route-info.show{
+  display:block;
+}
+
 /* ナビボタン */
 .nav-buttons{
   position:absolute;
   right:10px;
-  top:50%;
+  top:60%;
   transform:translateY(-50%);
   z-index:450;
   display:flex;
@@ -118,7 +161,7 @@ input{
   position:absolute;
   left:10px;
   right:10px;
-  top:10px;
+  bottom:10px;
   max-height:60vh;
   overflow-y:auto;
   background:var(--glass);
@@ -135,6 +178,34 @@ input{
 }
 .result-item:hover{background:rgba(95,177,255,.2)}
 .result-close{text-align:center;padding:8px;color:var(--primary);cursor:pointer}
+
+/* 登録地点パネル */
+.saved-points-panel{
+  position:absolute;
+  left:10px;
+  right:10px;
+  top:50%;
+  transform:translateY(-50%);
+  max-height:70vh;
+  overflow-y:auto;
+  background:var(--glass);
+  border:1px solid var(--stroke);
+  border-radius:12px;
+  padding:10px;
+  z-index:490;
+  display:none;
+}
+.saved-point-item{
+  padding:12px;
+  background:var(--glass-strong);
+  border:1px solid var(--stroke);
+  border-radius:8px;
+  margin-bottom:8px;
+  cursor:pointer;
+  font-size:14px;
+}
+.saved-point-item:hover{background:rgba(95,177,255,.3)}
+.saved-close{text-align:center;padding:10px;color:var(--primary);cursor:pointer;font-weight:700}
 
 .error-banner{
   position:absolute;
@@ -166,6 +237,20 @@ input{
 <body>
   <div class="app">
     <div id="map"></div>
+    
+    <!-- 方位計 -->
+    <div id="compass" class="compass">
+      <svg class="needle" width="70" height="70" viewBox="0 0 70 70">
+        <path d="M35 10 L38 35 L35 33 L32 35 Z" fill="#ff6565" stroke="#fff" stroke-width="1"/>
+        <path d="M35 60 L38 35 L35 37 L32 35 Z" fill="#eaf2ff" stroke="#444" stroke-width="1"/>
+        <circle cx="35" cy="35" r="3" fill="#5fb1ff" stroke="#fff" stroke-width="2"/>
+      </svg>
+    </div>
+    
+    <!-- ルート案内窓 -->
+    <div id="routeInfo" class="route-info">
+      <div id="routeText"></div>
+    </div>
     
     <!-- 操作パネル -->
     <div id="controlPanel" class="control-panel">
@@ -202,26 +287,35 @@ input{
       <div class="result-close" onclick="hideResults()">閉じる</div>
     </div>
     
+    <!-- 登録地点パネル -->
+    <div id="savedPointsPanel" class="saved-points-panel">
+      <div id="savedPointsList"></div>
+      <div class="saved-close" onclick="hideSavedPoints()">閉じる</div>
+    </div>
+    
     <div id="error" class="error-banner hidden"></div>
     <div id="loading" class="loading-screen"><div>現在地取得中...</div></div>
   </div>
   
   <script>
 "use strict";
-let map,directionsService,directionsRenderer,currentMarker=null,destMarker=null,watchId=null,isNavigating=!1,currentLocation=null,savedPoints=[],selectingMapPoint=!1,stopAnnounced=!1;
+let map,directionsService,directionsRenderer,currentMarker=null,destMarker=null,watchId=null,isNavigating=!1,currentLocation=null,savedPoints=[],selectingMapPoint=!1,stopAnnounced=!1,compassAlpha=0,targetAlpha=0;
 
 const PLACES_PROXY="https://ors-proxy.miyata-connect-jp.workers.dev/v1/places";
 
 function togglePanel(){
   const panel=document.getElementById("controlPanel");
   const tab=document.getElementById("panelToggle");
+  const compass=document.getElementById("compass");
   
   if(panel.classList.contains("hidden")){
     panel.classList.remove("hidden");
     tab.classList.remove("show");
+    compass.classList.add("hidden");
   }else{
     panel.classList.add("hidden");
     tab.classList.add("show");
+    compass.classList.remove("hidden");
   }
 }
 
@@ -254,8 +348,29 @@ function initMap(){
     document.getElementById("map").style.display="block";
     document.getElementById("loading").classList.add("hide");
     
+    setupCompass();
     startWatch();
   },err=>alert("位置情報取得失敗: "+err.message));
+}
+
+function setupCompass(){
+  const needle=document.querySelector(".needle");
+  if(!needle)return;
+  
+  function animate(){
+    compassAlpha=.8*compassAlpha+.2*targetAlpha;
+    needle.style.transform=`rotate(${compassAlpha}deg)`;
+    requestAnimationFrame(animate);
+  }
+  animate();
+  
+  if(typeof DeviceOrientationEvent!=="undefined"){
+    window.addEventListener("deviceorientation",e=>{
+      if(typeof e.alpha==="number"){
+        targetAlpha=e.alpha;
+      }
+    });
+  }
 }
 
 function startWatch(){
@@ -273,7 +388,6 @@ async function searchPlace(){
   if(!currentLocation)return showError("現在地取得中");
   
   hideResults();
-  togglePanel();
   
   try{
     const res=await fetch(PLACES_PROXY,{
@@ -332,6 +446,10 @@ function selectPlace(place){
   map.setZoom(18);
   
   hideResults();
+  
+  document.getElementById("controlPanel").classList.add("hidden");
+  document.getElementById("panelToggle").classList.add("show");
+  document.getElementById("compass").classList.remove("hidden");
   
   setTimeout(()=>{
     if(currentMarker&&destMarker)startNav();
@@ -392,10 +510,15 @@ function startNav(){
     const dist=(leg.distance.value/1000).toFixed(1);
     const dur=Math.round(leg.duration.value/60);
     
-    speak(`案内を開始します。目的地まで約${dist}キロメートル、所要時間は約${dur}分です。`);
+    const routeText=`目的地まで約${dist}km、所要時間は約${dur}分`;
+    document.getElementById("routeText").textContent=routeText;
+    document.getElementById("routeInfo").classList.add("show");
+    
+    speak(`案内を開始します。${routeText}です。`);
     
     document.getElementById("navButtons").classList.remove("hidden");
     document.getElementById("controlPanel").classList.add("hidden");
+    document.getElementById("panelToggle").classList.remove("show");
   });
 }
 
@@ -407,6 +530,8 @@ function stopNav(){
   
   directionsRenderer.setDirections({routes:[]});
   isNavigating=!1;
+  
+  document.getElementById("routeInfo").classList.remove("show");
   
   if(currentMarker){
     map.panTo(currentMarker.getPosition());
@@ -431,6 +556,13 @@ function reroute(manual=!0){
     const routes=res.routes;
     const alt=routes.length>1?routes[1]:routes[0];
     directionsRenderer.setDirections({...res,routes:[alt]});
+    
+    const leg=alt.legs[0];
+    const dist=(leg.distance.value/1000).toFixed(1);
+    const dur=Math.round(leg.duration.value/60);
+    
+    const routeText=`別ルート: 約${dist}km、所要時間は約${dur}分`;
+    document.getElementById("routeText").textContent=routeText;
     
     manual&&speak("別のルートで案内します");
   });
@@ -462,16 +594,33 @@ function saveMapPoint(){
 function showSavedPoints(){
   if(savedPoints.length===0)return alert("登録地点なし");
   
-  const list=savedPoints.map((p,i)=>`${i+1}. ${p.name}`).join("\n");
-  const idx=prompt(`登録地点:\n${list}\n\n目的地にする番号を入力`);
+  const panel=document.getElementById("savedPointsPanel");
+  const list=document.getElementById("savedPointsList");
+  list.innerHTML="";
   
-  if(idx&&savedPoints[idx-1]){
-    const p=savedPoints[idx-1];
-    destMarker&&destMarker.setMap(null);
-    destMarker=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map});
-    map.panTo({lat:p.lat,lng:p.lng});
-    map.setZoom(18);
-  }
+  savedPoints.forEach((p,i)=>{
+    const item=document.createElement("div");
+    item.className="saved-point-item";
+    item.textContent=`${i+1}. ${p.name}`;
+    item.onclick=()=>{
+      destMarker&&destMarker.setMap(null);
+      destMarker=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map});
+      map.panTo({lat:p.lat,lng:p.lng});
+      map.setZoom(18);
+      hideSavedPoints();
+      
+      setTimeout(()=>{
+        if(currentMarker&&destMarker)startNav();
+      },500);
+    };
+    list.appendChild(item);
+  });
+  
+  panel.style.display="block";
+}
+
+function hideSavedPoints(){
+  document.getElementById("savedPointsPanel").style.display="none";
 }
 
 function showError(msg){
