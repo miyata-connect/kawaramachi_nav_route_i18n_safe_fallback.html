@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Worker接続テスト</title>
+  <style>
+    body{font-family:sans-serif;padding:20px;background:#0a1321;color:#fff}
+    .box{background:#1a2332;border:1px solid #333;border-radius:8px;padding:15px;margin:10px 0}
+    button{background:#5fb1ff;color:#fff;border:none;border-radius:8px;padding:12px 20px;font-size:16px;cursor:pointer;width:100%}
+    pre{background:#000;color:#0f0;padding:10px;border-radius:4px;overflow-x:auto;font-size:12px}
+    .error{color:#ff6565}
+    .success{color:#25d07a}
+  </style>
+</head>
+<body>
+  <h1>🔧 Worker接続テスト</h1>
+  
+  <div class="box">
+    <h3>1. エンドポイント確認</h3>
+    <button onclick="testEndpoint()">エンドポイントをテスト</button>
+    <pre id="endpointResult">結果がここに表示されます...</pre>
+  </div>
+  
+  <div class="box">
+    <h3>2. Places API テスト</h3>
+    <button onclick="testPlaces()">Places APIをテスト</button>
+    <pre id="placesResult">結果がここに表示されます...</pre>
+  </div>
+  
+  <div class="box">
+    <h3>3. CORS確認</h3>
+    <button onclick="testCORS()">CORSをテスト</button>
+    <pre id="corsResult">結果がここに表示されます...</pre>
+  </div>
+
+  <script>
+const ENDPOINT = "https://ors-proxy.miyata-connect-jp.workers.dev/v1/places";
+
+async function testEndpoint() {
+  const result = document.getElementById("endpointResult");
+  result.textContent = "テスト中...";
+  
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "GET"
+    });
+    
+    result.className = res.ok ? "success" : "error";
+    result.textContent = `ステータス: ${res.status} ${res.statusText}\n`;
+    
+    const text = await res.text();
+    result.textContent += `レスポンス:\n${text.substring(0, 500)}`;
+  } catch(e) {
+    result.className = "error";
+    result.textContent = `❌ エラー: ${e.message}`;
+  }
+}
+
+async function testPlaces() {
+  const result = document.getElementById("placesResult");
+  result.textContent = "テスト中...";
+  
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Goog-FieldMask": "places.displayName,places.location"
+      },
+      body: JSON.stringify({
+        textQuery: "コンビニ",
+        locationBias: {
+          circle: {
+            center: { latitude: 35.681236, longitude: 139.767125 },
+            radius: 5000
+          }
+        },
+        maxResultCount: 1
+      })
+    });
+    
+    result.className = res.ok ? "success" : "error";
+    result.textContent = `ステータス: ${res.status} ${res.statusText}\n\n`;
+    
+    const data = await res.json();
+    result.textContent += JSON.stringify(data, null, 2);
+  } catch(e) {
+    result.className = "error";
+    result.textContent = `❌ エラー: ${e.message}\n\n詳細:\n${e.stack}`;
+  }
+}
+
+async function testCORS() {
+  const result = document.getElementById("corsResult");
+  result.textContent = "テスト中...";
+  
+  try {
+    const res = await fetch(ENDPOINT, {
+      method: "OPTIONS"
+    });
+    
+    const headers = {};
+    res.headers.forEach((v, k) => headers[k] = v);
+    
+    result.className = "success";
+    result.textContent = `ステータス: ${res.status}\n\n`;
+    result.textContent += "CORSヘッダー:\n";
+    result.textContent += JSON.stringify(headers, null, 2);
+    
+    if(!headers["access-control-allow-origin"]) {
+      result.className = "error";
+      result.textContent += "\n\n❌ CORS設定なし！";
+    }
+  } catch(e) {
+    result.className = "error";
+    result.textContent = `❌ エラー: ${e.message}`;
+  }
+}
+  </script>
+</body>
+</html>
