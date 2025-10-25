@@ -71,6 +71,7 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
   cursor:pointer;
 }
 .panel-btn.primary{background:var(--primary);border:none}
+.panel-btn.recording{background:var(--danger);border:none}
 
 input{
   width:100%;
@@ -85,8 +86,8 @@ input{
 /* 方位計 */
 .compass{
   position:absolute;
-  left:15px;
-  top:120px;
+  left:10px;
+  top:10px;
   width:80px;
   height:80px;
   background:var(--glass);
@@ -103,6 +104,13 @@ input{
 }
 .compass .needle{
   transform-origin:35px 35px;
+}
+.compass-n{
+  position:absolute;
+  top:8px;
+  font-size:14px;
+  font-weight:700;
+  color:var(--danger);
 }
 
 /* ルート案内窓 */
@@ -240,6 +248,7 @@ input{
     
     <!-- 方位計 -->
     <div id="compass" class="compass">
+      <div class="compass-n">N</div>
       <svg class="needle" width="70" height="70" viewBox="0 0 70 70">
         <path d="M35 10 L38 35 L35 33 L32 35 Z" fill="#ff6565" stroke="#fff" stroke-width="1"/>
         <path d="M35 60 L38 35 L35 37 L32 35 Z" fill="#eaf2ff" stroke="#444" stroke-width="1"/>
@@ -258,7 +267,7 @@ input{
       
       <div class="panel-row">
         <div class="panel-btn primary" onclick="searchPlace()">検索</div>
-        <div class="panel-btn primary" onclick="voiceSearch()">🎤 音声検索</div>
+        <div class="panel-btn primary" id="voiceBtn" onclick="voiceSearch()">音声検索</div>
         <div class="panel-btn" onclick="relocalize()">現在地</div>
       </div>
       
@@ -298,7 +307,12 @@ input{
     </div>
     
     <div id="error" class="error-banner hidden"></div>
-    <div id="loading" class="loading-screen"><div>現在地取得中...</div></div>
+    <div id="loading" class="loading-screen">
+      <div style="text-align:center">
+        <div style="font-size:18px;margin-bottom:10px">現在地取得中...</div>
+        <div style="font-size:14px;color:var(--muted)">もうしばらくお待ちください。</div>
+      </div>
+    </div>
   </div>
   
   <script>
@@ -314,15 +328,18 @@ function togglePanel(){
   const navButtons=document.getElementById("navButtons");
   
   if(panel.classList.contains("hidden")){
+    // パネルを表示
     panel.classList.remove("hidden");
     tab.classList.remove("show");
     compass.classList.add("hidden");
     navButtons.classList.add("hidden");
   }else{
+    // パネルを非表示
     panel.classList.add("hidden");
     tab.classList.add("show");
     compass.classList.remove("hidden");
-    if(isNavigating){
+    // 案内中または目的地が設定されている場合はナビボタン表示
+    if(isNavigating || destMarker){
       navButtons.classList.remove("hidden");
     }
   }
@@ -459,6 +476,7 @@ function selectPlace(place){
   document.getElementById("controlPanel").classList.add("hidden");
   document.getElementById("panelToggle").classList.add("show");
   document.getElementById("compass").classList.remove("hidden");
+  document.getElementById("navButtons").classList.remove("hidden");
   
   setTimeout(()=>{
     if(currentMarker&&destMarker)startNav();
@@ -469,13 +487,28 @@ function voiceSearch(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR)return showError("音声認識非対応");
   
+  const btn=document.getElementById("voiceBtn");
   const rec=new SR;
   rec.lang="ja-JP";
+  
+  btn.classList.add("recording");
+  btn.textContent="録音中...";
+  
   rec.onresult=e=>{
     document.getElementById("searchBox").value=e.results[0][0].transcript;
+    btn.classList.remove("recording");
+    btn.textContent="音声検索";
     searchPlace();
   };
-  rec.onerror=()=>showError("音声認識失敗");
+  rec.onerror=()=>{
+    showError("音声認識失敗");
+    btn.classList.remove("recording");
+    btn.textContent="音声検索";
+  };
+  rec.onend=()=>{
+    btn.classList.remove("recording");
+    btn.textContent="音声検索";
+  };
   rec.start();
 }
 
