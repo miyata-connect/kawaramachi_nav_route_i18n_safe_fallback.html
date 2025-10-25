@@ -1,0 +1,275 @@
+diff --git a/.github/workflows/walknav-guard.yml b/.github/workflows/walknav-guard.yml
+new file mode 100644
+--- /dev/null
++++ b/.github/workflows/walknav-guard.yml
+@@ -0,0 +1,74 @@
++name: WalkNav Spec & Policy Guard
++
++on:
++  pull_request:
++    branches: [ "**" ]
++
++jobs:
++  guard:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++
++      - name: Verify required docs exist
++        run: |
++          set -e
++          REQ=(
++            docs/WalkNav_Operation_Policy.md
++            docs/WalkNav_Operation_Checklist.md
++            docs/WalkNav_Operation_Template.md
++            docs/WalkNav_Progress_Protocol.md
++            spec/WalkNav_Functional_Spec_v2025-10-25.md
++          )
++          missing=0
++          for f in "${REQ[@]}"; do
++            if [[ ! -f "$f" ]]; then
++              echo "::error::Missing required file: $f"
++              missing=1
++            fi
++          done
++          exit $missing
++
++      - name: Validate Functional Spec version pin
++        run: |
++          set -e
++          grep -R "Functional Spec / v2025-10-25" -n README* docs/ spec/ || {
++            echo "::error::Functional Spec version v2025-10-25 not referenced"; exit 1; }
++
++      - name: Optional: check references from source headers (non-blocking)
++        run: |
++          set -e
++          if command -v rg >/dev/null 2>&1; then
++            rg -n -S "(WalkNav Operation Policy|Operation Checklist|Operation Template|Progress Protocol)"                       --glob '!node_modules' --glob '!dist' --glob '!build' || true
++          else
++            echo "ripgrep not installed; skipping hint-only scan"
++          fi
+diff --git a/docs/WalkNav_Operation_Policy.md b/docs/WalkNav_Operation_Policy.md
+new file mode 100644
+--- /dev/null
++++ b/docs/WalkNav_Operation_Policy.md
+@@ -0,0 +1,86 @@
++---
++title: WalkNav Operation Policy
++version: 2025-10-25
++owner: WalkNav Core
++lastReviewed: 2025-10-25
++status: active
++---
++
++# 目的
++WalkNav の開発・運用における基本規範を定義する。安全性・可用性・保守性を最優先し、リリース判断・例外対応の基準を明文化する。
++
++# 適用範囲
++- ソースコード、ドキュメント、ビルド/デプロイ、サポート運用を含む全工程
++- 外部キー/秘密情報の取り扱い（例: Google Maps ブラウザ API キー）
++
++# 基本原則
++1. **仕様準拠**：常に「Functional Spec / v2025-10-25」に整合。  
++2. **最小権限**：資格情報は最小権限で保管・使用。コミットに含めない。  
++3. **再現性**：PR ごとに CI で静的検査・仕様検証を実施。  
++4. **可観測性**：障害時の再現ログ/メトリクス/ユーザー報告導線を確保。  
++5. **承認プロセス**：破壊的変更・UI文言変更はレビュー + 承認必須。
++
++# 禁止事項
++- 機能仕様に未記載の挙動をリリースすること
++- 機密情報の直書き（リポジトリ/Issue/PR コメントを含む）
++
++# 変更手続き（承認フロー）
++1. Issue 起票（目的・影響範囲・リスク・ロールバックを記載）  
++2. Draft PR（テンプレートに従う）  
++3. Reviewer ≥ 1 名の承認  
++4. CI: `WalkNav Spec & Policy Guard` を通過  
++5. マージ → リリース手順に従う
++
++# 参照
++- Functional Spec / v2025-10-25（spec/WalkNav_Functional_Spec_v2025-10-25.md）
++- WalkNav Operation Checklist
++- WalkNav Operation Template
++- WalkNav Progress Protocol
+diff --git a/docs/WalkNav_Operation_Checklist.md b/docs/WalkNav_Operation_Checklist.md
+new file mode 100644
+--- /dev/null
++++ b/docs/WalkNav_Operation_Checklist.md
+@@ -0,0 +1,112 @@
++---
++title: WalkNav Operation Checklist
++version: 2025-10-25
++owner: WalkNav Core
++lastReviewed: 2025-10-25
++status: active
++---
++
++# 出力前チェック（共通）
++- [ ] 仕様整合：**Functional Spec / v2025-10-25** に矛盾がない
++- [ ] UI 文言：規約に沿い、曖昧/誤解を避ける
++- [ ] エラー処理：失敗時のユーザー通知と再試行導線
++- [ ] ログ/計測：最低限の可観測性（イベント名・発火条件・PII 無し）
++- [ ] テスト：回帰/境界/例外ケースの最小セットを追加
++- [ ] ドキュメント：README/ADR/該当ガイド更新済み
++
++# PR チェック
++- [ ] Issue と目的/方針/影響範囲が一致
++- [ ] ロールバック手順が明記
++- [ ] CI `WalkNav Spec & Policy Guard` を通過
++
++# リリース前チェック
++- [ ] バージョン・タグ・CHANGELOG を更新
++- [ ] 既知の制限/既知の不具合を記載
++- [ ] 必要に応じて Feature flag を付与
++
++# インシデント基準（簡易）
++- S1：地図が表示されない/現在地が取得できない大障害  
++- S2：主要機能の劣化（例：音声ガイダンス遅延）  
++- S3：マイナー不具合/表記揺れ
++
++# 対応 SLA（目安）
++- S1：即時ロールバック or Hotfix、1 営業日以内にポストモーテム  
++- S2：48h 以内に修正 PR、1 週間以内にリリース  
++- S3：通常スプリントで対応
+diff --git a/docs/WalkNav_Operation_Template.md b/docs/WalkNav_Operation_Template.md
+new file mode 100644
+--- /dev/null
++++ b/docs/WalkNav_Operation_Template.md
+@@ -0,0 +1,122 @@
++---
++title: WalkNav Operation Template
++version: 2025-10-25
++owner: WalkNav Core
++lastReviewed: 2025-10-25
++status: active
++---
++
++# テンプレート（作業開始時に複製）
++
++## 1. コンテキスト
++- 目的/背景：
++- スコープ（含む/含まない）：
++- 依存/前提：
++
++## 2. 仕様照合（Functional Spec / v2025-10-25）
++- 関連章：
++- 挙動の定義：
++- エッジケース：
++
++## 3. 変更設計
++- UI/UX：
++- データ/API：
++- エラー/再試行：
++- 設定/フラグ：
++
++## 4. テスト計画
++- 正常系：
++- 例外系：
++- 回帰/互換：
++
++## 5. リスクとロールバック
++- リスク：
++- ロールバック手順：
++
++## 6. リリース計画
++- タグ/バージョン：
++- 監視/メトリクス：
++- 既知の制限：
++
++## 7. チェックリスト適用
++- チェック結果リンク：
++
++> 参照：Functional Spec / v2025-10-25（spec/WalkNav_Functional_Spec_v2025-10-25.md）
+diff --git a/docs/WalkNav_Progress_Protocol.md b/docs/WalkNav_Progress_Protocol.md
+new file mode 100644
+--- /dev/null
++++ b/docs/WalkNav_Progress_Protocol.md
+@@ -0,0 +1,120 @@
++---
++title: WalkNav Progress Protocol
++version: 2025-10-25
++owner: WalkNav Core
++lastReviewed: 2025-10-25
++status: active
++---
++
++# 目的
++タスクの状態遷移・承認フロー・報告タイミングを定義し、進捗の可視化と統制を担保する。
++
++# 状態定義
++- **Draft**：検討中/要件整理中
++- **In-Progress**：実装・検証中
++- **Hold**：不整合/承認待ちで停止
++- **Review**：PR レビュー中
++- **Ready**：マージ/リリース可
++- **Done**：リリース完了
++
++# 遷移ルール（抜粋）
++- Draft → In-Progress：仕様照合とテンプレ展開が完了
++- In-Progress → Review：チェックリスト完了 & テスト追加済み
++- Review → Ready：レビュー承認 & CI 通過
++- Ready → Done：タグ付け & リリース手順実施
++- 任意 → Hold：規約/仕様の不整合・未確定事項を検知
++
++# 報告タイミング
++- 状態遷移時に Issue コメントへ要点を記録
++- Hold 時は理由・必要承認者・再開条件を明記
++
++# KPI（例）
++- PR リードタイム
++- レビューサイクル数
++- リリース後 72h のエラー率
++
++# 参照
++- WalkNav Operation Policy
++- WalkNav Operation Checklist
++- WalkNav Operation Template
++- Functional Spec / v2025-10-25
+diff --git a/spec/WalkNav_Functional_Spec_v2025-10-25.md b/spec/WalkNav_Functional_Spec_v2025-10-25.md
+new file mode 100644
+--- /dev/null
++++ b/spec/WalkNav_Functional_Spec_v2025-10-25.md
+@@ -0,0 +1,62 @@
++---
++title: WalkNav Functional Spec / v2025-10-25
++version: 2025-10-25
++owner: WalkNav Core
++lastReviewed: 2025-10-25
++status: canonical
++---
++
++> **This file pins the canonical Functional Spec version: v2025-10-25.**
++>
++> - If `SPEC.md` exists at repository root, it is treated as the **source content**.
++> - This file serves as the **versioned alias** and MUST be the reference target from
++>   Policy/Checklist/Template/Progress documents and README.
++>
++> 参照文言（他ドキュメントからの固定表記）：
++> **“Functional Spec / v2025-10-25”**
++
++## 1. 目的
++機能仕様の参照先をバージョン固定し、変更管理とレビューの一貫性を確保する。
++
++## 2. 内容ソース
++- 既存の `SPEC.md`（リポジトリ直下）を**一次ソース**とする。
++- 将来的に仕様本文を本ファイルへ移設する場合は、PR にて実体を移し、`SPEC.md` から当該章へリンクする。
++
++## 3. 最低限含むべき仕様章（ガイド）
++- 対象範囲・非対象
++- UI/UX（地図表示・ローディング文言・非表示ポリシー）
++- 位置情報取得（権限/誤差/再試行/フォールバック）
++- 経路選択ロジック（歩行に特化した優先度）
++- 音声/テキスト案内（タイミング・文言規約）
++- エラー時挙動（通知・復帰・ログ）
++- 依存サービス・キー管理（例：Google Maps ブラウザ API キー）
++- 計測・テレメトリ（PII 無し）
++
++## 4. 破壊的変更の扱い
++- バージョンを上げ、移行ガイド/ロールバック手順を添付する。
++
++## 5. 参照先
++- WalkNav Operation Policy / Checklist / Template / Progress Protocol
++
++---
++
++**Fixed reference string:** _Functional Spec / v2025-10-25_
