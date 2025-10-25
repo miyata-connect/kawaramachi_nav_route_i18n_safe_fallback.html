@@ -179,7 +179,7 @@ function createMap(center){
   mapCreated=!0;
   
   try{
-    map=new google.maps.Map(document.getElementById("map"),{center,zoom:17,mapTypeControl:!1,streetViewControl:!1,fullscreenControl:!1,clickableIcons:!1,zoomControl:!1,heading:0});
+    map=new google.maps.Map(document.getElementById("map"),{center,zoom:17,mapTypeControl:!1,streetViewControl:!1,fullscreenControl:!1,clickableIcons:!1,zoomControl:!1,heading:0,tilt:45,mapId:"DEMO_MAP_ID"});
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
     
@@ -356,10 +356,20 @@ function selectPlace(place){
   
   destinationMarker&&destinationMarker.setMap(null);
   destinationMarker=new google.maps.Marker({position:{lat,lng},map,title:name});
+  
+  // 地図を目的地に移動・拡大
   map.panTo({lat,lng});
-  map.setZoom(16);
+  map.setZoom(17);
+  
   hideResults();
   setStatus(`選択: ${name}`);
+  
+  // 自動的に案内開始
+  setTimeout(() => {
+    if (currentPositionMarker && destinationMarker) {
+      startNav();
+    }
+  }, 500);
 }
 
 function startNav(){
@@ -405,12 +415,17 @@ function setHeadingMode(mode){
   q("#northUpBtn").classList.toggle("active",mode==="north");
   
   if(mode==="north"){
+    // 北向きに固定（0度）
     map.setHeading(0);
-    map.setZoom(Math.max(map.getZoom(),17));
-    setStatus("ノースアップモード");
+    map.setTilt(0);
+    setStatus("ノースアップモード：地図を北に固定");
   }else{
-    updateMapHeading();
-    setStatus("ヘディングアップモード");
+    // ヘディングアップ：現在の方位に従う
+    if(currentHeading >= 0) {
+      map.setHeading(currentHeading);
+    }
+    map.setTilt(45); // 3D表示
+    setStatus("ヘディングアップモード：進行方向が上");
   }
 }
 
@@ -465,10 +480,8 @@ function mountRightControls(){
   map.controls[google.maps.ControlPosition.RIGHT_CENTER].push(c);
   console.log("Buttons added to RIGHT_CENTER");
   
-  const gb=q("#glassbar"),toggle=()=>{const visible=gb&&"none"!==getComputedStyle(gb).display;c.style.display=visible?"none":"";console.log("Toggle:",c.style.display)};
-  new MutationObserver(toggle).observe(document.body,{attributes:!0,childList:!0,subtree:!0});
-  addEventListener("resize",toggle);
-  setTimeout(toggle,100);
+  // 常時表示（toggleを削除）
+  c.style.display = "";
 }
 
 function mkBtn(label,cls,id){
