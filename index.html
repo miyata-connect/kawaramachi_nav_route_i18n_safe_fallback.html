@@ -235,7 +235,7 @@ function relocalize(){
       startLocationWatch();
     }else{
       placeOrMoveCurrent(currentLocation);
-      map.setZoom(17);
+      map.setZoom(18);
       map.panTo(currentLocation);
       setStatus("現在地を更新しました");
     }
@@ -254,7 +254,7 @@ function goToDestination(){
     return;
   }
   const pos=destinationMarker.getPosition();
-  map.setZoom(17);
+  map.setZoom(18);
   map.panTo(pos);
   setStatus("目的地を表示しました");
 }
@@ -376,23 +376,38 @@ function startNav(){
   if(!currentPositionMarker||!destinationMarker)return showError("現在地または目的地が未設定です。");
   const origin=currentPositionMarker.getPosition(),dest=destinationMarker.getPosition();
   setStatus("経路計算中…");
+  speak("経路を計算中です。");
   directionsService.route({origin,destination:dest,travelMode:google.maps.TravelMode.WALKING},(res,status)=>{
     if("OK"!==status){
       showError("経路を取得できません。");
+      speak("経路が見つかりませんでした。");
       return;
     }
     directionsRenderer.setDirections(res);
     isNavigating=!0;
-    speak("案内を開始します。");
-    setStatus("案内中");
+    
+    const route=res.routes[0];
+    const leg=route.legs[0];
+    const distance=(leg.distance.value/1000).toFixed(1);
+    const duration=Math.round(leg.duration.value/60);
+    
+    speak(`案内を開始します。目的地まで約${distance}キロメートル、所要時間は約${duration}分です。`);
+    setStatus(`案内中: ${distance}km, ${duration}分`);
   });
 }
 
 function stopNav(){
   directionsRenderer.setDirections({routes:[]});
   isNavigating=!1;
-  speak("案内を終了します。");
+  speak("案内停止ボタンが押されましたので、案内を終了します。");
   setStatus("案内を停止しました");
+  
+  // 現在地に戻って拡大表示
+  if(currentPositionMarker){
+    const pos=currentPositionMarker.getPosition();
+    map.panTo(pos);
+    map.setZoom(18);
+  }
 }
 
 function reroute(manual){
@@ -473,6 +488,7 @@ function mountRightControls(){
   
   const zooms=document.createElement("div");
   zooms.className="zooms";
+  zooms.style.display="none"; // ズームボタン非表示
   zooms.append(mkBtn("＋","btn-zoom","gm-zoom-in"),mkBtn("－","btn-zoom","gm-zoom-out"));
   
   c.append(btnCurrent,btnDest,btnStart,btnStop,btnReroute,zooms);
