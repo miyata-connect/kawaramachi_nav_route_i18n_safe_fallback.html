@@ -136,7 +136,8 @@ input{
 }
 .weather-arrow{
   color:var(--muted);
-  font-size:14px;
+  font-size:18px;
+  font-weight:900;
 }
 .weather-item{
   text-align:center;
@@ -154,7 +155,7 @@ input{
 /* 方位計 */
 .compass{
   position:absolute;
-  left:10px;
+  right:10px;
   top:200px;
   width:60px;
   height:60px;
@@ -180,7 +181,7 @@ input{
 /* N-UP/H-UPボタン */
 .map-mode-buttons{
   position:absolute;
-  left:10px;
+  right:10px;
   top:270px;
   z-index:420;
   display:flex;
@@ -208,8 +209,7 @@ input{
 .nav-buttons{
   position:absolute;
   right:10px;
-  top:60%;
-  transform:translateY(-50%);
+  top:380px;
   z-index:450;
   display:flex;
   flex-direction:column;
@@ -336,8 +336,8 @@ input{
     <div id="infoPanel" class="info-panel show">
       <div class="route-main" id="routeText">目的地を設定してください</div>
       <div class="route-time">
-        <span>🕐 現在: <span id="currentTime">--:--</span></span>
-        <span>🎯 到着: <span id="arrivalTime">--:--</span></span>
+        <span>🕐 現在時刻: <span id="currentTime">--:--</span></span>
+        <span>🎯 到着予想時刻: <span id="arrivalTime">--:--</span></span>
       </div>
       <div class="weather-row">
         <div class="location-name" id="locationName">📍 読み込み中...</div>
@@ -495,6 +495,9 @@ function initMap(){
       icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:"#5fb1ff",fillOpacity:1,strokeWeight:2,strokeColor:"#fff"}
     });
     
+    // H-UPモードを初期設定
+    headingMode="heading";
+    
     document.getElementById("map").style.display="block";
     document.getElementById("loading").classList.add("hide");
     
@@ -534,6 +537,8 @@ function setupCompass(){
     window.addEventListener("deviceorientation",e=>{
       if(typeof e.alpha==="number"){
         targetAlpha=e.alpha;
+        
+        // H-UPモードの時のみ地図を回転
         if(headingMode==="heading"){
           map.setHeading(360-e.alpha);
         }
@@ -548,6 +553,7 @@ function setNorthUp(){
   map.setTilt(0);
   document.getElementById("nupBtn").classList.add("active");
   document.getElementById("hupBtn").classList.remove("active");
+  speak("ノースアップモード");
 }
 
 function setHeadingUp(){
@@ -558,6 +564,7 @@ function setHeadingUp(){
   map.setTilt(45);
   document.getElementById("nupBtn").classList.remove("active");
   document.getElementById("hupBtn").classList.add("active");
+  speak("ヘディングアップモード");
 }
 
 function startWatch(){
