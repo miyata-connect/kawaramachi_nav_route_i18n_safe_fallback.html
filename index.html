@@ -267,6 +267,10 @@ input{
         <div class="panel-btn" onclick="saveMapPoint()">地図上を登録</div>
         <div class="panel-btn" onclick="showSavedPoints()">登録地点</div>
       </div>
+      
+      <div class="panel-row">
+        <div class="panel-btn" onclick="togglePanel()" style="width:100%">操作パネルを閉じる</div>
+      </div>
     </div>
     
     <!-- 操作パネル表示タブ -->
@@ -307,15 +311,20 @@ function togglePanel(){
   const panel=document.getElementById("controlPanel");
   const tab=document.getElementById("panelToggle");
   const compass=document.getElementById("compass");
+  const navButtons=document.getElementById("navButtons");
   
   if(panel.classList.contains("hidden")){
     panel.classList.remove("hidden");
     tab.classList.remove("show");
     compass.classList.add("hidden");
+    navButtons.classList.add("hidden");
   }else{
     panel.classList.add("hidden");
     tab.classList.add("show");
     compass.classList.remove("hidden");
+    if(isNavigating){
+      navButtons.classList.remove("hidden");
+    }
   }
 }
 
