@@ -262,7 +262,7 @@ input{
     </div>
     
     <!-- 操作パネル -->
-    <div id="controlPanel" class="control-panel">
+    <div id="controlPanel" class="control-panel hidden">
       <input id="searchBox" placeholder="店舗名・住所・電話番号で検索" style="margin-bottom:10px">
       
       <div class="panel-row">
@@ -374,6 +374,10 @@ function initMap(){
     document.getElementById("map").style.display="block";
     document.getElementById("loading").classList.add("hide");
     
+    // 初期状態で方位計とパネルタブを表示
+    document.getElementById("compass").classList.remove("hidden");
+    document.getElementById("panelToggle").classList.add("show");
+    
     setupCompass();
     startWatch();
   },err=>alert("位置情報取得失敗: "+err.message));
@@ -456,6 +460,11 @@ function displayResults(places){
   });
   
   document.getElementById("resultsPanel").style.display="block";
+  
+  // 検索結果表示時は操作パネルを非表示
+  document.getElementById("controlPanel").classList.add("hidden");
+  document.getElementById("panelToggle").classList.add("show");
+  document.getElementById("compass").classList.remove("hidden");
 }
 
 function hideResults(){
@@ -650,6 +659,12 @@ function showSavedPoints(){
       map.panTo({lat:p.lat,lng:p.lng});
       map.setZoom(18);
       hideSavedPoints();
+      
+      // ナビボタンを表示
+      document.getElementById("navButtons").classList.remove("hidden");
+      document.getElementById("controlPanel").classList.add("hidden");
+      document.getElementById("panelToggle").classList.add("show");
+      document.getElementById("compass").classList.remove("hidden");
       
       setTimeout(()=>{
         if(currentMarker&&destMarker)startNav();
