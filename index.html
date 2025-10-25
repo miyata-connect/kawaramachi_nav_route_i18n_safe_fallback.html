@@ -36,20 +36,25 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
   transition:transform 0.3s;
 }
 .control-panel.hidden{
-  transform:translateY(calc(100% - 40px));
+  transform:translateY(100%);
 }
 .panel-toggle{
-  position:absolute;
-  top:-30px;
+  position:fixed;
+  bottom:10px;
   left:50%;
   transform:translateX(-50%);
   background:var(--glass-strong);
   border:1px solid var(--stroke);
-  border-radius:12px 12px 0 0;
-  padding:6px 20px;
+  border-radius:12px;
+  padding:8px 24px;
   color:var(--text);
-  font-size:12px;
+  font-size:13px;
   cursor:pointer;
+  z-index:490;
+  display:none;
+}
+.panel-toggle.show{
+  display:block;
 }
 
 .panel-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
@@ -164,8 +169,6 @@ input{
     
     <!-- 操作パネル -->
     <div id="controlPanel" class="control-panel">
-      <div class="panel-toggle" onclick="togglePanel()">操作パネルを表示</div>
-      
       <input id="searchBox" placeholder="店舗名・住所・電話番号で検索" style="margin-bottom:10px">
       
       <div class="panel-row">
@@ -180,6 +183,9 @@ input{
         <div class="panel-btn" onclick="showSavedPoints()">登録地点</div>
       </div>
     </div>
+    
+    <!-- 操作パネル表示タブ -->
+    <div id="panelToggle" class="panel-toggle" onclick="togglePanel()">操作パネルを表示</div>
     
     <!-- ナビボタン -->
     <div id="navButtons" class="nav-buttons hidden">
@@ -208,7 +214,15 @@ const PLACES_PROXY="https://ors-proxy.miyata-connect-jp.workers.dev/v1/places";
 
 function togglePanel(){
   const panel=document.getElementById("controlPanel");
-  panel.classList.toggle("hidden");
+  const tab=document.getElementById("panelToggle");
+  
+  if(panel.classList.contains("hidden")){
+    panel.classList.remove("hidden");
+    tab.classList.remove("show");
+  }else{
+    panel.classList.add("hidden");
+    tab.classList.add("show");
+  }
 }
 
 window.gm_authFailure=()=>alert("Maps APIエラー");
