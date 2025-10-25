@@ -99,6 +99,7 @@ input{
   font-weight:700;
   margin-bottom:8px;
   line-height:1.4;
+  text-align:center;
 }
 .route-time{
   font-size:15px;
@@ -107,6 +108,7 @@ input{
   gap:16px;
   font-weight:600;
   margin-bottom:10px;
+  justify-content:center;
 }
 .route-time span{
   display:flex;
@@ -120,16 +122,21 @@ input{
   gap:10px;
 }
 .location-name{
-  font-size:13px;
+  font-size:16px;
   font-weight:700;
   color:var(--primary);
   white-space:nowrap;
 }
 .weather-items{
   display:flex;
-  gap:8px;
+  gap:4px;
   flex:1;
   justify-content:center;
+  align-items:center;
+}
+.weather-arrow{
+  color:var(--muted);
+  font-size:14px;
 }
 .weather-item{
   text-align:center;
@@ -138,9 +145,9 @@ input{
   padding:6px;
   background:var(--glass-strong);
   border-radius:8px;
-  min-width:55px;
+  min-width:50px;
 }
-.weather-icon{font-size:24px;margin:4px 0}
+.weather-icon{font-size:22px;margin:2px 0}
 .weather-temp{font-weight:700;font-size:13px}
 .weather-rain{color:var(--accent);font-size:10px}
 
@@ -148,7 +155,7 @@ input{
 .compass{
   position:absolute;
   left:10px;
-  top:180px;
+  top:200px;
   width:60px;
   height:60px;
   background:var(--glass);
@@ -174,7 +181,7 @@ input{
 .map-mode-buttons{
   position:absolute;
   left:10px;
-  top:250px;
+  top:270px;
   z-index:420;
   display:flex;
   flex-direction:column;
@@ -341,17 +348,26 @@ input{
             <div class="weather-temp" id="t3h">--°</div>
             <div class="weather-rain" id="r3h">--%</div>
           </div>
+          <div class="weather-arrow">→</div>
           <div class="weather-item">
             <div>6h</div>
             <div class="weather-icon" id="w6h">☁️</div>
             <div class="weather-temp" id="t6h">--°</div>
             <div class="weather-rain" id="r6h">--%</div>
           </div>
+          <div class="weather-arrow">→</div>
           <div class="weather-item">
             <div>9h</div>
             <div class="weather-icon" id="w9h">🌧️</div>
             <div class="weather-temp" id="t9h">--°</div>
             <div class="weather-rain" id="r9h">--%</div>
+          </div>
+          <div class="weather-arrow">→</div>
+          <div class="weather-item">
+            <div>12h</div>
+            <div class="weather-icon" id="w12h">☁️</div>
+            <div class="weather-temp" id="t12h">--°</div>
+            <div class="weather-rain" id="r12h">--%</div>
           </div>
         </div>
       </div>
@@ -388,6 +404,7 @@ input{
       <div class="nav-btn ok" onclick="startNav()">案内開始</div>
       <div class="nav-btn danger" onclick="stopNav()">案内停止</div>
       <div class="nav-btn accent" onclick="reroute()">リルート</div>
+      <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()">🎤音声</div>
     </div>
     
     <!-- 検索結果 -->
@@ -663,6 +680,38 @@ function voiceSearch(){
   rec.start();
 }
 
+function quickVoiceSearch(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return showError("音声認識非対応");
+  
+  const btn=document.getElementById("quickVoiceBtn");
+  const rec=new SR;
+  rec.lang="ja-JP";
+  
+  btn.style.background="var(--danger)";
+  btn.textContent="録音中...";
+  
+  rec.onresult=e=>{
+    const query=e.results[0][0].transcript;
+    btn.style.background="";
+    btn.textContent="🎤音声";
+    
+    // 検索ボックスに入力して検索実行
+    document.getElementById("searchBox").value=query;
+    searchPlace();
+  };
+  rec.onerror=()=>{
+    showError("音声認識失敗");
+    btn.style.background="";
+    btn.textContent="🎤音声";
+  };
+  rec.onend=()=>{
+    btn.style.background="";
+    btn.textContent="🎤音声";
+  };
+  rec.start();
+}
+
 function relocalize(){
   navigator.geolocation.getCurrentPosition(pos=>{
     currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
@@ -887,7 +936,7 @@ async function fetchWeather(){
     const now=new Date();
     const currentHour=now.getHours();
     
-    const hours=[3,6,9];
+    const hours=[3,6,9,12];
     const weatherIcons={0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",53:"🌧️",55:"🌧️",61:"🌧️",63:"🌧️",65:"🌧️",71:"🌨️",73:"🌨️",75:"🌨️",77:"🌨️",80:"🌧️",81:"🌧️",82:"🌧️",85:"🌨️",86:"🌨️",95:"⛈️",96:"⛈️",99:"⛈️"};
     
     hours.forEach(h=>{
