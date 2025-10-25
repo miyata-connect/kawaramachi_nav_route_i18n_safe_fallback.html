@@ -113,6 +113,20 @@ input{
   color:var(--danger);
 }
 
+/* N-UP/H-UPボタン */
+.map-mode-buttons{
+  position:absolute;
+  left:10px;
+  top:200px;
+  z-index:420;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+.map-mode-buttons.hidden{
+  display:none;
+}
+
 /* ルート案内窓 */
 .route-info{
   position:absolute;
@@ -187,9 +201,7 @@ input{
   right:10px;
   bottom:80px;
   z-index:440;
-  display:flex;
-  flex-direction:column;
-  gap:8px;
+  display:none;
 }
 .map-btn{
   width:55px;
@@ -210,16 +222,21 @@ input{
 /* 天気予報 */
 .weather-panel{
   position:absolute;
+  left:10px;
   right:10px;
-  top:10px;
+  top:110px;
   background:var(--glass);
   border:1px solid var(--stroke);
   border-radius:12px;
   backdrop-filter:blur(14px);
   padding:10px;
   z-index:430;
-  display:flex;
+  display:none;
+  justify-content:center;
   gap:8px;
+}
+.weather-panel.show{
+  display:flex;
 }
 .weather-item{
   text-align:center;
@@ -348,13 +365,19 @@ input{
     </div>
     
     <!-- 方位計 -->
-    <div id="compass" class="compass">
+    <div id="compass" class="compass hidden">
       <div class="compass-n">N</div>
       <svg class="needle" width="50" height="50" viewBox="0 0 50 50">
         <path d="M25 8 L27 25 L25 23 L23 25 Z" fill="#ff6565" stroke="#fff" stroke-width="1"/>
         <path d="M25 42 L27 25 L25 27 L23 25 Z" fill="#eaf2ff" stroke="#444" stroke-width="1"/>
         <circle cx="25" cy="25" r="2.5" fill="#5fb1ff" stroke="#fff" stroke-width="1.5"/>
       </svg>
+    </div>
+    
+    <!-- N-UP/H-UPボタン -->
+    <div id="mapModeButtons" class="map-mode-buttons hidden">
+      <div class="map-btn" id="nupBtn" onclick="setNorthUp()">N-UP</div>
+      <div class="map-btn active" id="hupBtn" onclick="setHeadingUp()">H-UP</div>
     </div>
     
     <!-- ルート案内窓 -->
@@ -397,13 +420,6 @@ input{
       <div class="nav-btn ok" onclick="startNav()">案内開始</div>
       <div class="nav-btn danger" onclick="stopNav()">案内停止</div>
       <div class="nav-btn accent" onclick="reroute()">リルート</div>
-    </div>
-    
-    <!-- 地図操作ボタン -->
-    <div class="map-controls">
-      <div class="map-btn" id="nupBtn" onclick="setNorthUp()">N-UP</div>
-      <div class="map-btn active" id="hupBtn" onclick="setHeadingUp()">H-UP</div>
-      <div class="map-btn" onclick="toggleFullscreen()">⛶</div>
     </div>
     
     <!-- 検索結果 -->
@@ -453,14 +469,6 @@ function setHeadingUp(){
   setStatus("ヘディングアップモード");
 }
 
-function toggleFullscreen(){
-  if(!document.fullscreenElement){
-    document.documentElement.requestFullscreen();
-  }else{
-    document.exitFullscreen();
-  }
-}
-
 async function fetchWeather(){
   if(!currentLocation)return;
   
@@ -503,6 +511,9 @@ function togglePanel(){
   const tab=document.getElementById("panelToggle");
   const compass=document.getElementById("compass");
   const navButtons=document.getElementById("navButtons");
+  const mapModeButtons=document.getElementById("mapModeButtons");
+  const routeInfo=document.getElementById("routeInfo");
+  const weatherPanel=document.getElementById("weatherPanel");
   
   if(panel.classList.contains("hidden")){
     // パネルを表示
@@ -510,13 +521,22 @@ function togglePanel(){
     tab.classList.remove("show");
     compass.classList.add("hidden");
     navButtons.classList.add("hidden");
+    mapModeButtons.classList.add("hidden");
+    routeInfo.classList.remove("show");
+    weatherPanel.classList.remove("show");
   }else{
     // パネルを非表示
     panel.classList.add("hidden");
     tab.classList.add("show");
     compass.classList.remove("hidden");
-    // 案内中または目的地が設定されている場合はナビボタン表示
-    if(isNavigating || destMarker){
+    mapModeButtons.classList.remove("hidden");
+    weatherPanel.classList.add("show");
+    
+    // 案内中または目的地が設定されている場合はナビボタンとルート情報を表示
+    if(isNavigating){
+      navButtons.classList.remove("hidden");
+      routeInfo.classList.add("show");
+    }else if(destMarker){
       navButtons.classList.remove("hidden");
     }
   }
@@ -551,10 +571,12 @@ function initMap(){
     document.getElementById("map").style.display="block";
     document.getElementById("loading").classList.add("hide");
     
-    // 初期状態: 方位計とタブを表示
+    // 初期状態: 方位計、タブ、天気予報を表示
     setTimeout(()=>{
       document.getElementById("compass").classList.remove("hidden");
+      document.getElementById("mapModeButtons").classList.remove("hidden");
       document.getElementById("panelToggle").classList.add("show");
+      document.getElementById("weatherPanel").classList.add("show");
       fetchWeather();
     },100);
     
@@ -650,6 +672,8 @@ function displayResults(places){
   document.getElementById("controlPanel").classList.add("hidden");
   document.getElementById("panelToggle").classList.remove("show");
   document.getElementById("compass").classList.remove("hidden");
+  document.getElementById("mapModeButtons").classList.remove("hidden");
+  document.getElementById("weatherPanel").classList.add("show");
 }
 
 function hideResults(){
@@ -670,7 +694,9 @@ function selectPlace(place){
   document.getElementById("controlPanel").classList.add("hidden");
   document.getElementById("panelToggle").classList.add("show");
   document.getElementById("compass").classList.remove("hidden");
+  document.getElementById("mapModeButtons").classList.remove("hidden");
   document.getElementById("navButtons").classList.remove("hidden");
+  document.getElementById("weatherPanel").classList.add("show");
   
   setTimeout(()=>{
     if(currentMarker&&destMarker)startNav();
