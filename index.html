@@ -77,11 +77,78 @@ input{
   font-size:14px;
 }
 
+/* 統合情報パネル */
+.info-panel{
+  position:absolute;
+  left:10px;
+  right:10px;
+  top:10px;
+  background:var(--glass);
+  border:1px solid var(--stroke);
+  border-radius:12px;
+  backdrop-filter:blur(14px);
+  padding:14px;
+  z-index:460;
+  color:var(--text);
+  display:none;
+}
+.info-panel.show{display:block}
+
+.route-main{
+  font-size:16px;
+  font-weight:700;
+  margin-bottom:8px;
+  line-height:1.4;
+}
+.route-time{
+  font-size:15px;
+  color:var(--text);
+  display:flex;
+  gap:16px;
+  font-weight:600;
+  margin-bottom:10px;
+}
+.route-time span{
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+
+.weather-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.location-name{
+  font-size:13px;
+  font-weight:700;
+  color:var(--primary);
+  white-space:nowrap;
+}
+.weather-items{
+  display:flex;
+  gap:8px;
+  flex:1;
+  justify-content:center;
+}
+.weather-item{
+  text-align:center;
+  font-size:11px;
+  color:var(--text);
+  padding:6px;
+  background:var(--glass-strong);
+  border-radius:8px;
+  min-width:55px;
+}
+.weather-icon{font-size:24px;margin:4px 0}
+.weather-temp{font-weight:700;font-size:13px}
+.weather-rain{color:var(--accent);font-size:10px}
+
 /* 方位計 */
 .compass{
   position:absolute;
   left:10px;
-  top:10px;
+  top:180px;
   width:60px;
   height:60px;
   background:var(--glass);
@@ -107,7 +174,7 @@ input{
 .map-mode-buttons{
   position:absolute;
   left:10px;
-  top:80px;
+  top:250px;
   z-index:420;
   display:flex;
   flex-direction:column;
@@ -129,71 +196,6 @@ input{
   font-weight:700;
 }
 .mode-btn.active{background:var(--ok);border:2px solid #fff}
-
-/* ルート案内窓 */
-.route-info{
-  position:absolute;
-  left:10px;
-  right:10px;
-  top:10px;
-  background:var(--glass);
-  border:1px solid var(--stroke);
-  border-radius:12px;
-  backdrop-filter:blur(14px);
-  padding:14px;
-  z-index:460;
-  color:var(--text);
-  display:none;
-}
-.route-info.show{display:block}
-.route-main{
-  font-size:16px;
-  font-weight:700;
-  margin-bottom:8px;
-  line-height:1.4;
-}
-.route-time{
-  font-size:15px;
-  color:var(--text);
-  display:flex;
-  gap:16px;
-  font-weight:600;
-}
-.route-time span{
-  display:flex;
-  align-items:center;
-  gap:4px;
-}
-
-/* 天気予報 */
-.weather-panel{
-  position:absolute;
-  left:10px;
-  right:10px;
-  top:110px;
-  background:var(--glass);
-  border:1px solid var(--stroke);
-  border-radius:12px;
-  backdrop-filter:blur(14px);
-  padding:10px;
-  z-index:430;
-  display:none;
-  justify-content:center;
-  gap:8px;
-}
-.weather-panel.show{display:flex}
-.weather-item{
-  text-align:center;
-  font-size:11px;
-  color:var(--text);
-  padding:6px;
-  background:var(--glass-strong);
-  border-radius:8px;
-  min-width:55px;
-}
-.weather-icon{font-size:24px;margin:4px 0}
-.weather-temp{font-weight:700;font-size:13px}
-.weather-rain{color:var(--accent);font-size:10px}
 
 /* ナビボタン */
 .nav-buttons{
@@ -323,34 +325,35 @@ input{
       <div class="mode-btn active" id="hupBtn" onclick="setHeadingUp()">H-UP</div>
     </div>
     
-    <!-- ルート案内窓 -->
-    <div id="routeInfo" class="route-info show">
+    <!-- 統合情報パネル -->
+    <div id="infoPanel" class="info-panel show">
       <div class="route-main" id="routeText">目的地を設定してください</div>
       <div class="route-time">
         <span>🕐 現在: <span id="currentTime">--:--</span></span>
         <span>🎯 到着: <span id="arrivalTime">--:--</span></span>
       </div>
-    </div>
-    
-    <!-- 天気予報 -->
-    <div id="weatherPanel" class="weather-panel">
-      <div class="weather-item">
-        <div>3h</div>
-        <div class="weather-icon" id="w3h">☀️</div>
-        <div class="weather-temp" id="t3h">--°</div>
-        <div class="weather-rain" id="r3h">--%</div>
-      </div>
-      <div class="weather-item">
-        <div>6h</div>
-        <div class="weather-icon" id="w6h">☁️</div>
-        <div class="weather-temp" id="t6h">--°</div>
-        <div class="weather-rain" id="r6h">--%</div>
-      </div>
-      <div class="weather-item">
-        <div>9h</div>
-        <div class="weather-icon" id="w9h">🌧️</div>
-        <div class="weather-temp" id="t9h">--°</div>
-        <div class="weather-rain" id="r9h">--%</div>
+      <div class="weather-row">
+        <div class="location-name" id="locationName">📍 読み込み中...</div>
+        <div class="weather-items">
+          <div class="weather-item">
+            <div>3h</div>
+            <div class="weather-icon" id="w3h">☀️</div>
+            <div class="weather-temp" id="t3h">--°</div>
+            <div class="weather-rain" id="r3h">--%</div>
+          </div>
+          <div class="weather-item">
+            <div>6h</div>
+            <div class="weather-icon" id="w6h">☁️</div>
+            <div class="weather-temp" id="t6h">--°</div>
+            <div class="weather-rain" id="r6h">--%</div>
+          </div>
+          <div class="weather-item">
+            <div>9h</div>
+            <div class="weather-icon" id="w9h">🌧️</div>
+            <div class="weather-temp" id="t9h">--°</div>
+            <div class="weather-rain" id="r9h">--%</div>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -437,16 +440,14 @@ function hideAllElements(){
   document.getElementById("compass").classList.add("hidden");
   document.getElementById("mapModeButtons").classList.add("hidden");
   document.getElementById("navButtons").classList.add("hidden");
-  document.getElementById("routeInfo").classList.remove("show");
-  document.getElementById("weatherPanel").classList.remove("show");
+  document.getElementById("infoPanel").classList.remove("show");
 }
 
 function showAllElements(){
   document.getElementById("compass").classList.remove("hidden");
   document.getElementById("mapModeButtons").classList.remove("hidden");
   document.getElementById("navButtons").classList.remove("hidden");
-  document.getElementById("routeInfo").classList.add("show");
-  document.getElementById("weatherPanel").classList.add("show");
+  document.getElementById("infoPanel").classList.add("show");
 }
 
 window.gm_authFailure=()=>alert("Maps APIエラー");
@@ -480,18 +481,19 @@ function initMap(){
     document.getElementById("map").style.display="block";
     document.getElementById("loading").classList.add("hide");
     
-    // 初期状態: 方位計、N-UP/H-UP、天気予報、タブ、文字案内窓を表示
+    // 初期状態: 方位計、N-UP/H-UP、統合パネル、タブを表示
     setTimeout(()=>{
       document.getElementById("compass").classList.remove("hidden");
       document.getElementById("mapModeButtons").classList.remove("hidden");
-      document.getElementById("weatherPanel").classList.add("show");
+      document.getElementById("infoPanel").classList.add("show");
       document.getElementById("panelToggle").classList.add("show");
-      document.getElementById("routeInfo").classList.add("show");
       
       // 現在時刻を表示
       updateCurrentTime();
-      setInterval(updateCurrentTime, 60000); // 1分ごとに更新
+      setInterval(updateCurrentTime, 60000);
       
+      // 現在地名と天気を取得
+      fetchLocationName();
       fetchWeather();
     },100);
     
@@ -856,6 +858,23 @@ function hideSavedPoints(){
   document.getElementById("savedPointsPanel").style.display="none";
   // 登録地点パネルを閉じたらすべての要素を表示
   showAllElements();
+}
+
+async function fetchLocationName(){
+  if(!currentLocation)return;
+  
+  try{
+    const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${currentLocation.lat}&lon=${currentLocation.lng}&format=json&accept-language=ja`);
+    const data=await res.json();
+    
+    const city=data.address?.city||data.address?.town||data.address?.village||"";
+    const ward=data.address?.suburb||"";
+    const locationText=ward?`📍 ${city}${ward}`:city?`📍 ${city}`:"📍 現在地";
+    
+    document.getElementById("locationName").textContent=locationText;
+  }catch(e){
+    document.getElementById("locationName").textContent="📍 現在地";
+  }
 }
 
 async function fetchWeather(){
