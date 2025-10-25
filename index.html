@@ -291,15 +291,15 @@ async function searchPlace(){
     const payload={
       textQuery:qv,
       locationBias:currentLocation?{circle:{center:{latitude:currentLocation.lat,longitude:currentLocation.lng},radius:5000}}:void 0,
-      maxResultCount:5,
-      fieldMask:"id,displayName,formattedAddress,location"
+      maxResultCount:5
     };
     
     const res=await fetch(PLACES_PROXY,{
       method:"POST",
       headers:{
         "Content-Type":"application/json",
-        "Accept-Language":"ja-JP"
+        "Accept-Language":"ja-JP",
+        "X-Goog-FieldMask":"places.id,places.displayName,places.formattedAddress,places.location"
       },
       body:JSON.stringify(payload)
     });
@@ -446,6 +446,7 @@ function initVoiceRecognition(){
 }
 
 function mountRightControls(){
+  console.log("mountRightControls called");
   const c=document.createElement("div");
   c.className="gm-fab-col";
   
@@ -460,9 +461,11 @@ function mountRightControls(){
   zooms.append(mkBtn("＋","btn-zoom","gm-zoom-in"),mkBtn("－","btn-zoom","gm-zoom-out"));
   
   c.append(btnCurrent,btnDest,btnStart,btnStop,btnReroute,zooms);
+  console.log("Buttons created, adding to map");
   map.controls[google.maps.ControlPosition.RIGHT_CENTER].push(c);
+  console.log("Buttons added to RIGHT_CENTER");
   
-  const gb=q("#glassbar"),toggle=()=>{const visible=gb&&"none"!==getComputedStyle(gb).display;c.style.display=visible?"none":""};
+  const gb=q("#glassbar"),toggle=()=>{const visible=gb&&"none"!==getComputedStyle(gb).display;c.style.display=visible?"none":"";console.log("Toggle:",c.style.display)};
   new MutationObserver(toggle).observe(document.body,{attributes:!0,childList:!0,subtree:!0});
   addEventListener("resize",toggle);
   setTimeout(toggle,100);
