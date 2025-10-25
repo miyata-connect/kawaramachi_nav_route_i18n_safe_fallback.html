@@ -21,7 +21,7 @@
 html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP",Meiryo,sans-serif}
 *{box-sizing:border-box}
 .app{position:relative;height:100dvh;overflow:hidden}
-#map{position:absolute;inset:0}
+#map{position:absolute;inset:0;display:none}
 .glassbar{position:absolute;left:0;right:0;top:0;z-index:420;padding:10px 12px;pointer-events:none}
 .card{pointer-events:auto;background:var(--glass);border:1px solid var(--stroke);border-radius:16px;backdrop-filter: blur(14px) saturate(120%);-webkit-backdrop-filter: blur(14px) saturate(120%);box-shadow:0 10px 30px rgba(0,0,0,.35);padding:10px 12px;width:min(1100px,96vw);margin:0 auto}
 .row{display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap}
@@ -45,10 +45,12 @@ button.reroute:hover{background:#00c2ff}
 .gm-fab-col .btn-wide.reroute{background:var(--accent);border:none;color:#fff}
 .gm-fab-col .zooms{display:flex;flex-direction:column;gap:8px;align-items:center}
 .gm-fab-col .btn-zoom{width:44px;height:44px;border-radius:8px;border:1px solid var(--stroke);background:var(--glass-strong);color:#fff;font-size:18px;line-height:44px;text-align:center;box-shadow:0 10px 20px rgba(0,0,0,.35)}
-.loading-screen{position:fixed;inset:0;background:#0e1a2d;display:flex;align-items:center;justify-content:center;z-index:1000;opacity:1;transition:opacity .4s;flex-direction:column;gap:20px}
+.loading-screen{position:fixed;inset:0;background:#0e1a2d;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;opacity:1;transition:opacity .4s;gap:20px}
 .loading-screen.hide{opacity:0;pointer-events:none}
 .loading-inner{text-align:center;padding:28px 24px}
+.loading-title{font-size:26px;font-weight:900;color:#ffffff;margin-bottom:14px;letter-spacing:.02em}
 .loading-sub{font-size:18px;line-height:1.6;color:#cfe0ff;white-space:pre-line}
+.loading-retry{margin-top:20px}
 .debug-log{background:rgba(0,0,0,.7);border:1px solid #444;border-radius:8px;padding:12px;max-width:90vw;max-height:200px;overflow-y:auto;font-size:11px;text-align:left;color:#0f0}
 .debug-log div{margin:2px 0;font-family:monospace}
 .error-banner{position:absolute;left:12px;right:12px;bottom:12px;z-index:999;background:#d53d3d;color:#fff;border-radius:10px;padding:10px 12px;text-align:center;font-weight:700;box-shadow:0 10px 20px rgba(0,0,0,.35)}
@@ -66,6 +68,7 @@ button.reroute:hover{background:#00c2ff}
         <button id="locBtn">📍</button>
       </div>
       <div class="hint">音声検索・再測位に対応しています。</div>
+      <div id="status" aria-live="polite" style="color:var(--muted);font-size:13px;margin-top:8px;"></div>
     </div>
     <div class="comp-wrap">
       <div class="compass">
@@ -78,106 +81,323 @@ button.reroute:hover{background:#00c2ff}
     </div>
     <div id="loading" class="loading-screen">
       <div class="loading-inner">
-        <div class="loading-sub">データ通信料削減のため、<br>現在地の地図表示中です。<br>表示まで、このままお待ちください…</div>
+        <div class="loading-title">現在地取得中…</div>
+        <div class="loading-sub">データ通信料削減のため、<br>現在地の地図を表示中です。<br>もう少しだけお待ちください…</div>
+        <div class="loading-retry hidden">
+          <button id="retryBtn" class="primary">ページを再読み込み</button>
+        </div>
       </div>
       <div id="debugLog" class="debug-log"></div>
     </div>
     <div id="error-banner" class="error-banner hidden">
       <div id="error-text">エラーが発生しました。</div>
     </div>
-    <div id="status" style="position:absolute;left:10px;bottom:10px;z-index:999;color:#cfe0ff;font-size:12px;"></div>
   </div>
   <script>
 "use strict";
-let map,directionsService,directionsRenderer,currentPositionMarker=null,destinationMarker=null,watchId=null,isNavigating=false,initDone=false,hasLocationFix=false;
-const PLACES_PROXY="https://ors-proxy.miyata-connect-jp.workers.dev/places/text",GEO_TIMEOUT_MS=8000,FALLBACK_CENTER={lat:35.681236,lng:139.767125},LS_LAST_LOC="WALKNAV_LAST_LOCATION";
+let map,directionsService,directionsRenderer,currentPositionMarker=null,destinationMarker=null,watchId=null,isNavigating=false,initDone=false,mapCreated=false,currentLocation=null;
+const PLACES_PROXY="https://ors-proxy.miyata-connect-jp.workers.dev/places",GEO_TIMEOUT_MS=8000;
 
-function log(msg){console.log(msg);const el=document.getElementById("debugLog");if(el){const d=document.createElement("div");d.textContent=new Date().toLocaleTimeString()+" "+msg;el.appendChild(d);el.scrollTop=el.scrollHeight}}
+function log(msg){
+  console.log(msg);
+  const el=document.getElementById("debugLog");
+  if(el){
+    const d=document.createElement("div");
+    d.textContent=new Date().toLocaleTimeString()+" "+msg;
+    el.appendChild(d);
+    el.scrollTop=el.scrollHeight;
+  }
+}
 
-log("スクリプト読み込み完了");
+log("アプリ起動");
+log("URL: "+location.href);
+log("User-Agent: "+navigator.userAgent.substring(0,50)+"...");
 
-window.gm_authFailure=function(){log("ERROR: Google Maps認証失敗");showError("APIキーエラー：設定を確認してください")};
+window.gm_authFailure=function(){log("ERROR: Maps認証失敗");showError("APIキーエラー：設定を確認してください");showLoadingRetry()};
+
+window.addEventListener("error",e=>{
+  log(`ERROR: グローバルエラー - ${e.message}`);
+  if(e.message.includes("maps.googleapis.com")){
+    log("ERROR: Maps スクリプト読み込み失敗");
+    showError("地図の読み込みに失敗しました。ネットワークを確認してください。");
+    showLoadingRetry();
+  }
+});
 
 function waitForGoogleMaps(){
-  log("Google Maps API読み込み待機開始");
+  log("Google Maps API待機開始");
   let attempts=0;
-  const maxAttempts=50;
+  const maxAttempts=100;
   const checkInterval=setInterval(()=>{
     attempts++;
-    log(`チェック ${attempts}/${maxAttempts}`);
+    if(attempts%10===0)log(`チェック中... ${attempts}/${maxAttempts}`);
     if(typeof google!=="undefined"&&google.maps){
       clearInterval(checkInterval);
-      log("Google Maps API読み込み確認！");
+      log("Google Maps API読み込み完了");
       initMap();
     }else if(attempts>=maxAttempts){
       clearInterval(checkInterval);
-      log("ERROR: タイムアウト - Google Maps APIが読み込めません");
-      showError("地図の読み込みに失敗しました。ページを再読み込みしてください。");
-      hideLoading();
+      log("ERROR: Maps APIタイムアウト (20秒)");
+      showError("地図の読み込みがタイムアウトしました。ページを再読み込みしてください。");
+      showLoadingRetry();
     }
   },200);
 }
 
 function initMap(){
-  log("initMap呼び出し");
-  if(initDone){log("既に初期化済み");return}
+  if(initDone)return;
   initDone=!0;
+  log("initMap開始");
   
-  if(typeof google==="undefined"||!google.maps){log("ERROR: google.mapsが未定義");showError("Google Maps APIの読み込みに失敗しました");return}
+  if(typeof google==="undefined"||!google.maps){
+    log("ERROR: google.maps未定義");
+    showError("Google Maps APIの読み込みに失敗しました");
+    showLoadingRetry();
+    return;
+  }
   
-  log("Google Maps API読み込み成功");
-  const center=readLastLocation()||FALLBACK_CENTER;
-  log("中心座標: "+center.lat+","+center.lng);
+  if(!navigator.geolocation){
+    log("ERROR: Geolocation非対応");
+    showError("このブラウザは位置情報に対応していません。");
+    showLoadingRetry();
+    return;
+  }
+  
+  log("位置情報取得リクエスト開始");
+  setStatus("現在地を取得中…");
+  
+  navigator.geolocation.getCurrentPosition(pos=>{
+    log(`位置取得成功: ${pos.coords.latitude}, ${pos.coords.longitude}`);
+    log(`精度: ${pos.coords.accuracy}m`);
+    currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    createMap(currentLocation);
+    startLocationWatch();
+  },err=>{
+    log(`ERROR: 位置取得失敗 - code:${err.code}, msg:${err.message}`);
+    const errMsg=getGeoErrorMessage(err);
+    showError(errMsg);
+    showLoadingRetry();
+  },{enableHighAccuracy:!0,timeout:GEO_TIMEOUT_MS,maximumAge:0});
+}
+
+function getGeoErrorMessage(err){
+  switch(err.code){
+    case 1:return "位置情報へのアクセスが拒否されました。ブラウザの設定を確認してください。";
+    case 2:return "位置情報を取得できませんでした。GPS信号を確認してください。";
+    case 3:return "位置情報の取得がタイムアウトしました。もう一度お試しください。";
+    default:return "位置情報の取得に失敗しました。";
+  }
+}
+
+function createMap(center){
+  if(mapCreated)return;
+  mapCreated=!0;
+  log("地図生成開始");
   
   try{
     map=new google.maps.Map(document.getElementById("map"),{center,zoom:15,mapTypeControl:!1,streetViewControl:!1,fullscreenControl:!1,clickableIcons:!1,zoomControl:!1});
-    log("地図オブジェクト作成成功");
+    log("Map オブジェクト生成成功");
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
     log("Directions初期化完了");
     
-    let tilesLoaded=!1;
-    google.maps.event.addListenerOnce(map,"tilesloaded",()=>{log("タイル読み込み完了");tilesLoaded=!0;hideLoading()});
-    setTimeout(()=>{if(!tilesLoaded){log("タイムアウト：強制ローディング解除");hideLoading()}},5e3);
+    document.getElementById("map").style.display="block";
+    log("地図表示");
+    hideLoading();
     
     mountRightControls();
     bindUI();
     setupCompass();
-    log("UI初期化完了");
-    
-    if(navigator.geolocation){
-      log("位置情報取得開始");
-      navigator.geolocation.getCurrentPosition(pos=>{
-        log("位置情報取得成功");
-        const here={lat:pos.coords.latitude,lng:pos.coords.longitude};
-        hasLocationFix=!0;
-        saveLastLocation(here);
-        map.setCenter(here);
-        placeOrMoveCurrent(here);
-        startLocationWatch();
-      },err=>{
-        log("位置情報取得失敗: "+err.message);
-        console.warn("位置情報取得失敗。FALLBACK適用。",err.message);
-        placeOrMoveCurrent(center);
-      },{enableHighAccuracy:!0,timeout:GEO_TIMEOUT_MS,maximumAge:0})
-    }else{
-      log("位置情報非対応ブラウザ");
-      console.warn("このブラウザは位置情報に対応していません。")
-    }
+    placeOrMoveCurrent(center);
+    setStatus("地図を表示しました");
+    log("初期化完了");
   }catch(e){
-    log("ERROR: 初期化例外 - "+e.message);
+    log("ERROR: 地図生成例外 - "+e.message);
     console.error(e);
-    showError("地図の初期化に失敗しました: "+e.message)
+    showError("地図の初期化に失敗しました");
+    showLoadingRetry();
   }
 }
 
+function showLoadingRetry(){
+  log("再取得UI表示");
+  const loading=document.getElementById("loading");
+  const title=loading.querySelector(".loading-title");
+  const sub=loading.querySelector(".loading-sub");
+  const retry=loading.querySelector(".loading-retry");
+  
+  if(title)title.textContent="読み込みに失敗しました";
+  if(sub)sub.textContent="ネットワーク接続を確認して、\nページを再読み込みしてください。";
+  if(retry)retry.classList.remove("hidden");
+}
+
 function hideLoading(){
+  log("ローディング非表示");
   const el=document.getElementById("loading");
   if(el&&"none"!==el.style.display){
-    log("ローディング非表示");
     el.classList.add("hide");
     setTimeout(()=>el.style.display="none",400)
   }
+}
+
+function relocalize(){
+  log("再取得開始");
+  setStatus("現在地を再取得中…");
+  if(!navigator.geolocation){
+    log("ERROR: Geolocation非対応");
+    return void showError("位置情報が利用できません。");
+  }
+  
+  navigator.geolocation.getCurrentPosition(pos=>{
+    log(`再取得成功: ${pos.coords.latitude}, ${pos.coords.longitude}`);
+    currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    
+    if(!mapCreated){
+      log("地図未生成のため createMap 実行");
+      createMap(currentLocation);
+      startLocationWatch();
+    }else{
+      log("既存地図を更新");
+      placeOrMoveCurrent(currentLocation);
+      map.panTo(currentLocation);
+      setStatus("現在地を更新しました");
+    }
+  },err=>{
+    log(`ERROR: 再取得失敗 - code:${err.code}`);
+    showError(getGeoErrorMessage(err));
+    if(!mapCreated)showLoadingRetry();
+  },{enableHighAccuracy:!0,timeout:GEO_TIMEOUT_MS,maximumAge:0});
+}
+
+function startLocationWatch(){
+  if(!navigator.geolocation)return;
+  log("位置追従開始");
+  watchId&&navigator.geolocation.clearWatch(watchId);
+  watchId=navigator.geolocation.watchPosition(pos=>{
+    currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    placeOrMoveCurrent(currentLocation);
+    isNavigating&&reroute(!1);
+  },err=>log(`watchPosition error: ${err.message}`),{enableHighAccuracy:!0,timeout:GEO_TIMEOUT_MS,maximumAge:0});
+}
+
+function placeOrMoveCurrent(latlng){
+  currentPositionMarker?currentPositionMarker.setPosition(latlng):currentPositionMarker=new google.maps.Marker({position:latlng,map,icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:"#5fb1ff",fillOpacity:1,strokeWeight:2,strokeColor:"#fff"},title:"現在地"});
+}
+
+async function searchPlace(){
+  const qv=q("#searchBox").value.trim();
+  if(!qv)return showError("検索ワードを入力してください。");
+  if(!currentLocation)return showError("現在地の取得を待っています。");
+  
+  log(`検索開始: ${qv}`);
+  setStatus("検索中…");
+  try{
+    const payload={
+      textQuery:qv,
+      locationBias:currentLocation?{circle:{center:{latitude:currentLocation.lat,longitude:currentLocation.lng},radius:20000}}:void 0
+    };
+    const res=await fetch(PLACES_PROXY,{
+      method:"POST",
+      headers:{
+        "Content-Type":"application/json",
+        "X-Goog-FieldMask":"places.displayName,places.location"
+      },
+      body:JSON.stringify(payload)
+    });
+    if(!res.ok){
+      log(`ERROR: Places API失敗 - ${res.status}`);
+      throw new Error(await res.text());
+    }
+    const data=await res.json(),place=data?.places?.[0];
+    if(!place){
+      log("検索結果0件");
+      showError("該当する地点が見つかりませんでした");
+      speak("該当する地点が見つかりませんでした");
+      return;
+    }
+    const lat=place.location?.latitude,lng=place.location?.longitude,name=place.displayName?.text||qv;
+    log(`検索成功: ${name}`);
+    destinationMarker&&destinationMarker.setMap(null);
+    destinationMarker=new google.maps.Marker({position:{lat,lng},map,title:name});
+    map.panTo({lat,lng});
+    setStatus(`検索完了: ${name}`);
+  }catch(e){
+    log(`ERROR: 検索例外 - ${e.message}`);
+    console.error(e);
+    showError("検索エラーが発生しました。");
+  }
+}
+
+function startNav(){
+  if(!currentPositionMarker||!destinationMarker)return showError("現在地または目的地が未設定です。");
+  log("案内開始");
+  const origin=currentPositionMarker.getPosition(),dest=destinationMarker.getPosition();
+  setStatus("経路計算中…");
+  directionsService.route({origin,destination:dest,travelMode:google.maps.TravelMode.WALKING},(res,status)=>{
+    if("OK"!==status){
+      log(`ERROR: Directions失敗 - ${status}`);
+      showError("経路を取得できません。");
+      return;
+    }
+    log("案内開始成功");
+    directionsRenderer.setDirections(res);
+    isNavigating=!0;
+    speak("案内を開始します。");
+    setStatus("案内中");
+  });
+}
+
+function stopNav(){
+  log("案内停止");
+  directionsRenderer.setDirections({routes:[]});
+  isNavigating=!1;
+  speak("案内を終了します。");
+  setStatus("案内を停止しました");
+}
+
+function reroute(manual){
+  if(!isNavigating)return void(manual&&showError("案内が開始されていません。"));
+  log(manual?"手動リルート":"自動リルート");
+  const origin=currentPositionMarker.getPosition(),dest=destinationMarker.getPosition();
+  directionsService.route({origin,destination:dest,travelMode:google.maps.TravelMode.WALKING},(res,status)=>{
+    if("OK"!==status){
+      log(`ERROR: リルート失敗 - ${status}`);
+      showError("リルートに失敗しました。");
+      return;
+    }
+    directionsRenderer.setDirections(res);
+    manual&&speak("リルートしました。");
+    setStatus("経路を更新しました");
+  });
+}
+
+function initVoiceRecognition(){
+  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SpeechRecognition){
+    log("ERROR: SpeechRecognition非対応");
+    return showError("音声認識に対応していません。");
+  }
+  log("音声認識開始");
+  const recognition=new SpeechRecognition,micBtn=q("#micBtn");
+  recognition.lang="ja-JP";
+  recognition.continuous=!1;
+  recognition.interimResults=!1;
+  micBtn.classList.add("rec");
+  recognition.onresult=e=>{
+    const transcript=e.results[0][0].transcript;
+    log(`音声認識結果: ${transcript}`);
+    q("#searchBox").value=transcript;
+    searchPlace();
+    micBtn.classList.remove("rec");
+  };
+  recognition.onerror=e=>{
+    log(`音声認識エラー: ${e.error}`);
+    console.error("音声認識エラー:",e.error);
+    showError("音声認識に失敗しました。");
+    micBtn.classList.remove("rec");
+  };
+  recognition.onend=()=>micBtn.classList.remove("rec");
+  recognition.start();
 }
 
 function mountRightControls(){
@@ -206,6 +426,8 @@ function bindUI(){
   q("#searchBtn").onclick=searchPlace;
   q("#micBtn").onclick=initVoiceRecognition;
   q("#locBtn").onclick=relocalize;
+  const retryBtn=q("#retryBtn");
+  retryBtn&&(retryBtn.onclick=()=>location.reload());
   q("#searchBox").addEventListener("keydown",e=>{"Enter"===e.key&&searchPlace()});
   document.addEventListener("click",e=>{
     const id=e.target?.id||"";
@@ -213,119 +435,52 @@ function bindUI(){
   });
 }
 
-function relocalize(){
-  setStatus("現在地を再取得中…");
-  if(!navigator.geolocation)return void showError("位置情報が利用できません。");
-  navigator.geolocation.getCurrentPosition(pos=>{
-    const here={lat:pos.coords.latitude,lng:pos.coords.longitude};
-    hasLocationFix=!0;
-    saveLastLocation(here);
-    placeOrMoveCurrent(here);
-    map.panTo(here);
-    setStatus("現在地を更新しました。");
-  },err=>showError("現在地取得失敗: "+err.message),{enableHighAccuracy:!0,timeout:GEO_TIMEOUT_MS,maximumAge:0});
-}
-
-function startLocationWatch(){
-  if(!navigator.geolocation)return;
-  watchId&&navigator.geolocation.clearWatch(watchId);
-  watchId=navigator.geolocation.watchPosition(pos=>{
-    const here={lat:pos.coords.latitude,lng:pos.coords.longitude};
-    hasLocationFix=!0;
-    saveLastLocation(here);
-    placeOrMoveCurrent(here);
-    isNavigating&&reroute(!1);
-  },err=>console.warn("watchPosition:",err.message),{enableHighAccuracy:!0,timeout:GEO_TIMEOUT_MS,maximumAge:0});
-}
-
-function placeOrMoveCurrent(latlng){
-  currentPositionMarker?currentPositionMarker.setPosition(latlng):currentPositionMarker=new google.maps.Marker({position:latlng,map,icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:"#5fb1ff",fillOpacity:1,strokeWeight:2,strokeColor:"#fff"},title:"現在地"});
-}
-
-async function searchPlace(){
-  const qv=q("#searchBox").value.trim();
-  if(!qv)return showError("検索ワードを入力してください。");
-  if(!currentPositionMarker)return showError("現在地の取得を待っています。");
-  setStatus("検索中…");
-  try{
-    const pos=currentPositionMarker.getPosition(),payload={textQuery:qv,locationBias:pos?{circle:{center:{latitude:pos.lat(),longitude:pos.lng()},radius:2e4}}:void 0};
-    const res=await fetch(PLACES_PROXY,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
-    if(!res.ok)throw new Error(await res.text());
-    const data=await res.json(),place=data?.places?.[0];
-    if(!place)return showError("該当する地点が見つかりません。");
-    const lat=place.location?.latitude,lng=place.location?.longitude,name=place.displayName?.text||qv;
-    destinationMarker&&destinationMarker.setMap(null);
-    destinationMarker=new google.maps.Marker({position:{lat,lng},map,title:name});
-    map.panTo({lat,lng});
-    setStatus(`検索完了: ${name}`);
-  }catch(e){
-    console.error(e);
-    showError("検索エラーが発生しました。");
-  }
-}
-
-function startNav(){
-  if(!currentPositionMarker||!destinationMarker)return showError("現在地または目的地が未設定です。");
-  const origin=currentPositionMarker.getPosition(),dest=destinationMarker.getPosition();
-  setStatus("経路計算中…");
-  directionsService.route({origin,destination:dest,travelMode:google.maps.TravelMode.WALKING},(res,status)=>{
-    "OK"!==status?showError("経路を取得できません。"):(directionsRenderer.setDirections(res),isNavigating=!0,speak("案内を開始します。"),setStatus("案内中"));
-  });
-}
-
-function stopNav(){
-  directionsRenderer.setDirections({routes:[]});
-  isNavigating=!1;
-  speak("案内を終了します。");
-  setStatus("案内を停止しました。");
-}
-
-function reroute(manual){
-  if(!isNavigating)return void(manual&&showError("案内が開始されていません。"));
-  const origin=currentPositionMarker.getPosition(),dest=destinationMarker.getPosition();
-  directionsService.route({origin,destination:dest,travelMode:google.maps.TravelMode.WALKING},(res,status)=>{
-    "OK"!==status?showError("リルートに失敗しました。"):(directionsRenderer.setDirections(res),manual&&speak("リルートしました。"),setStatus("案内更新中"));
-  });
-}
-
-function initVoiceRecognition(){
-  const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SpeechRecognition)return showError("音声認識に対応していません。");
-  const recognition=new SpeechRecognition,micBtn=q("#micBtn");
-  recognition.lang="ja-JP";
-  recognition.continuous=!1;
-  recognition.interimResults=!1;
-  micBtn.classList.add("rec");
-  recognition.onresult=e=>{const transcript=e.results[0][0].transcript;q("#searchBox").value=transcript;searchPlace();micBtn.classList.remove("rec")};
-  recognition.onerror=e=>{console.error("音声認識エラー:",e.error);showError("音声認識に失敗しました。");micBtn.classList.remove("rec")};
-  recognition.onend=()=>micBtn.classList.remove("rec");
-  recognition.start();
-}
-
 let compassAlpha=0,targetAlpha=0;
 function setupCompass(){
   const needle=document.querySelector(".needle");
   if(!needle)return;
   !function animate(){compassAlpha=.8*compassAlpha+.2*targetAlpha;needle.style.transform=`rotate(${compassAlpha}deg)`;requestAnimationFrame(animate)}();
-  const useAlpha=a=>{"number"==typeof a&&(targetAlpha=a)};
-  "undefined"!=typeof DeviceOrientationEvent&&window.addEventListener("deviceorientation",e=>{"number"==typeof e.alpha&&useAlpha(e.alpha)});
+  
+  if("undefined"!=typeof DeviceOrientationEvent){
+    window.addEventListener("deviceorientation",e=>{"number"==typeof e.alpha&&(targetAlpha=e.alpha)});
+  }
+  
+  let lastHeading=Date.now();
+  const headingFallback=()=>{
+    if(Date.now()-lastHeading<300)return;
+    if(watchId&&navigator.geolocation){
+      navigator.geolocation.getCurrentPosition(pos=>{
+        if("number"==typeof pos.coords.heading){
+          targetAlpha=pos.coords.heading;
+          lastHeading=Date.now();
+        }
+      });
+    }
+  };
+  setInterval(headingFallback,300);
 }
 
 function q(s){return document.querySelector(s)}
 function setStatus(s){const el=q("#status");el&&(el.textContent=s||"")}
 function showError(msg){
-  log("ERROR: "+msg);
   const b=q("#error-banner"),t=q("#error-text");
   t&&(t.textContent=msg);
   b&&(b.classList.remove("hidden"),setTimeout(()=>b.classList.add("hidden"),4e3));
   speak(msg);
 }
-function speak(t){try{const u=new SpeechSynthesisUtterance(t);u.lang="ja-JP";speechSynthesis.speak(u)}catch{}}
-function saveLastLocation(latlng){try{localStorage.setItem(LS_LAST_LOC,JSON.stringify(latlng))}catch{}}
-function readLastLocation(){try{const s=localStorage.getItem(LS_LAST_LOC);if(!s)return null;const v=JSON.parse(s);if("number"==typeof v?.lat&&"number"==typeof v?.lng)return v}catch{}return null}
+function speak(t){
+  try{
+    const u=new SpeechSynthesisUtterance(t);
+    u.lang="ja-JP";
+    u.rate=0.88;
+    speechSynthesis.speak(u)
+  }catch{}
+}
 
+bindUI();
+log("スクリプト初期化完了、Maps待機開始");
 waitForGoogleMaps();
   </script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places" async defer></script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places" async defer onerror="log('ERROR: Maps script load failed')"></script>
 </body>
 </html>
