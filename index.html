@@ -32,19 +32,24 @@ button.ok{background:var(--ok);border:none;font-weight:700}
 button.danger{background:var(--danger);border:none;font-weight:700}
 button.reroute{background:var(--accent);border:none;color:#fff;font-weight:700}
 button.reroute:hover{background:#00c2ff}
+button.active{background:var(--ok)!important}
 #micBtn{background:var(--mic-green)}
 #micBtn.rec{background:var(--mic-red)}
 .hint{color:var(--muted);font-size:13px}
-.comp-wrap{position:absolute;left:10px;top:150px;z-index:425}
+.comp-wrap{position:absolute;left:10px;top:150px;z-index:425;display:flex;flex-direction:column;gap:8px;align-items:center}
 .compass{width:90px;height:90px;background:var(--glass);border:1px solid var(--stroke);border-radius:50%;backdrop-filter:blur(10px) saturate(120%);-webkit-backdrop-filter:blur(10px) saturate(120%);box-shadow:0 10px 26px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
 .compass .needle{transform-origin:38px 38px}
+.heading-btns{display:flex;gap:6px}
+.heading-btn{width:42px;height:32px;background:var(--glass-strong);border:1px solid var(--stroke);border-radius:8px;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-weight:700}
+.heading-btn.active{background:var(--primary);border-color:var(--primary)}
 .gm-fab-col{display:flex;flex-direction:column;gap:10px;transform:translateY(40px);z-index:430}
-.gm-fab-col .btn-wide{min-width:150px;box-shadow:0 12px 26px rgba(0,0,0,.45);background:var(--glass-strong);border:1px solid var(--stroke);color:var(--text);border-radius:12px;padding:11px 13px;font-size:16px}
+.gm-fab-col .btn-wide{min-width:150px;box-shadow:0 12px 26px rgba(0,0,0,.45);background:var(--glass-strong);border:1px solid var(--stroke);color:var(--text);border-radius:12px;padding:11px 13px;font-size:16px;font-weight:700;cursor:pointer}
 .gm-fab-col .btn-wide.ok{background:var(--ok);border:none}
 .gm-fab-col .btn-wide.danger{background:var(--danger);border:none}
 .gm-fab-col .btn-wide.reroute{background:var(--accent);border:none;color:#fff}
+.gm-fab-col .btn-wide.primary{background:var(--primary);border:none}
 .gm-fab-col .zooms{display:flex;flex-direction:column;gap:8px;align-items:center}
-.gm-fab-col .btn-zoom{width:44px;height:44px;border-radius:8px;border:1px solid var(--stroke);background:var(--glass-strong);color:#fff;font-size:18px;line-height:44px;text-align:center;box-shadow:0 10px 20px rgba(0,0,0,.35)}
+.gm-fab-col .btn-zoom{width:44px;height:44px;border-radius:8px;border:1px solid var(--stroke);background:var(--glass-strong);color:#fff;font-size:18px;line-height:44px;text-align:center;box-shadow:0 10px 20px rgba(0,0,0,.35);cursor:pointer}
 .loading-screen{position:fixed;inset:0;background:#0e1a2d;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:1000;opacity:1;transition:opacity .4s;gap:20px}
 .loading-screen.hide{opacity:0;pointer-events:none}
 .loading-inner{text-align:center;padding:28px 24px}
@@ -89,6 +94,10 @@ button.reroute:hover{background:#00c2ff}
           <circle cx="38" cy="38" r="4" fill="#5fb1ff" stroke="#fff" stroke-width="2"/>
         </svg>
       </div>
+      <div class="heading-btns">
+        <div class="heading-btn active" id="headingUpBtn">H-UP</div>
+        <div class="heading-btn" id="northUpBtn">N-UP</div>
+      </div>
     </div>
     <div id="loading" class="loading-screen">
       <div class="loading-inner">
@@ -105,9 +114,9 @@ button.reroute:hover{background:#00c2ff}
   </div>
   <script>
 "use strict";
-let map,directionsService,directionsRenderer,currentPositionMarker=null,destinationMarker=null,watchId=null,isNavigating=false,initDone=false,mapCreated=false,currentLocation=null,searchResults=[];
+let map,directionsService,directionsRenderer,currentPositionMarker=null,destinationMarker=null,watchId=null,isNavigating=false,initDone=false,mapCreated=false,currentLocation=null,searchResults=[],headingMode="up",currentHeading=0;
 
-const PLACES_PROXY="https://ors-proxy.miyata-connect-jp.workers.dev/places",GEO_TIMEOUT_MS=8000;
+const PLACES_PROXY="https://ors-proxy.miyata-connect-jp.workers.dev/v1/places",GEO_TIMEOUT_MS=8000;
 
 window.gm_authFailure=function(){showError("APIキーエラー：設定を確認してください");showLoadingRetry()};
 
@@ -170,7 +179,7 @@ function createMap(center){
   mapCreated=!0;
   
   try{
-    map=new google.maps.Map(document.getElementById("map"),{center,zoom:17,mapTypeControl:!1,streetViewControl:!1,fullscreenControl:!1,clickableIcons:!1,zoomControl:!1});
+    map=new google.maps.Map(document.getElementById("map"),{center,zoom:17,mapTypeControl:!1,streetViewControl:!1,fullscreenControl:!1,clickableIcons:!1,zoomControl:!1,heading:0});
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
     
@@ -209,8 +218,14 @@ function hideLoading(){
 }
 
 function relocalize(){
+  const btn=q("#locBtn");
+  btn.classList.add("active");
   setStatus("現在地を再取得中…");
-  if(!navigator.geolocation)return void showError("位置情報が利用できません。");
+  
+  if(!navigator.geolocation){
+    btn.classList.remove("active");
+    return void showError("位置情報が利用できません。");
+  }
   
   navigator.geolocation.getCurrentPosition(pos=>{
     currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
@@ -224,10 +239,24 @@ function relocalize(){
       map.panTo(currentLocation);
       setStatus("現在地を更新しました");
     }
+    
+    setTimeout(()=>btn.classList.remove("active"),500);
   },err=>{
     showError(getGeoErrorMessage(err));
+    btn.classList.remove("active");
     if(!mapCreated)showLoadingRetry();
   },{enableHighAccuracy:!0,timeout:GEO_TIMEOUT_MS,maximumAge:0});
+}
+
+function goToDestination(){
+  if(!destinationMarker){
+    showError("目的地が設定されていません");
+    return;
+  }
+  const pos=destinationMarker.getPosition();
+  map.setZoom(17);
+  map.panTo(pos);
+  setStatus("目的地を表示しました");
 }
 
 function startLocationWatch(){
@@ -236,6 +265,12 @@ function startLocationWatch(){
   watchId=navigator.geolocation.watchPosition(pos=>{
     currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
     placeOrMoveCurrent(currentLocation);
+    
+    if("number"==typeof pos.coords.heading&&pos.coords.heading>=0){
+      currentHeading=pos.coords.heading;
+      updateMapHeading();
+    }
+    
     isNavigating&&reroute(!1);
   },err=>console.warn("watchPosition:",err.message),{enableHighAccuracy:!0,timeout:GEO_TIMEOUT_MS,maximumAge:0});
 }
@@ -256,14 +291,15 @@ async function searchPlace(){
     const payload={
       textQuery:qv,
       locationBias:currentLocation?{circle:{center:{latitude:currentLocation.lat,longitude:currentLocation.lng},radius:5000}}:void 0,
-      maxResultCount:5
+      maxResultCount:5,
+      fieldMask:"id,displayName,formattedAddress,location"
     };
     
     const res=await fetch(PLACES_PROXY,{
       method:"POST",
       headers:{
         "Content-Type":"application/json",
-        "X-Goog-FieldMask":"places.displayName,places.location,places.formattedAddress"
+        "Accept-Language":"ja-JP"
       },
       body:JSON.stringify(payload)
     });
@@ -363,6 +399,27 @@ function reroute(manual){
   });
 }
 
+function setHeadingMode(mode){
+  headingMode=mode;
+  q("#headingUpBtn").classList.toggle("active",mode==="up");
+  q("#northUpBtn").classList.toggle("active",mode==="north");
+  
+  if(mode==="north"){
+    map.setHeading(0);
+    map.setZoom(Math.max(map.getZoom(),17));
+    setStatus("ノースアップモード");
+  }else{
+    updateMapHeading();
+    setStatus("ヘディングアップモード");
+  }
+}
+
+function updateMapHeading(){
+  if(headingMode==="up"&&currentHeading>=0){
+    map.setHeading(currentHeading);
+  }
+}
+
 function initVoiceRecognition(){
   const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SpeechRecognition){
@@ -391,11 +448,20 @@ function initVoiceRecognition(){
 function mountRightControls(){
   const c=document.createElement("div");
   c.className="gm-fab-col";
-  const btnStart=mkBtn("案内開始","ok","gm-start-nav"),btnStop=mkBtn("案内を停止","danger","gm-stop-nav"),btnReroute=mkBtn("リルート","reroute","gm-reroute"),zooms=document.createElement("div");
+  
+  const btnCurrent=mkBtn("📍 現在地","primary","gm-current");
+  const btnDest=mkBtn("🎯 目的地","primary","gm-destination");
+  const btnStart=mkBtn("▶ 案内開始","ok","gm-start-nav");
+  const btnStop=mkBtn("⏹ 案内停止","danger","gm-stop-nav");
+  const btnReroute=mkBtn("🔄 リルート","reroute","gm-reroute");
+  
+  const zooms=document.createElement("div");
   zooms.className="zooms";
   zooms.append(mkBtn("＋","btn-zoom","gm-zoom-in"),mkBtn("－","btn-zoom","gm-zoom-out"));
-  c.append(btnStart,btnStop,btnReroute,zooms);
+  
+  c.append(btnCurrent,btnDest,btnStart,btnStop,btnReroute,zooms);
   map.controls[google.maps.ControlPosition.RIGHT_CENTER].push(c);
+  
   const gb=q("#glassbar"),toggle=()=>{const visible=gb&&"none"!==getComputedStyle(gb).display;c.style.display=visible?"none":""};
   new MutationObserver(toggle).observe(document.body,{attributes:!0,childList:!0,subtree:!0});
   addEventListener("resize",toggle);
@@ -414,12 +480,22 @@ function bindUI(){
   q("#searchBtn").onclick=searchPlace;
   q("#micBtn").onclick=initVoiceRecognition;
   q("#locBtn").onclick=relocalize;
+  q("#headingUpBtn").onclick=()=>setHeadingMode("up");
+  q("#northUpBtn").onclick=()=>setHeadingMode("north");
+  
   const retryBtn=q("#retryBtn");
   retryBtn&&(retryBtn.onclick=()=>location.reload());
   q("#searchBox").addEventListener("keydown",e=>{"Enter"===e.key&&searchPlace()});
+  
   document.addEventListener("click",e=>{
     const id=e.target?.id||"";
-    "gm-start-nav"===id?startNav():"gm-stop-nav"===id?stopNav():"gm-reroute"===id?reroute(!0):"gm-zoom-in"===id?map.setZoom(map.getZoom()+1):"gm-zoom-out"===id&&map.setZoom(map.getZoom()-1);
+    if(id==="gm-current")relocalize();
+    else if(id==="gm-destination")goToDestination();
+    else if(id==="gm-start-nav")startNav();
+    else if(id==="gm-stop-nav")stopNav();
+    else if(id==="gm-reroute")reroute(!0);
+    else if(id==="gm-zoom-in")map.setZoom(map.getZoom()+1);
+    else if(id==="gm-zoom-out")map.setZoom(map.getZoom()-1);
   });
 }
 
@@ -427,25 +503,24 @@ let compassAlpha=0,targetAlpha=0;
 function setupCompass(){
   const needle=document.querySelector(".needle");
   if(!needle)return;
-  !function animate(){compassAlpha=.8*compassAlpha+.2*targetAlpha;needle.style.transform=`rotate(${compassAlpha}deg)`;requestAnimationFrame(animate)}();
+  
+  !function animate(){
+    compassAlpha=.8*compassAlpha+.2*targetAlpha;
+    needle.style.transform=`rotate(${compassAlpha}deg)`;
+    requestAnimationFrame(animate);
+  }();
   
   if("undefined"!=typeof DeviceOrientationEvent){
-    window.addEventListener("deviceorientation",e=>{"number"==typeof e.alpha&&(targetAlpha=e.alpha)});
-  }
-  
-  let lastHeading=Date.now();
-  const headingFallback=()=>{
-    if(Date.now()-lastHeading<300)return;
-    if(watchId&&navigator.geolocation){
-      navigator.geolocation.getCurrentPosition(pos=>{
-        if("number"==typeof pos.coords.heading){
-          targetAlpha=pos.coords.heading;
-          lastHeading=Date.now();
+    window.addEventListener("deviceorientation",e=>{
+      if("number"==typeof e.alpha){
+        targetAlpha=e.alpha;
+        if(headingMode==="up"){
+          currentHeading=e.alpha;
+          updateMapHeading();
         }
-      });
-    }
-  };
-  setInterval(headingFallback,300);
+      }
+    });
+  }
 }
 
 function q(s){return document.querySelector(s)}
