@@ -138,10 +138,11 @@ input{
   line-height:1.4;
 }
 .route-time{
-  font-size:13px;
-  color:var(--muted);
+  font-size:15px;
+  color:var(--text);
   display:flex;
-  gap:12px;
+  gap:16px;
+  font-weight:600;
 }
 .route-time span{
   display:flex;
@@ -161,13 +162,13 @@ input{
   gap:10px;
 }
 .nav-btn{
-  width:60px;
-  height:50px;
+  width:70px;
+  height:55px;
   background:var(--glass-strong);
   border:1px solid var(--stroke);
   border-radius:10px;
   color:var(--text);
-  font-size:11px;
+  font-size:12px;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -178,6 +179,69 @@ input{
 .nav-btn.ok{background:var(--ok);border:none}
 .nav-btn.danger{background:var(--danger);border:none}
 .nav-btn.accent{background:var(--accent);border:none}
+.nav-btn.active{background:var(--ok);border:2px solid #fff}
+
+/* 地図操作ボタン */
+.map-controls{
+  position:absolute;
+  right:10px;
+  bottom:80px;
+  z-index:440;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.map-btn{
+  width:55px;
+  height:55px;
+  background:var(--glass-strong);
+  border:1px solid var(--stroke);
+  border-radius:10px;
+  color:var(--text);
+  font-size:13px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  font-weight:700;
+}
+.map-btn.active{background:var(--ok);border:2px solid #fff}
+
+/* 天気予報 */
+.weather-panel{
+  position:absolute;
+  right:10px;
+  top:10px;
+  background:var(--glass);
+  border:1px solid var(--stroke);
+  border-radius:12px;
+  backdrop-filter:blur(14px);
+  padding:10px;
+  z-index:430;
+  display:flex;
+  gap:8px;
+}
+.weather-item{
+  text-align:center;
+  font-size:11px;
+  color:var(--text);
+  padding:6px;
+  background:var(--glass-strong);
+  border-radius:8px;
+  min-width:55px;
+}
+.weather-icon{
+  font-size:24px;
+  margin:4px 0;
+}
+.weather-temp{
+  font-weight:700;
+  font-size:13px;
+}
+.weather-rain{
+  color:var(--accent);
+  font-size:10px;
+}
 
 /* 検索結果 */
 .results-panel{
@@ -261,6 +325,28 @@ input{
   <div class="app">
     <div id="map"></div>
     
+    <!-- 天気予報 -->
+    <div id="weatherPanel" class="weather-panel">
+      <div class="weather-item">
+        <div>3h</div>
+        <div class="weather-icon" id="w3h">☀️</div>
+        <div class="weather-temp" id="t3h">--°</div>
+        <div class="weather-rain" id="r3h">--%</div>
+      </div>
+      <div class="weather-item">
+        <div>6h</div>
+        <div class="weather-icon" id="w6h">☁️</div>
+        <div class="weather-temp" id="t6h">--°</div>
+        <div class="weather-rain" id="r6h">--%</div>
+      </div>
+      <div class="weather-item">
+        <div>9h</div>
+        <div class="weather-icon" id="w9h">🌧️</div>
+        <div class="weather-temp" id="t9h">--°</div>
+        <div class="weather-rain" id="r9h">--%</div>
+      </div>
+    </div>
+    
     <!-- 方位計 -->
     <div id="compass" class="compass">
       <div class="compass-n">N</div>
@@ -313,6 +399,13 @@ input{
       <div class="nav-btn accent" onclick="reroute()">リルート</div>
     </div>
     
+    <!-- 地図操作ボタン -->
+    <div class="map-controls">
+      <div class="map-btn" id="nupBtn" onclick="setNorthUp()">N-UP</div>
+      <div class="map-btn active" id="hupBtn" onclick="setHeadingUp()">H-UP</div>
+      <div class="map-btn" onclick="toggleFullscreen()">⛶</div>
+    </div>
+    
     <!-- 検索結果 -->
     <div id="resultsPanel" class="results-panel">
       <div id="resultsList"></div>
@@ -336,9 +429,74 @@ input{
   
   <script>
 "use strict";
-let map,directionsService,directionsRenderer,currentMarker=null,destMarker=null,watchId=null,isNavigating=!1,currentLocation=null,savedPoints=[],selectingMapPoint=!1,stopAnnounced=!1,compassAlpha=0,targetAlpha=0;
+let map,directionsService,directionsRenderer,currentMarker=null,destMarker=null,watchId=null,isNavigating=!1,currentLocation=null,savedPoints=[],selectingMapPoint=!1,stopAnnounced=!1,compassAlpha=0,targetAlpha=0,headingMode="heading";
 
 const PLACES_PROXY="https://ors-proxy.miyata-connect-jp.workers.dev/v1/places";
+
+function setNorthUp(){
+  headingMode="north";
+  map.setHeading(0);
+  map.setTilt(0);
+  document.getElementById("nupBtn").classList.add("active");
+  document.getElementById("hupBtn").classList.remove("active");
+  setStatus("ノースアップモード");
+}
+
+function setHeadingUp(){
+  headingMode="heading";
+  if(typeof targetAlpha==="number"){
+    map.setHeading(360-targetAlpha);
+  }
+  map.setTilt(45);
+  document.getElementById("nupBtn").classList.remove("active");
+  document.getElementById("hupBtn").classList.add("active");
+  setStatus("ヘディングアップモード");
+}
+
+function toggleFullscreen(){
+  if(!document.fullscreenElement){
+    document.documentElement.requestFullscreen();
+  }else{
+    document.exitFullscreen();
+  }
+}
+
+async function fetchWeather(){
+  if(!currentLocation)return;
+  
+  try{
+    const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${currentLocation.lat}&longitude=${currentLocation.lng}&hourly=temperature_2m,precipitation_probability,weathercode&timezone=Asia/Tokyo&forecast_days=1`);
+    const data=await res.json();
+    
+    const now=new Date();
+    const currentHour=now.getHours();
+    
+    const hours=[3,6,9];
+    const weatherIcons={0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",53:"🌧️",55:"🌧️",61:"🌧️",63:"🌧️",65:"🌧️",71:"🌨️",73:"🌨️",75:"🌨️",77:"🌨️",80:"🌧️",81:"🌧️",82:"🌧️",85:"🌨️",86:"🌨️",95:"⛈️",96:"⛈️",99:"⛈️"};
+    
+    hours.forEach(h=>{
+      const targetHour=(currentHour+h)%24;
+      const idx=data.hourly.time.findIndex(t=>new Date(t).getHours()===targetHour);
+      
+      if(idx>=0){
+        const temp=Math.round(data.hourly.temperature_2m[idx]);
+        const rain=data.hourly.precipitation_probability[idx]||0;
+        const code=data.hourly.weathercode[idx];
+        const icon=weatherIcons[code]||"☁️";
+        
+        document.getElementById(`w${h}h`).textContent=icon;
+        document.getElementById(`t${h}h`).textContent=`${temp}°`;
+        document.getElementById(`r${h}h`).textContent=`${rain}%`;
+      }
+    });
+  }catch(e){
+    console.error("Weather fetch error:",e);
+  }
+}
+
+function setStatus(msg){
+  console.log("Status:",msg);
+}
 
 function togglePanel(){
   const panel=document.getElementById("controlPanel");
@@ -397,6 +555,7 @@ function initMap(){
     setTimeout(()=>{
       document.getElementById("compass").classList.remove("hidden");
       document.getElementById("panelToggle").classList.add("show");
+      fetchWeather();
     },100);
     
     setupCompass();
@@ -419,6 +578,11 @@ function setupCompass(){
     window.addEventListener("deviceorientation",e=>{
       if(typeof e.alpha==="number"){
         targetAlpha=e.alpha;
+        
+        // H-UPモード時は地図の向きを更新
+        if(headingMode==="heading"){
+          map.setHeading(360-e.alpha);
+        }
       }
     });
   }
@@ -552,9 +716,11 @@ function relocalize(){
 }
 
 function goToCurrent(){
-  if(!currentMarker)return;
-  map.panTo(currentMarker.getPosition());
+  if(!currentMarker)return showError("現在地未設定");
+  const pos=currentMarker.getPosition();
+  map.panTo(pos);
   map.setZoom(18);
+  setStatus("現在地を表示");
 }
 
 function goToDestination(){
@@ -621,7 +787,14 @@ function stopNav(){
   isNavigating=!1;
   
   document.getElementById("routeInfo").classList.remove("show");
-  document.getElementById("navButtons").classList.add("hidden");
+  
+  // 目的地がある場合はナビボタンを表示維持
+  if(destMarker){
+    document.getElementById("navButtons").classList.remove("hidden");
+  }else{
+    document.getElementById("navButtons").classList.add("hidden");
+  }
+  
   document.getElementById("panelToggle").classList.add("show");
   
   if(currentMarker){
@@ -640,15 +813,25 @@ function reroute(manual=!0){
     origin:currentMarker.getPosition(),
     destination:destMarker.getPosition(),
     travelMode:google.maps.TravelMode.WALKING,
-    provideRouteAlternatives:!0
+    provideRouteAlternatives:!0,
+    avoidHighways:Math.random()>0.5,
+    avoidTolls:Math.random()>0.5
   },(res,status)=>{
     if(status!=="OK")return showError("リルート失敗");
     
     const routes=res.routes;
-    const alt=routes.length>1?routes[1]:routes[0];
-    directionsRenderer.setDirections({...res,routes:[alt]});
     
-    const leg=alt.legs[0];
+    // 現在のルートと異なるルートを選択
+    let selectedRoute=routes[0];
+    if(routes.length>1){
+      // ランダムに代替ルートを選択
+      const altIndex=Math.floor(Math.random()*(routes.length-1))+1;
+      selectedRoute=routes[altIndex];
+    }
+    
+    directionsRenderer.setDirections({...res,routes:[selectedRoute]});
+    
+    const leg=selectedRoute.legs[0];
     const dist=(leg.distance.value/1000).toFixed(1);
     const dur=Math.round(leg.duration.value/60);
     
