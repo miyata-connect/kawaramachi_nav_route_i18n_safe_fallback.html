@@ -324,11 +324,11 @@ input{
     </div>
     
     <!-- ルート案内窓 -->
-    <div id="routeInfo" class="route-info">
-      <div class="route-main" id="routeText"></div>
+    <div id="routeInfo" class="route-info show">
+      <div class="route-main" id="routeText">目的地を設定してください</div>
       <div class="route-time">
-        <span>🕐 現在: <span id="currentTime"></span></span>
-        <span>🎯 到着: <span id="arrivalTime"></span></span>
+        <span>🕐 現在: <span id="currentTime">--:--</span></span>
+        <span>🎯 到着: <span id="arrivalTime">--:--</span></span>
       </div>
     </div>
     
@@ -417,41 +417,36 @@ const PLACES_PROXY="https://ors-proxy.miyata-connect-jp.workers.dev/v1/places";
 function togglePanel(){
   const panel=document.getElementById("controlPanel");
   const tab=document.getElementById("panelToggle");
-  const compass=document.getElementById("compass");
-  const navButtons=document.getElementById("navButtons");
-  const mapModeButtons=document.getElementById("mapModeButtons");
-  const routeInfo=document.getElementById("routeInfo");
-  const weatherPanel=document.getElementById("weatherPanel");
   
   const isHidden=panel.classList.contains("hidden");
   
   if(isHidden){
-    // パネルを表示
+    // パネルを表示 → すべての要素を非表示
     panel.classList.remove("hidden");
     tab.classList.remove("show");
-    compass.classList.add("hidden");
-    navButtons.classList.add("hidden");
-    mapModeButtons.classList.add("hidden");
-    routeInfo.classList.remove("show");
-    weatherPanel.classList.remove("show");
+    hideAllElements();
   }else{
-    // パネルを非表示
+    // パネルを非表示 → すべての要素を表示
     panel.classList.add("hidden");
     tab.classList.add("show");
-    compass.classList.remove("hidden");
-    mapModeButtons.classList.remove("hidden");
-    weatherPanel.classList.add("show");
-    
-    // 目的地があればナビボタン表示
-    if(destMarker){
-      navButtons.classList.remove("hidden");
-    }
-    
-    // 案内中ならルート情報表示
-    if(isNavigating){
-      routeInfo.classList.add("show");
-    }
+    showAllElements();
   }
+}
+
+function hideAllElements(){
+  document.getElementById("compass").classList.add("hidden");
+  document.getElementById("mapModeButtons").classList.add("hidden");
+  document.getElementById("navButtons").classList.add("hidden");
+  document.getElementById("routeInfo").classList.remove("show");
+  document.getElementById("weatherPanel").classList.remove("show");
+}
+
+function showAllElements(){
+  document.getElementById("compass").classList.remove("hidden");
+  document.getElementById("mapModeButtons").classList.remove("hidden");
+  document.getElementById("navButtons").classList.remove("hidden");
+  document.getElementById("routeInfo").classList.add("show");
+  document.getElementById("weatherPanel").classList.add("show");
 }
 
 window.gm_authFailure=()=>alert("Maps APIエラー");
@@ -485,12 +480,18 @@ function initMap(){
     document.getElementById("map").style.display="block";
     document.getElementById("loading").classList.add("hide");
     
-    // 初期状態: 方位計、N-UP/H-UP、天気予報、タブを表示
+    // 初期状態: 方位計、N-UP/H-UP、天気予報、タブ、文字案内窓を表示
     setTimeout(()=>{
       document.getElementById("compass").classList.remove("hidden");
       document.getElementById("mapModeButtons").classList.remove("hidden");
       document.getElementById("weatherPanel").classList.add("show");
       document.getElementById("panelToggle").classList.add("show");
+      document.getElementById("routeInfo").classList.add("show");
+      
+      // 現在時刻を表示
+      updateCurrentTime();
+      setInterval(updateCurrentTime, 60000); // 1分ごとに更新
+      
       fetchWeather();
     },100);
     
@@ -598,16 +599,16 @@ function displayResults(places){
   
   document.getElementById("resultsPanel").style.display="block";
   
-  // 検索結果表示時: 操作パネルとタブを非表示、その他を表示
+  // 検索結果表示時: 操作パネルとタブを非表示、すべての要素を非表示
   document.getElementById("controlPanel").classList.add("hidden");
   document.getElementById("panelToggle").classList.remove("show");
-  document.getElementById("compass").classList.remove("hidden");
-  document.getElementById("mapModeButtons").classList.remove("hidden");
-  document.getElementById("weatherPanel").classList.add("show");
+  hideAllElements();
 }
 
 function hideResults(){
   document.getElementById("resultsPanel").style.display="none";
+  // 検索結果を閉じたらすべての要素を表示
+  showAllElements();
 }
 
 function selectPlace(place){
@@ -621,13 +622,10 @@ function selectPlace(place){
   
   hideResults();
   
-  // 選択後: タブ表示、ナビボタン表示
+  // 選択後: タブ表示、すべての要素を表示
   document.getElementById("controlPanel").classList.add("hidden");
   document.getElementById("panelToggle").classList.add("show");
-  document.getElementById("compass").classList.remove("hidden");
-  document.getElementById("mapModeButtons").classList.remove("hidden");
-  document.getElementById("navButtons").classList.remove("hidden");
-  document.getElementById("weatherPanel").classList.add("show");
+  showAllElements();
   
   setTimeout(()=>{
     if(currentMarker&&destMarker)startNav();
@@ -713,13 +711,12 @@ function startNav(){
     document.getElementById("currentTime").textContent=formatTime(now);
     document.getElementById("arrivalTime").textContent=formatTime(arrival);
     
-    document.getElementById("routeInfo").classList.add("show");
-    
     speak(`案内を開始します。${routeText}です。`);
     
-    document.getElementById("navButtons").classList.remove("hidden");
+    // 案内開始時: すべての要素を表示
     document.getElementById("controlPanel").classList.add("hidden");
     document.getElementById("panelToggle").classList.remove("show");
+    showAllElements();
   });
 }
 
@@ -734,13 +731,9 @@ function stopNav(){
   
   isNavigating=!1;
   
-  document.getElementById("routeInfo").classList.remove("show");
-  
-  if(destMarker){
-    document.getElementById("navButtons").classList.remove("hidden");
-  }else{
-    document.getElementById("navButtons").classList.add("hidden");
-  }
+  // 案内停止後も文字案内窓は表示維持（内容を変更）
+  document.getElementById("routeText").textContent="目的地を設定してください";
+  document.getElementById("arrivalTime").textContent="--:--";
   
   document.getElementById("panelToggle").classList.add("show");
   
@@ -796,6 +789,10 @@ function formatTime(date){
   return `${h}:${m}`;
 }
 
+function updateCurrentTime(){
+  document.getElementById("currentTime").textContent=formatTime(new Date());
+}
+
 function saveCurrentPoint(){
   if(!currentLocation)return showError("現在地取得中");
   const name=prompt("地点名を入力");
@@ -837,12 +834,10 @@ function showSavedPoints(){
       map.setZoom(18);
       hideSavedPoints();
       
-      document.getElementById("navButtons").classList.remove("hidden");
+      // 登録地点選択後: タブ表示、すべての要素を表示
       document.getElementById("controlPanel").classList.add("hidden");
       document.getElementById("panelToggle").classList.add("show");
-      document.getElementById("compass").classList.remove("hidden");
-      document.getElementById("mapModeButtons").classList.remove("hidden");
-      document.getElementById("weatherPanel").classList.add("show");
+      showAllElements();
       
       setTimeout(()=>{
         if(currentMarker&&destMarker)startNav();
@@ -852,10 +847,15 @@ function showSavedPoints(){
   });
   
   panel.style.display="block";
+  
+  // 登録地点パネル表示時: すべての要素を非表示
+  hideAllElements();
 }
 
 function hideSavedPoints(){
   document.getElementById("savedPointsPanel").style.display="none";
+  // 登録地点パネルを閉じたらすべての要素を表示
+  showAllElements();
 }
 
 async function fetchWeather(){
