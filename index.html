@@ -87,7 +87,7 @@ input{
   border:1px solid var(--stroke);
   border-radius:12px;
   backdrop-filter:blur(14px);
-  padding:14px;
+  padding:14px 14px 18px 14px;
   z-index:460;
   color:var(--text);
   display:none;
@@ -143,12 +143,12 @@ input{
   text-align:center;
   font-size:11px;
   color:var(--text);
-  padding:6px;
+  padding:6px 4px;
   background:var(--glass-strong);
   border-radius:8px;
-  min-width:50px;
+  min-width:48px;
 }
-.weather-icon{font-size:22px;margin:2px 0}
+.weather-icon{font-size:20px;margin:2px 0}
 .weather-temp{font-weight:700;font-size:13px}
 .weather-rain{color:var(--accent);font-size:10px}
 
@@ -340,7 +340,7 @@ input{
         <span>🎯 到着予想時刻: <span id="arrivalTime">--:--</span></span>
       </div>
       <div class="weather-row">
-        <div class="location-name" id="locationName">📍 読み込み中...</div>
+        <div class="location-name" id="locationName">読み込み中...</div>
         <div class="weather-items">
           <div class="weather-item">
             <div>3h</div>
@@ -375,6 +375,10 @@ input{
     
     <!-- 操作パネル -->
     <div id="controlPanel" class="control-panel hidden">
+      <div style="text-align:center;font-size:13px;color:var(--muted);margin-bottom:10px" id="coordsDisplay">
+        緯度: ---.---- / 経度: ---.------
+      </div>
+      
       <input id="searchBox" placeholder="店舗名・住所・電話番号で検索" style="margin-bottom:10px">
       
       <div class="panel-row">
@@ -404,7 +408,7 @@ input{
       <div class="nav-btn ok" onclick="startNav()">案内開始</div>
       <div class="nav-btn danger" onclick="stopNav()">案内停止</div>
       <div class="nav-btn accent" onclick="reroute()">リルート</div>
-      <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()">🎤音声</div>
+      <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()">🎤</div>
     </div>
     
     <!-- 検索結果 -->
@@ -512,6 +516,9 @@ function initMap(){
       updateCurrentTime();
       setInterval(updateCurrentTime, 60000);
       
+      // 経度緯度を表示
+      updateCoords();
+      
       // 現在地名と天気を取得
       fetchLocationName();
       fetchWeather();
@@ -572,8 +579,19 @@ function startWatch(){
   watchId=navigator.geolocation.watchPosition(pos=>{
     currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
     currentMarker&&currentMarker.setPosition(currentLocation);
+    
+    // 経度緯度を表示
+    updateCoords();
+    
     isNavigating&&reroute(!1);
   },()=>{},{enableHighAccuracy:!0});
+}
+
+function updateCoords(){
+  if(!currentLocation)return;
+  const lat=currentLocation.lat.toFixed(6);
+  const lng=currentLocation.lng.toFixed(6);
+  document.getElementById("coordsDisplay").textContent=`緯度: ${lat} / 経度: ${lng}`;
 }
 
 async function searchPlace(){
@@ -696,12 +714,12 @@ function quickVoiceSearch(){
   rec.lang="ja-JP";
   
   btn.style.background="var(--danger)";
-  btn.textContent="録音中...";
+  btn.textContent="●";
   
   rec.onresult=e=>{
     const query=e.results[0][0].transcript;
     btn.style.background="";
-    btn.textContent="🎤音声";
+    btn.textContent="🎤";
     
     // 検索ボックスに入力して検索実行
     document.getElementById("searchBox").value=query;
@@ -710,11 +728,11 @@ function quickVoiceSearch(){
   rec.onerror=()=>{
     showError("音声認識失敗");
     btn.style.background="";
-    btn.textContent="🎤音声";
+    btn.textContent="🎤";
   };
   rec.onend=()=>{
     btn.style.background="";
-    btn.textContent="🎤音声";
+    btn.textContent="🎤";
   };
   rec.start();
 }
@@ -925,11 +943,11 @@ async function fetchLocationName(){
     
     const city=data.address?.city||data.address?.town||data.address?.village||"";
     const ward=data.address?.suburb||"";
-    const locationText=ward?`📍 ${city}${ward}`:city?`📍 ${city}`:"📍 現在地";
+    const locationText=ward?`${city}${ward}`:city?`${city}`:"現在地";
     
     document.getElementById("locationName").textContent=locationText;
   }catch(e){
-    document.getElementById("locationName").textContent="📍 現在地";
+    document.getElementById("locationName").textContent="現在地";
   }
 }
 
