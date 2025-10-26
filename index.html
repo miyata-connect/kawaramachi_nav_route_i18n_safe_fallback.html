@@ -224,7 +224,7 @@ input,select{
 .right-buttons{
   position:absolute;
   right:10px;
-  top:400px;
+  top:300px;
   z-index:450;
   display:flex;
   flex-direction:column;
@@ -540,27 +540,27 @@ div[title*="付近"] {
     
     <div id="rightButtons" class="right-buttons">
       <button class="right-btn primary" onclick="showSearchPanel()" title="検索">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="2"/>
           <path d="M20 20L15.5 15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <span style="font-size:10px;margin-top:2px;">検索</span>
+        <span style="font-size:10px;margin-top:2px;">目的地</span>
       </button>
       <button class="right-btn primary" onclick="voiceSearch()" title="音声検索">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 3C10.34 3 9 4.34 9 6V12C9 13.66 10.34 15 12 15C13.66 15 15 13.66 15 12V6C15 4.34 13.66 3 12 3Z" stroke="currentColor" stroke-width="2" fill="currentColor"/>
           <path d="M19 12C19 15.87 15.87 19 12 19M12 19C8.13 19 5 15.87 5 12M12 19V23M8 23H16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <span style="font-size:10px;margin-top:2px;">音声</span>
+        <span style="font-size:9px;margin-top:2px;">音声検索</span>
       </button>
       <button class="right-btn danger" id="stopNavBtn" onclick="stopNav()" title="案内停止" disabled>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="6" y="6" width="12" height="12" fill="currentColor" stroke="currentColor" stroke-width="2"/>
         </svg>
-        <span style="font-size:10px;margin-top:2px;">停止</span>
+        <span style="font-size:9px;margin-top:2px;">案内停止</span>
       </button>
       <button class="right-btn accent" onclick="zoomToCurrentLocation()" title="現在地を拡大表示">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="12" cy="12" r="3" fill="currentColor"/>
           <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>
           <path d="M12 2V6M12 18V22M22 12H18M6 12H2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -568,20 +568,31 @@ div[title*="付近"] {
         <span style="font-size:9px;margin-top:2px;">現在地</span>
       </button>
       <button class="right-btn warning" onclick="zoomToDestination()" title="目的地を拡大表示">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 2L12 12M12 12L8 8M12 12L16 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M12 12C12 15.866 8.866 19 5 19C5 19 3 17 3 12C3 8.134 5 2 12 2C19 2 21 8.134 21 12C21 17 19 19 19 19C15.134 19 12 15.866 12 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <span style="font-size:9px;margin-top:2px;">目的地</span>
       </button>
       <button class="right-btn ok" onclick="showRouteSelectModal('reroute')" title="ルート再計算">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M17 1L21 5L17 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M3 11V9C3 6.79086 4.79086 5 7 5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           <path d="M7 23L3 19L7 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M21 13V15C21 17.2091 19.2091 19 17 19H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
         <span style="font-size:9px;margin-top:2px;">リルート</span>
+      </button>
+      <button class="right-btn accent" onclick="toggleMapControls()" title="地図コントロール">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M16 4 L16 10 M16 4 L13 7 M16 4 L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M16 28 L16 22 M16 28 L13 25 M16 28 L19 25" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M4 16 L10 16 M4 16 L7 13 M4 16 L7 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M28 16 L22 16 M28 16 L25 13 M28 16 L25 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="16" cy="16" r="4" fill="currentColor"/>
+          <path d="M14 16 L18 16 M16 14 L16 18" stroke="#64d2ff" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span style="font-size:9px;margin-top:2px;">操作</span>
       </button>
     </div>
     
@@ -776,39 +787,6 @@ function initMap(){
       disableDefaultUI: true
     });
     
-    // ロケーションボタンを追加
-    const locationButton = document.createElement("button");
-    locationButton.style.backgroundColor = "#64d2ff";
-    locationButton.style.border = "none";
-    locationButton.style.borderRadius = "10px";
-    locationButton.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
-    locationButton.style.cursor = "pointer";
-    locationButton.style.margin = "10px";
-    locationButton.style.padding = "0";
-    locationButton.style.width = "65px";
-    locationButton.style.height = "65px";
-    locationButton.style.display = "flex";
-    locationButton.style.alignItems = "center";
-    locationButton.style.justifyContent = "center";
-    locationButton.innerHTML = `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <!-- 上矢印 -->
-      <path d="M16 4 L16 10 M16 4 L13 7 M16 4 L19 7" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <!-- 下矢印 -->
-      <path d="M16 28 L16 22 M16 28 L13 25 M16 28 L19 25" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <!-- 左矢印 -->
-      <path d="M4 16 L10 16 M4 16 L7 13 M4 16 L7 19" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <!-- 右矢印 -->
-      <path d="M28 16 L22 16 M28 16 L25 13 M28 16 L25 19" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-      <!-- 中央のプラスマイナス -->
-      <circle cx="16" cy="16" r="4" fill="#000"/>
-      <path d="M14 16 L18 16 M16 14 L16 18" stroke="#64d2ff" stroke-width="1.5" stroke-linecap="round"/>
-    </svg>`;
-    
-    locationButton.addEventListener("click", () => {
-      toggleMapControls();
-    });
-    
-    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(locationButton);
     
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
