@@ -157,7 +157,7 @@ input,select{
 .nav-buttons{
   position:absolute;
   right:10px;
-  top:190px;
+  top:200px;
   z-index:450;
   display:flex;
   flex-direction:column;
@@ -200,25 +200,26 @@ input,select{
 .left-buttons{
   position:absolute;
   left:10px;
-  top:190px;
+  top:200px;
   z-index:450;
   display:flex;
+  flex-direction:column;
   gap:8px;
 }
 .left-buttons.hidden{display:none}
 
-/* 現在地ボタン（右下固定） */
-.recenter-btn{
+/* ロケーションボタン（右下固定） */
+.location-btn{
   position:fixed;
   right:10px;
   bottom:80px;
   width:60px;
   height:60px;
-  background:var(--accent);
-  border:none;
+  background:var(--glass-strong);
+  border:1px solid var(--stroke);
   border-radius:10px;
-  color:#000;
-  font-size:20px;
+  color:#fff;
+  font-size:24px;
   cursor:pointer;
   font-weight:700;
   box-shadow:0 4px 12px rgba(0,0,0,.3);
@@ -401,8 +402,8 @@ input,select{
       <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()"><span id="btnVoiceNav">音声<br>案内</span></div>
     </div>
     
-    <!-- 現在地ボタン（右下固定） -->
-    <button class="recenter-btn" onclick="goToCurrent()">📍</button>
+    <!-- ロケーションボタン（右下固定） -->
+    <button class="location-btn" onclick="toggleMapControls()">⊕</button>
     
     <!-- 操作パネル -->
     <div id="controlPanel" class="control-panel hidden">
@@ -698,7 +699,11 @@ const translations={
 function changeLanguage(){
   currentLang=document.getElementById("langSelect").value;
   updateAllTexts();
-  fetchLocationName();
+  
+  // Google Mapsの言語を変更（ページをリロード）
+  const url=new URL(window.location);
+  url.searchParams.set('lang',currentLang);
+  window.location.href=url.href;
 }
 
 function updateAllTexts(){
@@ -747,20 +752,30 @@ function hideAllElements(){
   document.getElementById("infoPanel").classList.remove("show");
   document.getElementById("resultsPanel").style.display="none";
   document.getElementById("savedPointsPanel").style.display="none";
-  document.querySelector(".recenter-btn").style.display="none";
+  document.querySelector(".location-btn").style.display="none";
 }
 
 function showAllElements(){
   document.getElementById("navButtons").classList.remove("hidden");
   document.getElementById("leftButtons").classList.remove("hidden");
   document.getElementById("infoPanel").classList.add("show");
-  document.querySelector(".recenter-btn").style.display="flex";
+  document.querySelector(".location-btn").style.display="flex";
+}
+
+function toggleMapControls(){
+  alert("Map controls (zoom in/out, pan) feature coming soon!");
 }
 
 window.gm_authFailure=()=>alert("Maps API Error");
 
 function initMap(){
   if(!navigator.geolocation)return alert("Geolocation not supported");
+  
+  // URLパラメータから言語を取得して設定
+  const urlParams=new URLSearchParams(window.location.search);
+  currentLang=urlParams.get('lang')||'ja';
+  document.getElementById("langSelect").value=currentLang;
+  updateAllTexts();
   
   navigator.geolocation.getCurrentPosition(pos=>{
     currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
@@ -1331,6 +1346,15 @@ function speak(text){
 
 window.addEventListener("load",initMap);
   </script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places" async defer></script>
+  <script>
+    // URLパラメータから言語を取得
+    const urlParams=new URLSearchParams(window.location.search);
+    const lang=urlParams.get('lang')||'ja';
+    const script=document.createElement('script');
+    script.src=`https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places&language=${lang}`;
+    script.async=true;
+    script.defer=true;
+    document.body.appendChild(script);
+  </script>
 </body>
 </html>
