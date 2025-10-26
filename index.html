@@ -221,6 +221,39 @@ input,select{
   pointer-events:auto;
 }
 
+.right-buttons{
+  position:absolute;
+  right:10px;
+  top:680px;
+  z-index:450;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  pointer-events:none;
+}
+.right-btn{
+  width:70px;
+  height:60px;
+  background:var(--glass-strong);
+  border:1px solid var(--stroke);
+  border-radius:10px;
+  color:#fff;
+  font-size:11px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+  font-weight:700;
+  gap:2px;
+  pointer-events:auto;
+  box-shadow:0 2px 6px rgba(0,0,0,.3);
+}
+.right-btn.primary{background:var(--primary);border:none;color:#000}
+.right-btn.ok{background:var(--ok);border:none;color:#000}
+.right-btn.danger{background:var(--danger);border:none;color:#fff}
+.right-btn.accent{background:var(--accent);border:none;color:#000}
+
 .map-controls{
   position:fixed;
   right:10px;
@@ -469,6 +502,23 @@ button[aria-label*="位置情報"] {
     
     <div id="error" class="error-banner hidden"></div>
     <div id="success" class="success-banner hidden"></div>
+    
+    <div id="rightButtons" class="right-buttons">
+      <button class="right-btn accent" onclick="relocalize()" title="現在地に戻る">
+        <span style="font-size:20px;">📍</span>
+        <span style="font-size:10px;margin-top:2px;">現在地</span>
+      </button>
+      <button class="right-btn primary" onclick="fastestRoute()" title="最短ルート">
+        <span style="font-size:11px;font-weight:700;">最短AI</span>
+      </button>
+      <button class="right-btn ok" onclick="easyRoute()" title="楽チンルート">
+        <span style="font-size:10px;font-weight:700;">楽チンAI</span>
+      </button>
+      <button class="right-btn danger" id="stopNavBtn" onclick="stopNav()" title="案内停止" style="display:none;">
+        <span style="font-size:10px;font-weight:700;">案内<br>停止</span>
+      </button>
+    </div>
+    
     <div id="loading" class="loading-screen">
       <div style="text-align:center">
         <div style="font-size:18px;margin-bottom:10px" id="loadingText">現在地取得中...</div>
@@ -578,14 +628,20 @@ function showAllElements(){
 }
 
 function fastestRoute(){
-  if(!isNavigating)return showError("Set destination first");
-  speak("Calculating fastest route");
+  if(!isNavigating){
+    showError("目的地を設定してください");
+    return;
+  }
+  speak("最短ルートを計算中");
   reroute(!0);
 }
 
 function easyRoute(){
-  if(!isNavigating)return showError("Set destination first");
-  speak("Calculating easy route");
+  if(!isNavigating){
+    showError("目的地を設定してください");
+    return;
+  }
+  speak("楽チンルートを計算中");
   reroute(!0);
 }
 
@@ -1011,6 +1067,11 @@ function startNav(){
       stopNavRow.style.display="block";
     }
     
+    const stopNavBtn=document.getElementById("stopNavBtn");
+    if(stopNavBtn){
+      stopNavBtn.style.display="flex";
+    }
+    
     const leg=res.routes[0].legs[0];
     const dist=(leg.distance.value/1000).toFixed(1);
     const dur=Math.round(leg.duration.value/60);
@@ -1063,6 +1124,11 @@ function stopNav(){
   const stopNavRow=document.getElementById("stopNavRow");
   if(stopNavRow){
     stopNavRow.style.display="none";
+  }
+  
+  const stopNavBtn=document.getElementById("stopNavBtn");
+  if(stopNavBtn){
+    stopNavBtn.style.display="none";
   }
   
   const routeTextEl=document.getElementById("routeText");
