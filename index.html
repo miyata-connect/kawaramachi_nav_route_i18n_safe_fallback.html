@@ -181,22 +181,10 @@ input,select{
   gap:2px;
   pointer-events:auto;
 }
-.nav-btn.compass-btn{
-  position:relative;
-  pointer-events:auto;
-}
-.compass-n{
-  position:absolute;
-  top:6px;
-  font-size:10px;
-  font-weight:700;
-  color:var(--danger);
-}
 .nav-btn.primary{background:var(--primary);border:none}
 .nav-btn.ok{background:var(--ok);border:none}
 .nav-btn.danger{background:var(--danger);border:none;color:#fff}
 .nav-btn.accent{background:var(--accent);border:none}
-.nav-btn.active{background:var(--ok);border:2px solid #fff}
 
 .left-buttons{
   position:absolute;
@@ -408,7 +396,7 @@ input,select{
   
   <script>
 "use strict";
-let map,directionsService,directionsRenderer,currentMarker=null,destMarker=null,watchId=null,isNavigating=!1,currentLocation=null,savedPoints=[],selectingMapPoint=!1,stopAnnounced=!1,compassAlpha=0,targetAlpha=0,headingMode="heading",currentLang="ja";
+let map,directionsService,directionsRenderer,currentMarker=null,destMarker=null,watchId=null,isNavigating=!1,currentLocation=null,savedPoints=[],selectingMapPoint=!1,stopAnnounced=!1,currentLang="ja";
 
 const PLACES_PROXY="https://ors-proxy.miyata-connect-jp.workers.dev/v1/places";
 
@@ -488,62 +476,22 @@ function changeLanguage(){
 
 function updateAllTexts(){
   const t=translations[currentLang];
-  // 削除された要素への参照をコメントアウト
-  // document.getElementById("routeText").textContent=t.setDestination;
-  // document.getElementById("timeLabel").textContent=t.currentTime;
-  // document.getElementById("arrivalLabel").textContent=t.arrivalTime;
-  // document.getElementById("locationName").textContent=t.loading;
-  // document.getElementById("btnFastest").textContent=t.btnFastest;
-  // document.getElementById("btnEasy").textContent=t.btnEasy;
-  // document.getElementById("btnWalk").textContent=t.btnWalk;
-  // document.getElementById("btnCurrent").textContent=t.btnCurrent;
-  // document.getElementById("btnDest").textContent=t.btnDest;
-  // document.getElementById("btnStop").innerHTML=t.btnStop.replace('\n','<br>');
-  // document.getElementById("btnStopNav").textContent=t.btnStopNav;
-  // document.getElementById("btnReroute").textContent=t.btnReroute;
-  // document.getElementById("btnSearch").textContent=t.btnSearch;
-  // document.getElementById("btnVoice").textContent=t.btnVoice;
-  // document.getElementById("btnRelocate").textContent=t.btnRelocate;
-  // document.getElementById("btnSaveCurrent").textContent=t.btnSaveCurrent;
-  // document.getElementById("btnSaveMap").textContent=t.btnSaveMap;
-  // document.getElementById("btnShowSaved").textContent=t.btnShowSaved;
-  // document.getElementById("btnEditSaved").textContent=t.btnEditSaved;
-  // document.getElementById("btnClosePanel").textContent=t.btnClosePanel;
-  // document.getElementById("btnOpenPanel").textContent=t.btnOpenPanel;
   document.getElementById("loadingText").textContent=t.loadingText;
   document.getElementById("loadingWait").textContent=t.loadingWait;
 }
 
 function togglePanel(){
-  // const panel=document.getElementById("controlPanel");
-  // const tab=document.getElementById("panelToggle");
-  
-  // const isHidden=panel.classList.contains("hidden");
-  
-  // if(isHidden){
-  //   panel.classList.remove("hidden");
-  //   tab.classList.remove("show");
-  //   hideAllElements();
-  // }else{
-  //   panel.classList.add("hidden");
-  //   tab.classList.add("show");
-  //   showAllElements();
-  // }
+  // パネルトグル機能（必要に応じて実装）
 }
 
 function hideAllElements(){
-  // document.getElementById("navButtons").classList.add("hidden");
-  // document.getElementById("leftButtons").classList.add("hidden");
-  // document.getElementById("infoPanel").classList.remove("show");
   document.getElementById("resultsPanel").style.display="none";
   document.getElementById("savedPointsPanel").style.display="none";
   document.getElementById("mapControls").classList.remove("show");
 }
 
 function showAllElements(){
-  // document.getElementById("navButtons").classList.remove("hidden");
-  // document.getElementById("leftButtons").classList.remove("hidden");
-  // document.getElementById("infoPanel").classList.add("show");
+  // 必要な要素を表示（必要に応じて実装）
 }
 
 function fastestRoute(){
@@ -604,7 +552,6 @@ function initMap(){
   
   const urlParams=new URLSearchParams(window.location.search);
   currentLang=urlParams.get('lang')||'ja';
-  // document.getElementById("langSelect").value=currentLang;
   updateAllTexts();
   
   navigator.geolocation.getCurrentPosition(pos=>{
@@ -619,8 +566,6 @@ function initMap(){
       zoomControl:false,
       rotateControl:false,
       scaleControl:false,
-      heading:0,
-      tilt:45,
       gestureHandling:'greedy',
       clickableIcons:false
     });
@@ -633,8 +578,6 @@ function initMap(){
       map,
       icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:"#5fb1ff",fillOpacity:1,strokeWeight:2,strokeColor:"#fff"}
     });
-    
-    headingMode="heading";
     
     document.getElementById("map").style.display="block";
     document.getElementById("loading").classList.add("hide");
@@ -656,81 +599,8 @@ function initMap(){
       fetchWeather();
     },100);
     
-    setupCompass();
     startWatch();
   },err=>alert("Location error: "+err.message));
-}
-
-function setupCompass(){
-  // const needle=document.getElementById("compassNeedle");
-  // if(!needle)return;
-  
-  // function animate(){
-  //   compassAlpha=.8*compassAlpha+.2*targetAlpha;
-  //   needle.style.transform=`rotate(${compassAlpha}deg)`;
-  //   needle.style.transformOrigin="25px 25px";
-  //   requestAnimationFrame(animate);
-  // }
-  // animate();
-  
-  // if(typeof DeviceOrientationEvent!=="undefined"){
-  //   if(typeof DeviceOrientationEvent.requestPermission==='function'){
-  //     DeviceOrientationEvent.requestPermission()
-  //       .then(response=>{
-  //         if(response==='granted'){
-  //           attachOrientationListener();
-  //         }
-  //       })
-  //       .catch(console.error);
-  //   }else{
-  //     attachOrientationListener();
-  //   }
-  // }
-  
-  // function attachOrientationListener(){
-  //   window.addEventListener("deviceorientationabsolute",handleOrientation,true);
-  //   window.addEventListener("deviceorientation",handleOrientation,true);
-  // }
-  
-  // function handleOrientation(e){
-  //   let alpha=e.alpha;
-  //   
-  //   if(e.webkitCompassHeading){
-  //     alpha=e.webkitCompassHeading;
-  //   }
-  //   
-  //   if(typeof alpha==="number"){
-  //     targetAlpha=alpha;
-  //     
-  //     if(headingMode==="heading" && map){
-  //       map.setHeading(alpha);
-  //     }
-  //   }
-  // }
-}
-
-function setNorthUp(){
-  // headingMode="north";
-  // map.setHeading(0);
-  // map.setTilt(0);
-  // setTimeout(()=>{
-  //   map.setHeading(0);
-  //   map.setTilt(0);
-  // },100);
-  // document.getElementById("nupBtn").classList.add("active");
-  // document.getElementById("hupBtn").classList.remove("active");
-  // speak("North up mode");
-}
-
-function setHeadingUp(){
-  // headingMode="heading";
-  // map.setTilt(45);
-  // if(typeof targetAlpha==="number"){
-  //   map.setHeading(targetAlpha);
-  // }
-  // document.getElementById("nupBtn").classList.remove("active");
-  // document.getElementById("hupBtn").classList.add("active");
-  // speak("Heading up mode");
 }
 
 function startWatch(){
@@ -749,11 +619,17 @@ function updateCoords(){
   if(!currentLocation)return;
   const lat=currentLocation.lat.toFixed(6);
   const lng=currentLocation.lng.toFixed(6);
-  document.getElementById("coordsDisplay").textContent=`📍 緯度: ${lat} / 経度: ${lng}`;
+  const coordsEl=document.getElementById("coordsDisplay");
+  if(coordsEl){
+    coordsEl.textContent=`📍 緯度: ${lat} / 経度: ${lng}`;
+  }
 }
 
 async function searchPlace(){
-  const q=document.getElementById("searchBox").value.trim();
+  const searchBox=document.getElementById("searchBox");
+  if(!searchBox)return;
+  
+  const q=searchBox.value.trim();
   if(!q)return showError("Please enter search term");
   if(!currentLocation)return showError("Getting location");
   
@@ -817,7 +693,10 @@ function selectPlace(place){
   
   hideResults();
   
-  document.getElementById("controlPanel").classList.add("hidden");
+  const controlPanel=document.getElementById("controlPanel");
+  if(controlPanel){
+    controlPanel.classList.add("hidden");
+  }
   document.getElementById("panelToggle").classList.add("show");
   showAllElements();
   
@@ -831,6 +710,8 @@ function voiceSearch(){
   if(!SR)return showError("Voice not supported");
   
   const btn=document.getElementById("voiceBtn");
+  if(!btn)return;
+  
   const rec=new SR;
   rec.lang=currentLang==="ja"?"ja-JP":currentLang==="en"?"en-US":currentLang==="ko"?"ko-KR":currentLang==="zh"?"zh-CN":"en-US";
   rec.continuous=false;
@@ -842,7 +723,10 @@ function voiceSearch(){
   
   rec.onresult=e=>{
     const query=e.results[0][0].transcript;
-    // document.getElementById("searchBox").value=query;
+    const searchBox=document.getElementById("searchBox");
+    if(searchBox){
+      searchBox.value=query;
+    }
     btn.classList.remove("recording");
     btn.innerHTML=`<span id="btnVoice">${translations[currentLang].btnVoice}</span>`;
     
@@ -873,6 +757,8 @@ function quickVoiceSearch(){
   if(!SR)return showError("Voice not supported");
   
   const btn=document.getElementById("quickVoiceBtn");
+  if(!btn)return;
+  
   const rec=new SR;
   rec.lang=currentLang==="ja"?"ja-JP":currentLang==="en"?"en-US":currentLang==="ko"?"ko-KR":currentLang==="zh"?"zh-CN":"en-US";
   rec.continuous=false;
@@ -887,10 +773,16 @@ function quickVoiceSearch(){
     btn.style.background="";
     btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
     
-    // document.getElementById("searchBox").value=query;
+    const searchBox=document.getElementById("searchBox");
+    if(searchBox){
+      searchBox.value=query;
+    }
     
-    // document.getElementById("controlPanel").classList.remove("hidden");
-    // document.getElementById("panelToggle").classList.remove("show");
+    const controlPanel=document.getElementById("controlPanel");
+    if(controlPanel){
+      controlPanel.classList.remove("hidden");
+    }
+    document.getElementById("panelToggle").classList.remove("show");
     hideAllElements();
     
     setTimeout(()=>searchPlace(),100);
@@ -952,24 +844,39 @@ function startNav(){
     directionsRenderer.setDirections(res);
     isNavigating=!0;
     
-    document.getElementById("stopNavRow").style.display="block";
+    const stopNavRow=document.getElementById("stopNavRow");
+    if(stopNavRow){
+      stopNavRow.style.display="block";
+    }
     
     const leg=res.routes[0].legs[0];
     const dist=(leg.distance.value/1000).toFixed(1);
     const dur=Math.round(leg.duration.value/60);
     
     const routeText=`${dist}km, ${dur}min`;
-    document.getElementById("routeText").textContent=routeText;
+    const routeTextEl=document.getElementById("routeText");
+    if(routeTextEl){
+      routeTextEl.textContent=routeText;
+    }
     
     const now=new Date();
     const arrival=new Date(now.getTime()+leg.duration.value*1000);
     
-    document.getElementById("currentTime").textContent=formatTime(now);
-    document.getElementById("arrivalTime").textContent=formatTime(arrival);
+    const currentTimeEl=document.getElementById("currentTime");
+    const arrivalTimeEl=document.getElementById("arrivalTime");
+    if(currentTimeEl){
+      currentTimeEl.textContent=formatTime(now);
+    }
+    if(arrivalTimeEl){
+      arrivalTimeEl.textContent=formatTime(arrival);
+    }
     
     speak(`${translations[currentLang].navStart} ${dist} km, ${dur} minutes.`);
     
-    document.getElementById("controlPanel").classList.add("hidden");
+    const controlPanel=document.getElementById("controlPanel");
+    if(controlPanel){
+      controlPanel.classList.add("hidden");
+    }
     document.getElementById("panelToggle").classList.remove("show");
     showAllElements();
   });
@@ -986,13 +893,26 @@ function stopNav(){
   
   isNavigating=!1;
   
-  // document.getElementById("stopNavRow").style.display="none";
+  const stopNavRow=document.getElementById("stopNavRow");
+  if(stopNavRow){
+    stopNavRow.style.display="none";
+  }
   
-  // document.getElementById("routeText").textContent=translations[currentLang].setDestination;
-  // document.getElementById("arrivalTime").textContent="--:--";
-  // document.getElementById("searchBox").value="";
+  const routeTextEl=document.getElementById("routeText");
+  const arrivalTimeEl=document.getElementById("arrivalTime");
+  if(routeTextEl){
+    routeTextEl.textContent=translations[currentLang].setDestination;
+  }
+  if(arrivalTimeEl){
+    arrivalTimeEl.textContent="--:--";
+  }
   
-  // document.getElementById("panelToggle").classList.add("show");
+  const searchBox=document.getElementById("searchBox");
+  if(searchBox){
+    searchBox.value="";
+  }
+  
+  document.getElementById("panelToggle").classList.add("show");
   
   if(currentMarker){
     map.panTo(currentMarker.getPosition());
@@ -1003,7 +923,10 @@ function stopNav(){
 function stopNavFromPanel(){
   stopNav();
   
-  // document.getElementById("searchBox").value="";
+  const searchBox=document.getElementById("searchBox");
+  if(searchBox){
+    searchBox.value="";
+  }
   
   if(destMarker){
     destMarker.setMap(null);
@@ -1040,12 +963,22 @@ function reroute(manual=!0){
     const dur=Math.round(leg.duration.value/60);
     
     const routeText=`${dist}km, ${dur}min`;
-    document.getElementById("routeText").textContent=routeText;
+    const routeTextEl=document.getElementById("routeText");
+    if(routeTextEl){
+      routeTextEl.textContent=routeText;
+    }
     
     const now=new Date();
     const arrival=new Date(now.getTime()+leg.duration.value*1000);
-    document.getElementById("currentTime").textContent=formatTime(now);
-    document.getElementById("arrivalTime").textContent=formatTime(arrival);
+    
+    const currentTimeEl=document.getElementById("currentTime");
+    const arrivalTimeEl=document.getElementById("arrivalTime");
+    if(currentTimeEl){
+      currentTimeEl.textContent=formatTime(now);
+    }
+    if(arrivalTimeEl){
+      arrivalTimeEl.textContent=formatTime(arrival);
+    }
     
     manual&&speak("Rerouting");
   });
@@ -1058,7 +991,10 @@ function formatTime(date){
 }
 
 function updateCurrentTime(){
-  document.getElementById("currentTime").textContent=formatTime(new Date());
+  const currentTimeEl=document.getElementById("currentTime");
+  if(currentTimeEl){
+    currentTimeEl.textContent=formatTime(new Date());
+  }
 }
 
 function saveCurrentPoint(){
@@ -1133,7 +1069,10 @@ function showSavedPoints(){
       map.setZoom(18);
       hideSavedPoints();
       
-      document.getElementById("controlPanel").classList.add("hidden");
+      const controlPanel=document.getElementById("controlPanel");
+      if(controlPanel){
+        controlPanel.classList.add("hidden");
+      }
       document.getElementById("panelToggle").classList.add("show");
       showAllElements();
       
@@ -1241,9 +1180,15 @@ async function fetchLocationName(){
     const ward=data.address?.suburb||"";
     const locationText=ward?`${city}${ward}`:city?`${city}`:translations[currentLang].loading;
     
-    document.getElementById("locationName").textContent=locationText;
+    const locationNameEl=document.getElementById("locationName");
+    if(locationNameEl){
+      locationNameEl.textContent=locationText;
+    }
   }catch(e){
-    document.getElementById("locationName").textContent=translations[currentLang].loading;
+    const locationNameEl=document.getElementById("locationName");
+    if(locationNameEl){
+      locationNameEl.textContent=translations[currentLang].loading;
+    }
   }
 }
 
@@ -1270,9 +1215,13 @@ async function fetchWeather(){
         const code=data.hourly.weathercode[idx];
         const icon=weatherIcons[code]||"☁️";
         
-        document.getElementById(`w${h}h`).textContent=icon;
-        document.getElementById(`t${h}h`).textContent=`${temp}°`;
-        document.getElementById(`r${h}h`).textContent=`${rain}%`;
+        const wEl=document.getElementById(`w${h}h`);
+        const tEl=document.getElementById(`t${h}h`);
+        const rEl=document.getElementById(`r${h}h`);
+        
+        if(wEl)wEl.textContent=icon;
+        if(tEl)tEl.textContent=`${temp}°`;
+        if(rEl)rEl.textContent=`${rain}%`;
       }
     });
   }catch(e){
