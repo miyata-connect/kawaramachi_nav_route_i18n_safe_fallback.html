@@ -409,6 +409,19 @@ button[aria-label*="位置情報"] {
   display: none !important;
 }
 
+/* 地図上の住所ラベルを完全に非表示 */
+.gm-style-iw,
+.gm-style-iw-c,
+.gm-style-iw-d,
+.gm-style-iw-t::after,
+div[aria-label*="付近"],
+div[aria-label*="美馬郡"],
+div[title*="付近"] {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
 @keyframes marquee {
   0% {
     transform: translateX(100%);
@@ -1147,53 +1160,6 @@ function selectPlace(place){
   },500);
 }
 
-function voiceSearch(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR)return showError("Voice not supported");
-  
-  const btn=document.getElementById("voiceBtn");
-  if(!btn)return;
-  
-  const rec=new SR;
-  rec.lang=currentLang==="ja"?"ja-JP":currentLang==="en"?"en-US":currentLang==="ko"?"ko-KR":currentLang==="zh"?"zh-CN":"en-US";
-  rec.continuous=false;
-  rec.interimResults=false;
-  rec.maxAlternatives=1;
-  
-  btn.classList.add("recording");
-  btn.innerHTML=`<span style="color:#fff">●</span>`;
-  
-  rec.onresult=e=>{
-    const query=e.results[0][0].transcript;
-    const searchBox=document.getElementById("searchBox");
-    if(searchBox){
-      searchBox.value=query;
-    }
-    btn.classList.remove("recording");
-    btn.innerHTML=`<span id="btnVoice">${translations[currentLang].btnVoice}</span>`;
-    
-    setTimeout(()=>searchPlace(),100);
-  };
-  rec.onerror=err=>{
-    console.error("Voice error:",err);
-    showError("Voice failed: "+err.error);
-    btn.classList.remove("recording");
-    btn.innerHTML=`<span id="btnVoice">${translations[currentLang].btnVoice}</span>`;
-  };
-  rec.onend=()=>{
-    btn.classList.remove("recording");
-    btn.innerHTML=`<span id="btnVoice">${translations[currentLang].btnVoice}</span>`;
-  };
-  
-  try{
-    rec.start();
-  }catch(e){
-    showError("Voice start failed");
-    btn.classList.remove("recording");
-    btn.innerHTML=`<span id="btnVoice">${translations[currentLang].btnVoice}</span>`;
-  }
-}
-
 function quickVoiceSearch(){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR)return showError("Voice not supported");
@@ -1808,99 +1774,6 @@ async function fetchIncidents(){
   },20000);
 }
 
-// TODO: 歩行者向けインシデント情報の取得設定
-// 
-// === 気象情報API ===
-// 1. 気象庁API (無料)
-//    - 警報・注意報: https://www.jma.go.jp/bosai/warning/data/warning/{地域コード}.json
-//    - 天気予報: https://www.jma.go.jp/bosai/forecast/data/forecast/{地域コード}.json
-//    - 降水ナウキャスト: https://www.jma.go.jp/bosai/jmatile/data/nowc/{timestamp}/none/{z}/{x}/{y}.png
-//    
-// 2. OpenWeatherMap API (無料枠あり)
-//    - URL: https://api.openweathermap.org/data/2.5/weather
-//    - 気象警報: https://api.openweathermap.org/data/2.5/onecall
-//    - 必要: APIキー登録
-//
-// 3. 気象庁防災情報XML (無料)
-//    - URL: http://www.data.jma.go.jp/developer/xml/feed/regular.xml
-//    - 各種気象警報・注意報のリアルタイム配信
-//
-// === 防災・安全情報API ===
-// 4. 内閣府 防災情報システム
-//    - L-Alert (公共情報コモンズ)
-//    - 各自治体の防災情報を統合配信
-//    - URL: 各自治体により異なる
-//
-// 5. Yahoo! Japan 災害情報API (無料)
-//    - URL: https://map.yahooapis.jp/disaster/V1/get
-//    - 必要: Yahoo! JAPAN アプリケーションID
-//
-// 6. 国土交通省 防災情報提供センター
-//    - URL: http://www.mlit.go.jp/saigai/bosaijoho/
-//    - リアルタイム雨量、河川水位など
-//
-// === 道路・交通情報API ===
-// 7. 国土交通省 道路交通情報
-//    - URL: https://www.jartic.or.jp/ (JARTIC)
-//    - 歩道工事情報も含む
-//
-// 8. Google Maps Roads API
-//    - URL: https://roads.googleapis.com/v1/snapToRoads
-//    - 必要: Google Cloud APIキー、有料
-//    - 料金: $10.00 per 1,000 requests (1000リクエストあたり10ドル)
-//    - 無料枠: 2025年3月1日以降、新料金体系では月間無料枠あり
-//    - 用途: GPS座標を道路にスナップして正確なルートを取得
-//    - 注意: 歩行者向けアプリには過剰スペックで高コスト
-//
-// === 治安・安全情報 ===
-// 9. 警察庁 安全・安心情報
-//    - URL: 各都道府県警察のオープンデータ
-//    - 不審者情報、事件情報など
-//    - 例: 東京都 https://www.keishicho.metro.tokyo.lg.jp/
-//
-// 10. gaccom (学校安全情報) API
-//    - URL: https://www.gaccom.jp/
-//    - 不審者情報、事件情報
-//    - 民間サービス、利用条件確認必要
-//
-// === 野生動物情報 ===
-// 11. 環境省 野生鳥獣情報
-//    - URL: 各自治体の鳥獣対策課のオープンデータ
-//    - 熊・猪・鹿などの出没情報
-//
-// 12. 自治体の有害鳥獣出没マップ
-//    - 各都道府県・市町村が提供
-//    - 例: 長野県 https://www.pref.nagano.lg.jp/
-//
-// === その他有用なAPI ===
-// 13. NHK ニュース防災API (非公式)
-//    - リアルタイムの災害・事件情報
-//
-// 14. Twitter API (X API)
-//    - URL: https://developer.twitter.com/
-//    - 自治体公式アカウントや防災アカウントの情報収集
-//    - 必要: APIキー、有料プランが推奨
-//
-// === 実装優先順位 ===
-// [高] 気象庁API - 無料で信頼性が高い
-// [高] OpenWeatherMap - 統合しやすい
-// [中] 都道府県警察のオープンデータ - 治安情報
-// [中] 各自治体の防災情報 - 地域特化情報
-// [低] Twitter API - リアルタイム性は高いが有料
-//
-// === 実装方法の例 ===
-// async function fetchWeatherAlerts(){
-//   const lat = currentLocation.lat;
-//   const lon = currentLocation.lng;
-//   const res = await fetch(`https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&appid=YOUR_API_KEY&lang=ja`);
-//   const data = await res.json();
-//   if(data.alerts && data.alerts.length > 0){
-//     return data.alerts[0].description;
-//   }
-//   return null;
-// }
-//
-
 function showError(msg){
   const el=document.getElementById("error");
   el.textContent=msg;
@@ -1930,7 +1803,7 @@ window.addEventListener("load",initMap);
     const urlParams=new URLSearchParams(window.location.search);
     const lang=urlParams.get('lang')||'ja';
     const script=document.createElement('script');
-    script.src=`https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places&language=${lang}`;
+    script.src=`https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places`;
     script.async=true;
     script.defer=true;
     document.body.appendChild(script);
