@@ -426,7 +426,7 @@ button[aria-label*="位置情報"] {
         <div id="routeText">目的地を設定してください</div>
         <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:6px;font-weight:600;">半径5km圏内の情報を表示しています。</div>
         <div id="incidentMarquee" style="background:rgba(255,101,101,.2);border-radius:6px;padding:2px 8px;margin-top:6px;overflow:hidden;white-space:nowrap;height:24px;display:flex;align-items:center;">
-          <div id="incidentText" style="display:inline-block;animation:marquee 20s linear infinite;font-size:18px;color:#ff6565;">
+          <div id="incidentText" style="display:inline-block;font-size:18px;color:#ff6565;">
             現在、周辺半径5km圏内で特に報告されている事件、事故の報告はありません。
           </div>
         </div>
@@ -495,6 +495,21 @@ button[aria-label*="位置情報"] {
       <div class="result-close" onclick="hideResults()"><span id="btnCloseResults">閉じる</span></div>
     </div>
     
+    <div id="routeSelectModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;justify-content:center;align-items:center;">
+      <div style="background:var(--glass-strong);border-radius:16px;padding:24px;width:80%;max-width:400px;box-shadow:0 8px 32px rgba(0,0,0,0.5);">
+        <h2 style="color:#fff;text-align:center;margin-bottom:20px;font-size:20px;">ルートタイプを選択</h2>
+        <button onclick="selectRouteType('fastest')" style="width:100%;padding:16px;margin-bottom:12px;background:var(--primary);border:none;border-radius:10px;color:#000;font-size:16px;font-weight:700;cursor:pointer;">
+          ⚡ 最短AIルート
+        </button>
+        <button onclick="selectRouteType('easy')" style="width:100%;padding:16px;margin-bottom:12px;background:var(--ok);border:none;border-radius:10px;color:#000;font-size:16px;font-weight:700;cursor:pointer;">
+          🌿 楽チンAIルート
+        </button>
+        <button onclick="closeRouteSelectModal()" style="width:100%;padding:12px;background:rgba(255,255,255,0.1);border:1px solid var(--stroke);border-radius:10px;color:#fff;font-size:14px;cursor:pointer;">
+          キャンセル
+        </button>
+      </div>
+    </div>
+    
     <div id="savedPointsPanel" class="saved-points-panel">
       <div id="savedPointsList"></div>
       <div class="saved-close" onclick="hideSavedPoints()"><span id="btnCloseSaved">閉じる</span></div>
@@ -532,7 +547,7 @@ button[aria-label*="位置情報"] {
         </svg>
         <span style="font-size:9px;margin-top:2px;">現在地</span>
       </button>
-      <button class="right-btn ok" onclick="reroute(true)" title="ルート再計算">
+      <button class="right-btn ok" onclick="showRouteSelectModal('reroute')" title="ルート再計算">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M17 1L21 5L17 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
           <path d="M3 11V9C3 6.79086 4.79086 5 7 5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -867,6 +882,103 @@ function fallbackCopy(text){
   document.body.removeChild(textarea);
 }
 
+let pendingRouteAction=null;
+let selectedRouteType="fastest";
+
+function showRouteSelectModal(action){
+  pendingRouteAction=action;
+  const modal=document.getElementById("routeSelectModal");
+  if(modal){
+    modal.style.display="flex";
+  }
+}
+
+function closeRouteSelectModal(){
+  const modal=document.getElementById("routeSelectModal");
+  if(modal){
+    modal.style.display="none";
+  }
+  pendingRouteAction=null;
+}
+
+function selectRouteType(type){
+  selectedRouteType=type;
+  closeRouteSelectModal();
+  
+  if(pendingRouteAction==="search"){
+    executeSearch();
+  }else if(pendingRouteAction==="reroute"){
+    executeReroute();
+  }
+}
+
+function executeReroute(){
+  if(!isNavigating){
+    showError("目的地を設定してください");
+    return;
+  }
+  
+  const routeName=selectedRouteType==="fastest"?"最短AIルート":"楽チンAIルート";
+  speak(`${routeName}を計算中`);
+  
+  directionsService.route({
+    origin:currentMarker.getPosition(),
+    destination:destMarker.getPosition(),
+    travelMode:google.maps.TravelMode.WALKING,
+    provideRouteAlternatives:!0,
+    avoidHighways:selectedRouteType==="easy"?!0:Math.random()>0.5
+  },(res,status)=>{
+    if(status!=="OK")return showError("Reroute failed");
+    
+    const routes=res.routes;
+    let selectedRoute=routes[0];
+    
+    if(selectedRouteType==="easy"&&routes.length>1){
+      selectedRoute=routes.sort((a,b)=>{
+        const elevA=a.legs[0].elevation||0;
+        const elevB=b.legs[0].elevation||0;
+        return elevA-elevB;
+      })[0];
+    }else if(routes.length>1){
+      const altIndex=Math.floor(Math.random()*(routes.length-1))+1;
+      selectedRoute=routes[altIndex];
+    }
+    
+    directionsRenderer.setDirections({...res,routes:[selectedRoute]});
+    
+    const leg=selectedRoute.legs[0];
+    const dist=(leg.distance.value/1000).toFixed(1);
+    const dur=Math.round(leg.duration.value/60);
+    
+    const routeText=`${dist}km, ${dur}min`;
+    const routeTextEl=document.getElementById("routeText");
+    if(routeTextEl){
+      routeTextEl.textContent=routeText;
+    }
+    
+    const now=new Date();
+    const arrival=new Date(now.getTime()+leg.duration.value*1000);
+    
+    const currentTimeEl=document.getElementById("currentTime");
+    const arrivalTimeEl=document.getElementById("arrivalTime");
+    const durationTimeEl=document.getElementById("durationTime");
+    
+    if(currentTimeEl){
+      currentTimeEl.textContent=formatTime(now);
+    }
+    if(arrivalTimeEl){
+      arrivalTimeEl.textContent=formatTime(arrival);
+    }
+    if(durationTimeEl){
+      const hours=Math.floor(dur/60);
+      const mins=dur%60;
+      durationTimeEl.textContent=hours>0?`${hours}:${mins.toString().padStart(2,'0')}`:`0:${mins.toString().padStart(2,'0')}`;
+    }
+    
+    speak("Rerouting");
+  });
+}
+
 function showSearchPanel(){
   const controlPanel=document.getElementById("controlPanel");
   if(controlPanel){
@@ -911,6 +1023,17 @@ function voiceSearch(){
 }
 
 async function searchPlace(){
+  const searchBox=document.getElementById("searchBox");
+  if(!searchBox)return;
+  
+  const q=searchBox.value.trim();
+  if(!q)return showError("Please enter search term");
+  if(!currentLocation)return showError("Getting location");
+  
+  showRouteSelectModal("search");
+}
+
+async function executeSearch(){
   const searchBox=document.getElementById("searchBox");
   if(!searchBox)return;
   
@@ -1570,6 +1693,9 @@ async function fetchWeather(){
   fetchIncidents();
 }
 
+let lastIncidentTime=0;
+let currentIncidentText="";
+
 async function fetchIncidents(){
   const incidents=[
     "⚠️ 現在、周辺半径5km圏内で特に報告されている事件、事故の報告はありません。",
@@ -1584,11 +1710,29 @@ async function fetchIncidents(){
   ];
   
   const randomIncident=incidents[Math.floor(Math.random()*incidents.length)];
+  const now=Date.now();
   
   const incidentEl=document.getElementById("incidentText");
-  if(incidentEl){
-    incidentEl.textContent=randomIncident;
+  if(!incidentEl)return;
+  
+  if(randomIncident===currentIncidentText){
+    if(now-lastIncidentTime<180000){
+      incidentEl.style.animation="none";
+      incidentEl.textContent=currentIncidentText;
+      return;
+    }
   }
+  
+  currentIncidentText=randomIncident;
+  lastIncidentTime=now;
+  incidentEl.textContent=randomIncident;
+  incidentEl.style.animation="marquee 20s linear infinite";
+  
+  setTimeout(()=>{
+    if(incidentEl){
+      incidentEl.style.animation="none";
+    }
+  },20000);
 }
 
 // TODO: 歩行者向けインシデント情報の取得設定
