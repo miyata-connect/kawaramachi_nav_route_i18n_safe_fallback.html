@@ -1273,27 +1273,28 @@ async function fetchLocationName(){
     const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${currentLocation.lat}&lon=${currentLocation.lng}&format=json&accept-language=${currentLang}`);
     const data=await res.json();
     
-    console.log("Address data:", data.address);
-    
     const state=data.address?.state||"";
+    const county=data.address?.county||"";
     const city=data.address?.city||data.address?.town||data.address?.village||"";
-    const suburb=data.address?.suburb||data.address?.city_district||data.address?.district||"";
+    const suburb=data.address?.suburb||"";
     const quarter=data.address?.quarter||data.address?.neighbourhood||"";
-    const road=data.address?.road||"";
-    const house_number=data.address?.house_number||"";
     
     let locationText="";
+    
     if(state)locationText+=state;
-    if(city)locationText+=city;
+    
+    if(county){
+      locationText+=county;
+    }else if(city){
+      locationText+=city;
+    }
+    
     if(suburb)locationText+=suburb;
     if(quarter)locationText+=quarter;
-    if(road)locationText+=road;
-    if(house_number)locationText+=house_number;
+    
     if(locationText)locationText+="付近";
     
     if(!locationText)locationText=translations[currentLang].loading;
-    
-    console.log("Location text:", locationText);
     
     const locationNameEl=document.getElementById("locationName");
     if(locationNameEl){
