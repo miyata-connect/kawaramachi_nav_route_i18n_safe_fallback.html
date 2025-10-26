@@ -391,6 +391,7 @@ button[aria-label*="位置情報"] {
     <div id="infoPanel" class="info-panel">
       <div class="route-main">
         <div id="routeText">目的地を設定してください</div>
+        <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:6px;font-weight:600;">半径5km圏内の情報を表示しています。</div>
         <div id="incidentMarquee" style="background:rgba(255,101,101,.2);border-radius:6px;padding:4px 8px;margin-top:8px;overflow:hidden;white-space:nowrap;">
           <div id="incidentText" style="display:inline-block;animation:marquee 20s linear infinite;font-size:16px;color:#ff6565;">
             現在、周辺半径5km圏内で特に報告されている事件、事故の報告はありません。
@@ -400,6 +401,7 @@ button[aria-label*="位置情報"] {
       <div class="route-time">
         <span><span id="timeLabel">現在時刻</span>: <span id="currentTime">--:--</span></span>
         <span><span id="arrivalLabel">到着予想時刻</span>: <span id="arrivalTime">--:--</span></span>
+        <span>所要時間: <span id="durationTime">--分</span></span>
       </div>
       <div style="text-align:center;margin-bottom:8px;">
         <div id="locationName" class="location-name">読み込み中...</div>
@@ -1024,11 +1026,16 @@ function startNav(){
     
     const currentTimeEl=document.getElementById("currentTime");
     const arrivalTimeEl=document.getElementById("arrivalTime");
+    const durationTimeEl=document.getElementById("durationTime");
+    
     if(currentTimeEl){
       currentTimeEl.textContent=formatTime(now);
     }
     if(arrivalTimeEl){
       arrivalTimeEl.textContent=formatTime(arrival);
+    }
+    if(durationTimeEl){
+      durationTimeEl.textContent=`${dur}分`;
     }
     
     speak(`${translations[currentLang].navStart} ${dist} km, ${dur} minutes.`);
@@ -1060,11 +1067,16 @@ function stopNav(){
   
   const routeTextEl=document.getElementById("routeText");
   const arrivalTimeEl=document.getElementById("arrivalTime");
+  const durationTimeEl=document.getElementById("durationTime");
+  
   if(routeTextEl){
     routeTextEl.textContent=translations[currentLang].setDestination;
   }
   if(arrivalTimeEl){
     arrivalTimeEl.textContent="--:--";
+  }
+  if(durationTimeEl){
+    durationTimeEl.textContent="--分";
   }
   
   const searchBox=document.getElementById("searchBox");
@@ -1133,11 +1145,16 @@ function reroute(manual=!0){
     
     const currentTimeEl=document.getElementById("currentTime");
     const arrivalTimeEl=document.getElementById("arrivalTime");
+    const durationTimeEl=document.getElementById("durationTime");
+    
     if(currentTimeEl){
       currentTimeEl.textContent=formatTime(now);
     }
     if(arrivalTimeEl){
       arrivalTimeEl.textContent=formatTime(arrival);
+    }
+    if(durationTimeEl){
+      durationTimeEl.textContent=`${dur}分`;
     }
     
     manual&&speak("Rerouting");
