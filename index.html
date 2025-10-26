@@ -759,7 +759,8 @@ function initMap(){
       scaleControl:false,
       gestureHandling:'greedy',
       clickableIcons:false,
-      disableDefaultUI: true
+      disableDefaultUI: true,
+      showUserLocation: false
     });
     
     // ロケーションボタンを追加
@@ -790,11 +791,16 @@ function initMap(){
       <path d="M14 16 L18 16 M16 14 L16 18" stroke="#64d2ff" stroke-width="1.5" stroke-linecap="round"/>
     </svg>`;
     
+    locationButton.style.position = "absolute";
+    locationButton.style.right = "200px";
+    locationButton.style.bottom = "100px";
+    locationButton.style.zIndex = "400";
+    
     locationButton.addEventListener("click", () => {
       toggleMapControls();
     });
     
-    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(locationButton);
+    document.getElementById("map").appendChild(locationButton);
     
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
