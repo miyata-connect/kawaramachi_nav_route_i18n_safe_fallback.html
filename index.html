@@ -351,6 +351,28 @@ input,select{
   transition:opacity 0.3s;
 }
 .loading-screen.hide{opacity:0;pointer-events:none}
+
+/* Google Maps ロケーションボタンのカスタマイズ */
+.gm-control-active.gm-fullscreen-control {
+  display: none !important;
+}
+button[title*="現在地"],
+button[title*="location"],
+button[aria-label*="現在地"],
+button[aria-label*="location"],
+.gm-svpc {
+  background: #64d2ff !important;
+  border-radius: 8px !important;
+  width: 50px !important;
+  height: 50px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3) !important;
+}
+button[title*="現在地"] img,
+button[title*="location"] img,
+button[aria-label*="現在地"] img,
+button[aria-label*="location"] img {
+  filter: brightness(0) invert(0) !important;
+}
   </style>
 </head>
 <body>
@@ -606,8 +628,38 @@ function initMap(){
       rotateControl:false,
       scaleControl:false,
       gestureHandling:'greedy',
-      clickableIcons:false
+      clickableIcons:false,
+      zoomControlOptions: {
+        position: google.maps.ControlPosition.RIGHT_CENTER
+      }
     });
+    
+    // ロケーションボタンを追加
+    const locationButton = document.createElement("button");
+    locationButton.style.backgroundColor = "#64d2ff";
+    locationButton.style.border = "none";
+    locationButton.style.borderRadius = "8px";
+    locationButton.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
+    locationButton.style.cursor = "pointer";
+    locationButton.style.margin = "10px";
+    locationButton.style.padding = "0";
+    locationButton.style.width = "50px";
+    locationButton.style.height = "50px";
+    locationButton.style.display = "flex";
+    locationButton.style.alignItems = "center";
+    locationButton.style.justifyContent = "center";
+    locationButton.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" fill="#000"/>
+    </svg>`;
+    
+    locationButton.addEventListener("click", () => {
+      if (currentLocation) {
+        map.setCenter(currentLocation);
+        map.setZoom(18);
+      }
+    });
+    
+    map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(locationButton);
     
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
