@@ -224,7 +224,7 @@ input,select{
 .right-buttons{
   position:absolute;
   right:10px;
-  top:280px;
+  top:360px;
   z-index:450;
   display:flex;
   flex-direction:column;
@@ -541,12 +541,13 @@ div[title*="付近"] {
     <div id="success" class="success-banner hidden"></div>
     
     <div id="rightButtons" class="right-buttons">
-      <button class="right-btn primary" onclick="showSearchPanel()" title="検索">
+      <button class="right-btn accent" onclick="zoomToCurrentLocation()" title="現在地を拡大表示">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="2"/>
-          <path d="M20 20L15.5 15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="12" cy="12" r="3" fill="currentColor"/>
+          <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 2V6M12 18V22M22 12H18M6 12H2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <span style="font-size:10px;margin-top:2px;">目的地</span>
+        <span style="font-size:9px;margin-top:2px;">現在地</span>
       </button>
       <button class="right-btn primary" onclick="voiceSearch()" title="音声検索">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -561,14 +562,6 @@ div[title*="付近"] {
           <rect x="14" y="5" width="4" height="14" stroke="#000" stroke-width="2" fill="none"/>
         </svg>
         <span style="font-size:9px;margin-top:2px;color:#000;">案内停止</span>
-      </button>
-      <button class="right-btn accent" onclick="zoomToCurrentLocation()" title="現在地を拡大表示">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="12" r="3" fill="currentColor"/>
-          <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 2V6M12 18V22M22 12H18M6 12H2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span style="font-size:9px;margin-top:2px;">現在地</span>
       </button>
       <button class="right-btn warning" onclick="zoomToDestination()" title="目的地を拡大表示">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
