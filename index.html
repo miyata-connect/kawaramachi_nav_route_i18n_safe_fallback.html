@@ -254,6 +254,7 @@ input,select{
 .right-btn.danger{background:var(--danger);border:none;color:#fff;display:none;}
 .right-btn.danger.active{display:flex;}
 .right-btn.accent{background:var(--accent);border:none;color:#000}
+.right-btn.warning{background:#ffa500;border:none;color:#000}
 
 .map-controls{
   position:fixed;
@@ -544,13 +545,20 @@ button[aria-label*="位置情報"] {
         </svg>
         <span style="font-size:10px;margin-top:2px;">停止</span>
       </button>
-      <button class="right-btn accent" onclick="relocalize()" title="現在地に戻る">
+      <button class="right-btn accent" onclick="zoomToCurrentLocation()" title="現在地を拡大表示">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="12" cy="12" r="3" fill="currentColor"/>
           <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>
           <path d="M12 2V6M12 18V22M22 12H18M6 12H2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
         <span style="font-size:9px;margin-top:2px;">現在地</span>
+      </button>
+      <button class="right-btn warning" onclick="zoomToDestination()" title="目的地を拡大表示">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L12 12M12 12L8 8M12 12L16 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M12 12C12 15.866 8.866 19 5 19C5 19 3 17 3 12C3 8.134 5 2 12 2C19 2 21 8.134 21 12C21 17 19 19 19 19C15.134 19 12 15.866 12 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span style="font-size:9px;margin-top:2px;">目的地</span>
       </button>
       <button class="right-btn ok" onclick="showRouteSelectModal('reroute')" title="ルート再計算">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1235,6 +1243,32 @@ function quickVoiceSearch(){
     btn.style.background="";
     btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
   }
+}
+
+function zoomToCurrentLocation(){
+  if(!currentMarker){
+    showError("現在地が取得できていません");
+    return;
+  }
+  
+  const pos=currentMarker.getPosition();
+  map.panTo(pos);
+  map.setZoom(18);
+  
+  speak("現在地を表示");
+}
+
+function zoomToDestination(){
+  if(!destMarker){
+    showError("目的地が設定されていません");
+    return;
+  }
+  
+  const pos=destMarker.getPosition();
+  map.panTo(pos);
+  map.setZoom(18);
+  
+  speak("目的地を表示");
 }
 
 function relocalize(){
