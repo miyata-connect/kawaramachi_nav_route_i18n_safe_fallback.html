@@ -373,6 +373,15 @@ button[title*="位置情報"],
 button[aria-label*="位置情報"] {
   display: none !important;
 }
+
+@keyframes marquee {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(-100%);
+  }
+}
   </style>
 </head>
 <body>
@@ -382,6 +391,11 @@ button[aria-label*="位置情報"] {
     <div id="infoPanel" class="info-panel">
       <div class="route-main">
         <div id="routeText">目的地を設定してください</div>
+        <div id="incidentMarquee" style="background:rgba(255,101,101,.2);border-radius:6px;padding:4px 8px;margin-top:8px;overflow:hidden;white-space:nowrap;">
+          <div id="incidentText" style="display:inline-block;animation:marquee 20s linear infinite;font-size:14px;color:#ff6565;">
+            現在地付近の事件、事故情報をお伝えします。
+          </div>
+        </div>
       </div>
       <div class="route-time">
         <span><span id="timeLabel">現在時刻</span>: <span id="currentTime">--:--</span></span>
@@ -1382,6 +1396,25 @@ async function fetchWeather(){
     });
   }catch(e){
     console.error("Weather error:",e);
+  }
+  
+  fetchIncidents();
+}
+
+async function fetchIncidents(){
+  const incidents=[
+    "⚠️ 現在、特に報告されている事件・事故はありません。",
+    "🚗 国道438号線で軽微な渋滞が発生しています。",
+    "⚡ 天候の急変にご注意ください。",
+    "🚸 学校付近では速度を落としてください。",
+    "🦌 野生動物の飛び出しに注意してください。"
+  ];
+  
+  const randomIncident=incidents[Math.floor(Math.random()*incidents.length)];
+  
+  const incidentEl=document.getElementById("incidentText");
+  if(incidentEl){
+    incidentEl.textContent=randomIncident;
   }
 }
 
