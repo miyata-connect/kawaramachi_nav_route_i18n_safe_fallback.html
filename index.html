@@ -434,7 +434,7 @@ button[aria-label*="位置情報"] {
       <div class="route-time">
         <span><span id="timeLabel" style="display:inline-block;line-height:1.2;">現在<br>時刻</span>: <span id="currentTime" style="font-size:20px;">--:--</span></span>
         <span><span id="arrivalLabel" style="display:inline-block;line-height:1.2;">到着<br>予想</span>: <span id="arrivalTime" style="font-size:20px;">--:--</span></span>
-        <span><span style="display:inline-block;line-height:1.2;">所要<br>時間</span>: <span id="durationTime" style="font-size:20px;">--分</span></span>
+        <span><span style="display:inline-block;line-height:1.2;">所要<br>時間</span>: <span id="durationTime" style="font-size:20px;">--:--</span></span>
       </div>
       <div style="text-align:center;margin-bottom:8px;">
         <div id="locationName" class="location-name">読み込み中...</div>
@@ -504,15 +504,20 @@ button[aria-label*="位置情報"] {
     <div id="success" class="success-banner hidden"></div>
     
     <div id="rightButtons" class="right-buttons">
+      <button class="right-btn primary" onclick="showSearchPanel()" title="検索">
+        <span style="font-size:20px;">🔍</span>
+        <span style="font-size:10px;margin-top:2px;">検索</span>
+      </button>
+      <button class="right-btn primary" onclick="voiceSearch()" title="音声検索">
+        <span style="font-size:20px;">🎤</span>
+        <span style="font-size:10px;margin-top:2px;">音声</span>
+      </button>
       <button class="right-btn accent" onclick="relocalize()" title="現在地に戻る">
         <span style="font-size:20px;">📍</span>
         <span style="font-size:10px;margin-top:2px;">現在地</span>
       </button>
-      <button class="right-btn primary" onclick="fastestRoute()" title="最短ルート">
-        <span style="font-size:11px;font-weight:700;">最短AI</span>
-      </button>
-      <button class="right-btn ok" onclick="easyRoute()" title="楽チンルート">
-        <span style="font-size:10px;font-weight:700;">楽チンAI</span>
+      <button class="right-btn ok" onclick="reroute(true)" title="ルート再計算">
+        <span style="font-size:10px;font-weight:700;">リルート</span>
       </button>
       <button class="right-btn danger" id="stopNavBtn" onclick="stopNav()" title="案内停止" style="display:none;">
         <span style="font-size:10px;font-weight:700;">案内<br>停止</span>
@@ -843,6 +848,49 @@ function fallbackCopy(text){
   document.body.removeChild(textarea);
 }
 
+function showSearchPanel(){
+  const controlPanel=document.getElementById("controlPanel");
+  if(controlPanel){
+    controlPanel.classList.remove("hidden");
+    hideAllElements();
+  }
+  const searchBox=document.getElementById("searchBox");
+  if(searchBox){
+    searchBox.focus();
+  }
+}
+
+function voiceSearch(){
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    showError("音声認識に対応していません");
+    return;
+  }
+  
+  const recognition=new(window.SpeechRecognition||window.webkitSpeechRecognition)();
+  recognition.lang='ja-JP';
+  recognition.continuous=false;
+  recognition.interimResults=false;
+  
+  recognition.onstart=()=>{
+    showSuccess("音声入力中...");
+  };
+  
+  recognition.onresult=(event)=>{
+    const transcript=event.results[0][0].transcript;
+    const searchBox=document.getElementById("searchBox");
+    if(searchBox){
+      searchBox.value=transcript;
+      searchPlace();
+    }
+  };
+  
+  recognition.onerror=(event)=>{
+    showError("音声認識エラー");
+  };
+  
+  recognition.start();
+}
+
 async function searchPlace(){
   const searchBox=document.getElementById("searchBox");
   if(!searchBox)return;
@@ -1096,7 +1144,9 @@ function startNav(){
       arrivalTimeEl.textContent=formatTime(arrival);
     }
     if(durationTimeEl){
-      durationTimeEl.textContent=`${dur}分`;
+      const hours=Math.floor(dur/60);
+      const mins=dur%60;
+      durationTimeEl.textContent=hours>0?`${hours}:${mins.toString().padStart(2,'0')}`:`0:${mins.toString().padStart(2,'0')}`;
     }
     
     speak(`${translations[currentLang].navStart} ${dist} km, ${dur} minutes.`);
@@ -1142,7 +1192,7 @@ function stopNav(){
     arrivalTimeEl.textContent="--:--";
   }
   if(durationTimeEl){
-    durationTimeEl.textContent="--分";
+    durationTimeEl.textContent="--:--";
   }
   
   const searchBox=document.getElementById("searchBox");
@@ -1220,7 +1270,9 @@ function reroute(manual=!0){
       arrivalTimeEl.textContent=formatTime(arrival);
     }
     if(durationTimeEl){
-      durationTimeEl.textContent=`${dur}分`;
+      const hours=Math.floor(dur/60);
+      const mins=dur%60;
+      durationTimeEl.textContent=hours>0?`${hours}:${mins.toString().padStart(2,'0')}`:`0:${mins.toString().padStart(2,'0')}`;
     }
     
     manual&&speak("Rerouting");
