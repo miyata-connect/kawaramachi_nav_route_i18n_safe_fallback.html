@@ -41,15 +41,17 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
   bottom:10px;
   left:50%;
   transform:translateX(-50%);
-  background:var(--glass-strong);
-  border:1px solid var(--stroke);
+  background:var(--accent);
+  border:none;
   border-radius:12px;
-  padding:8px 24px;
-  color:var(--text);
-  font-size:13px;
+  padding:14px 40px;
+  color:#fff;
+  font-size:15px;
+  font-weight:700;
   cursor:pointer;
   z-index:490;
   display:none;
+  box-shadow:0 4px 12px rgba(0,0,0,.3);
 }
 .panel-toggle.show{display:block}
 .panel-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
@@ -154,7 +156,7 @@ input,select{
 .nav-buttons{
   position:absolute;
   right:10px;
-  top:10px;
+  top:190px;
   z-index:450;
   display:flex;
   flex-direction:column;
@@ -321,8 +323,8 @@ input,select{
       <div class="nav-btn compass-btn" id="compassBtn">
         <div class="compass-n">N</div>
         <svg width="40" height="40" viewBox="0 0 50 50" style="margin-top:8px">
-          <path id="compassNeedle" d="M25 8 L27 25 L25 23 L23 25 Z" fill="#ff6565" stroke="#fff" stroke-width="1"/>
-          <path d="M25 42 L27 25 L25 27 L23 25 Z" fill="#eaf2ff" stroke="#444" stroke-width="1"/>
+          <path id="compassNeedle" d="M25 5 L27 25 L25 23 L23 25 Z" fill="#ff6565" stroke="#fff" stroke-width="1"/>
+          <path d="M25 45 L27 25 L25 27 L23 25 Z" fill="#eaf2ff" stroke="#444" stroke-width="1"/>
           <circle cx="25" cy="25" r="2.5" fill="#5fb1ff" stroke="#fff" stroke-width="1.5"/>
         </svg>
       </div>
@@ -350,15 +352,12 @@ input,select{
       
       <!-- 音声検索 -->
       <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()">🎤</div>
-      
-      <!-- 全画面 -->
-      <div class="nav-btn" onclick="toggleFullscreen()">⛶</div>
     </div>
     
     <!-- 操作パネル -->
     <div id="controlPanel" class="control-panel hidden">
-      <div style="text-align:center;font-size:13px;color:var(--muted);margin-bottom:10px" id="coordsDisplay">
-        緯度: ---.------ / 経度: ---.------
+      <div style="text-align:center;font-size:15px;color:var(--text);font-weight:700;margin-bottom:12px;background:var(--glass-strong);padding:10px;border-radius:8px" id="coordsDisplay">
+        📍 緯度: ---.------ / 経度: ---.------
       </div>
       
       <input id="searchBox" placeholder="店舗名・住所・電話番号で検索" style="margin-bottom:10px">
@@ -565,14 +564,6 @@ function setHeadingUp(){
   speak("ヘディングアップモード");
 }
 
-function toggleFullscreen(){
-  if(!document.fullscreenElement){
-    document.documentElement.requestFullscreen();
-  }else{
-    document.exitFullscreen();
-  }
-}
-
 function startWatch(){
   watchId&&navigator.geolocation.clearWatch(watchId);
   watchId=navigator.geolocation.watchPosition(pos=>{
@@ -589,7 +580,7 @@ function updateCoords(){
   if(!currentLocation)return;
   const lat=currentLocation.lat.toFixed(6);
   const lng=currentLocation.lng.toFixed(6);
-  document.getElementById("coordsDisplay").textContent=`緯度: ${lat} / 経度: ${lng}`;
+  document.getElementById("coordsDisplay").textContent=`📍 緯度: ${lat} / 経度: ${lng}`;
 }
 
 async function searchPlace(){
