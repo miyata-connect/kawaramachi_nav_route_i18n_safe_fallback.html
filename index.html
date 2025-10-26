@@ -224,7 +224,7 @@ input,select{
 .right-buttons{
   position:absolute;
   right:10px;
-  top:625px;
+  top:615px;
   z-index:450;
   display:flex;
   flex-direction:column;
@@ -802,6 +802,7 @@ function initMap(){
     currentMarker=new google.maps.Marker({
       position:currentLocation,
       map,
+      visible:false,
       icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:"#5fb1ff",fillOpacity:1,strokeWeight:2,strokeColor:"#fff"}
     });
     
@@ -1781,7 +1782,6 @@ async function fetchIncidents(){
     "⚠️ 現在、周辺半径5km圏内で特に報告されている事件、事故の報告はありません。",
     "☔ 降雨が予想されています。傘の準備をお勧めします。",
     "⚡ 雷注意報が発表されています。建物内への避難を検討してください。",
-    "🌡️ 熱中症に注意してください。こまめな水分補給を心がけましょう。",
     "❄️ 路面凍結の恐れがあります。足元に十分ご注意ください。",
     "🌫️ 視界不良が予想されています。歩行時は周囲に注意してください。",
     "🚸 学校付近では児童・生徒の通行に注意してください。",
