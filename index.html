@@ -93,6 +93,7 @@ input,select{
   z-index:460;
   color:var(--text);
   display:none;
+  pointer-events:none;
 }
 .info-panel.show{display:block}
 .route-main{
@@ -160,6 +161,7 @@ input,select{
   display:flex;
   flex-direction:column;
   gap:10px;
+  pointer-events:none;
 }
 .nav-buttons.hidden{display:none}
 .nav-btn{
@@ -177,9 +179,11 @@ input,select{
   font-weight:700;
   flex-direction:column;
   gap:2px;
+  pointer-events:auto;
 }
 .nav-btn.compass-btn{
   position:relative;
+  pointer-events:auto;
 }
 .compass-n{
   position:absolute;
@@ -202,6 +206,7 @@ input,select{
   display:flex;
   flex-direction:column;
   gap:10px;
+  pointer-events:none;
 }
 .left-buttons.hidden{display:none}
 
@@ -218,6 +223,7 @@ input,select{
   display:flex;
   align-items:center;
   justify-content:center;
+  pointer-events:auto;
 }
 
 .map-controls{
