@@ -421,7 +421,7 @@ button[aria-label*="位置情報"] {
           </div>
         </div>
       </div>
-      <div id="coordsDisplay" style="text-align:center;font-size:17px;color:var(--muted);margin-top:8px;font-weight:600;">📍 緯度: -- / 経度: --</div>
+      <div id="coordsDisplay" style="text-align:center;font-size:17px;color:var(--muted);margin-top:8px;font-weight:600;cursor:pointer;" onclick="copyCoordinates()">📍 緯度: -- / 経度: --</div>
     </div>
     
     <div id="mapControls" class="map-controls">
@@ -720,6 +720,40 @@ function updateCoords(){
   if(coordsEl){
     coordsEl.textContent=`📍 緯度: ${lat} / 経度: ${lng}`;
   }
+}
+
+function copyCoordinates(){
+  if(!currentLocation)return;
+  
+  const lat=currentLocation.lat.toFixed(6);
+  const lng=currentLocation.lng.toFixed(6);
+  const coordsText=`${lat}, ${lng}`;
+  
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(coordsText).then(()=>{
+      showSuccess("緯度経度をコピーしました");
+    }).catch(()=>{
+      fallbackCopy(coordsText);
+    });
+  }else{
+    fallbackCopy(coordsText);
+  }
+}
+
+function fallbackCopy(text){
+  const textarea=document.createElement("textarea");
+  textarea.value=text;
+  textarea.style.position="fixed";
+  textarea.style.opacity="0";
+  document.body.appendChild(textarea);
+  textarea.select();
+  try{
+    document.execCommand("copy");
+    showSuccess("緯度経度をコピーしました");
+  }catch(e){
+    showError("コピーに失敗しました");
+  }
+  document.body.removeChild(textarea);
 }
 
 async function searchPlace(){
