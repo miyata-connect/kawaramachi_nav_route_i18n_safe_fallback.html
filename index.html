@@ -83,8 +83,8 @@ input,select{
 /* 統合情報パネル */
 .info-panel{
   position:absolute;
-  left:80px;
-  right:80px;
+  left:10px;
+  right:10px;
   top:10px;
   background:var(--glass);
   border:1px solid var(--stroke);
@@ -157,11 +157,11 @@ input,select{
 .nav-buttons{
   position:absolute;
   right:10px;
-  top:190px;
+  top:200px;
   z-index:450;
   display:flex;
   flex-direction:column;
-  gap:8px;
+  gap:0;
 }
 .nav-buttons.hidden{display:none}
 .nav-btn{
@@ -200,33 +200,29 @@ input,select{
 .left-buttons{
   position:absolute;
   left:10px;
-  top:190px;
+  top:200px;
   z-index:450;
   display:flex;
   flex-direction:column;
-  gap:8px;
+  gap:0;
 }
 .left-buttons.hidden{display:none}
 
-/* ロケーションボタン（右下固定） */
+/* ロケーションボタン（右側縦一列の一部） */
 .location-btn{
-  position:fixed;
-  right:10px;
-  bottom:80px;
   width:60px;
   height:60px;
   background:var(--accent);
   border:none;
   border-radius:10px;
   color:#000;
-  font-size:24px;
+  font-size:20px;
   cursor:pointer;
   font-weight:700;
-  box-shadow:0 4px 12px rgba(0,0,0,.3);
-  z-index:450;
   display:flex;
   align-items:center;
   justify-content:center;
+  margin-top:8px;
 }
 
 /* 地図コントロールボタン群 */
@@ -433,10 +429,10 @@ input,select{
       
       <!-- 音声案内 -->
       <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()"><span id="btnVoiceNav">音声<br>案内</span></div>
+      
+      <!-- ロケーションボタン -->
+      <button class="location-btn" onclick="toggleMapControls()">🗺️</button>
     </div>
-    
-    <!-- ロケーションボタン（右下固定） -->
-    <button class="location-btn" onclick="toggleMapControls()">🗺️</button>
     
     <!-- 地図コントロールボタン群 -->
     <div id="mapControls" class="map-controls">
@@ -801,7 +797,6 @@ function hideAllElements(){
   document.getElementById("infoPanel").classList.remove("show");
   document.getElementById("resultsPanel").style.display="none";
   document.getElementById("savedPointsPanel").style.display="none";
-  document.querySelector(".location-btn").style.display="none";
   document.getElementById("mapControls").classList.remove("show");
 }
 
@@ -809,7 +804,6 @@ function showAllElements(){
   document.getElementById("navButtons").classList.remove("hidden");
   document.getElementById("leftButtons").classList.remove("hidden");
   document.getElementById("infoPanel").classList.add("show");
-  document.querySelector(".location-btn").style.display="flex";
 }
 
 function toggleMapControls(){
