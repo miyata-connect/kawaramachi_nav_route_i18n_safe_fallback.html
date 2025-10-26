@@ -488,7 +488,7 @@ div[title*="付近"] {
       <div id="coordsDisplay" style="text-align:center;font-size:17px;color:var(--muted);margin-top:8px;font-weight:600;cursor:pointer;pointer-events:auto;" onclick="copyCoordinates(event)">📍 緯度: -- / 経度: --</div>
     </div>
     
-    <div id="currentLocationDisplay" style="position:absolute;bottom:80px;left:50%;transform:translateX(-50%);z-index:500;background:var(--glass-strong);border-radius:12px;padding:8px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+    <div id="currentLocationDisplay" style="display:none;position:absolute;bottom:80px;left:50%;transform:translateX(-50%);z-index:500;background:var(--glass-strong);border-radius:12px;padding:8px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
       <div style="text-align:center;font-size:14px;color:var(--accent);font-weight:700;">現在地を取得中...</div>
     </div>
     
@@ -782,7 +782,7 @@ function initMap(){
     locationButton.style.borderRadius = "8px";
     locationButton.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
     locationButton.style.cursor = "pointer";
-    locationButton.style.margin = "10px";
+    locationButton.style.margin = "10px 30px 110px 10px";
     locationButton.style.padding = "0";
     locationButton.style.width = "50px";
     locationButton.style.height = "50px";
@@ -1680,13 +1680,14 @@ async function fetchLocationName(){
       locationNameEl.textContent=locationText;
     }
     
-    const currentLocationDisplayEl=document.getElementById("currentLocationDisplay");
-    if(currentLocationDisplayEl){
-      const displayEl=currentLocationDisplayEl.querySelector("div");
-      if(displayEl){
-        displayEl.textContent=locationText;
-      }
-    }
+    // 地図上の住所表示は行わない（パネルのみ表示）
+    // const currentLocationDisplayEl=document.getElementById("currentLocationDisplay");
+    // if(currentLocationDisplayEl){
+    //   const displayEl=currentLocationDisplayEl.querySelector("div");
+    //   if(displayEl){
+    //     displayEl.textContent=locationText;
+    //   }
+    // }
   }catch(e){
     const locationNameEl=document.getElementById("locationName");
     if(locationNameEl){
