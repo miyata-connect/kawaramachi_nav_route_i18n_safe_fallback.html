@@ -392,7 +392,7 @@ button[aria-label*="位置情報"] {
       <div class="route-main">
         <div id="routeText">目的地を設定してください</div>
         <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:6px;font-weight:600;">半径5km圏内の情報を表示しています。</div>
-        <div id="incidentMarquee" style="background:rgba(255,101,101,.2);border-radius:6px;padding:4px 8px;margin-top:8px;overflow:hidden;white-space:nowrap;">
+        <div id="incidentMarquee" style="background:rgba(255,101,101,.2);border-radius:6px;padding:2px 8px;margin-top:6px;overflow:hidden;white-space:nowrap;height:24px;display:flex;align-items:center;">
           <div id="incidentText" style="display:inline-block;animation:marquee 20s linear infinite;font-size:16px;color:#ff6565;">
             現在、周辺半径5km圏内で特に報告されている事件、事故の報告はありません。
           </div>
@@ -401,7 +401,7 @@ button[aria-label*="位置情報"] {
       <div class="route-time">
         <span><span id="timeLabel" style="display:inline-block;line-height:1.2;">現在<br>時刻</span>: <span id="currentTime">--:--</span></span>
         <span><span id="arrivalLabel" style="display:inline-block;line-height:1.2;">到着<br>予想</span>: <span id="arrivalTime">--:--</span></span>
-        <span style="display:inline-block;line-height:1.2;">所要<br>時間</span>: <span id="durationTime">--分</span></span>
+        <span><span style="display:inline-block;line-height:1.2;">所要<br>時間</span>: <span id="durationTime">--分</span></span>
       </div>
       <div style="text-align:center;margin-bottom:8px;">
         <div id="locationName" class="location-name">読み込み中...</div>
@@ -1436,10 +1436,14 @@ async function fetchWeather(){
 async function fetchIncidents(){
   const incidents=[
     "⚠️ 現在、周辺半径5km圏内で特に報告されている事件、事故の報告はありません。",
-    "🚗 国道438号線で軽微な渋滞が発生しています。",
-    "⚡ 天候の急変にご注意ください。",
-    "🚸 学校付近では速度を落としてください。",
-    "🦌 野生動物の飛び出しに注意してください。"
+    "☔ 降雨が予想されています。傘の準備をお勧めします。",
+    "⚡ 雷注意報が発表されています。建物内への避難を検討してください。",
+    "🌡️ 熱中症に注意してください。こまめな水分補給を心がけましょう。",
+    "❄️ 路面凍結の恐れがあります。足元に十分ご注意ください。",
+    "🌫️ 視界不良が予想されています。歩行時は周囲に注意してください。",
+    "🚸 学校付近では児童・生徒の通行に注意してください。",
+    "🦌 野生動物の出没情報があります。周囲に注意してください。",
+    "⚠️ 工事区間があります。迂回路の利用をお勧めします。"
   ];
   
   const randomIncident=incidents[Math.floor(Math.random()*incidents.length)];
@@ -1449,6 +1453,14 @@ async function fetchIncidents(){
     incidentEl.textContent=randomIncident;
   }
 }
+
+// TODO: 歩行者向けインシデント情報の取得設定
+// - 気象警報・注意報API
+// - 自治体の防災情報API
+// - 歩道工事情報
+// - 不審者情報
+// - 野生動物出没情報
+// などの取得先を後で設定する
 
 function showError(msg){
   const el=document.getElementById("error");
