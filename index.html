@@ -255,6 +255,10 @@ input,select{
   display:flex;
   align-items:center;
   justify-content:center;
+  user-select:none;
+}
+.map-control-btn:active{
+  background:var(--primary);
 }
 
 /* 検索結果 */
@@ -435,22 +439,31 @@ input,select{
       <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()"><span id="btnVoiceNav">音声<br>案内</span></div>
       
       <!-- ロケーションボタン -->
-      <button class="location-btn" onclick="toggleMapControls()">🗺️</button>
+      <button class="location-btn" onclick="toggleMapControls()">
+        <svg width="32" height="32" viewBox="0 0 48 48">
+          <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2.5" fill="none"/>
+          <polygon points="24,6 21,16 27,16" fill="currentColor"/>
+          <polygon points="24,42 21,32 27,32" fill="currentColor"/>
+          <polygon points="6,24 16,21 16,27" fill="currentColor"/>
+          <polygon points="42,24 32,21 32,27" fill="currentColor"/>
+          <circle cx="24" cy="24" r="5" fill="currentColor"/>
+        </svg>
+      </button>
     </div>
     
     <!-- 地図コントロールボタン群 -->
     <div id="mapControls" class="map-controls">
       <div class="map-control-row">
-        <div class="map-control-btn" onclick="panUp()">↑</div>
+        <div class="map-control-btn" onclick="event.preventDefault();panUp()">↑</div>
       </div>
       <div class="map-control-row">
-        <div class="map-control-btn" onclick="panLeft()">←</div>
-        <div class="map-control-btn" onclick="zoomIn()">+</div>
-        <div class="map-control-btn" onclick="zoomOut()">−</div>
-        <div class="map-control-btn" onclick="panRight()">→</div>
+        <div class="map-control-btn" onclick="event.preventDefault();panLeft()">←</div>
+        <div class="map-control-btn" onclick="event.preventDefault();zoomIn()">+</div>
+        <div class="map-control-btn" onclick="event.preventDefault();zoomOut()">−</div>
+        <div class="map-control-btn" onclick="event.preventDefault();panRight()">→</div>
       </div>
       <div class="map-control-row">
-        <div class="map-control-btn" onclick="panDown()">↓</div>
+        <div class="map-control-btn" onclick="event.preventDefault();panDown()">↓</div>
       </div>
     </div>
     
@@ -963,8 +976,12 @@ function setupCompass(){
 
 function setNorthUp(){
   headingMode="north";
-  map.setTilt(0);
-  map.setHeading(0);
+  const currentCenter=map.getCenter();
+  map.setOptions({
+    heading:0,
+    tilt:0,
+    center:currentCenter
+  });
   document.getElementById("nupBtn").classList.add("active");
   document.getElementById("hupBtn").classList.remove("active");
   speak("North up mode");
@@ -972,9 +989,13 @@ function setNorthUp(){
 
 function setHeadingUp(){
   headingMode="heading";
-  map.setTilt(45);
+  const currentCenter=map.getCenter();
+  map.setOptions({
+    tilt:45,
+    center:currentCenter
+  });
   if(typeof targetAlpha==="number"){
-    map.setHeading(360-targetAlpha);
+    map.setOptions({heading:360-targetAlpha});
   }
   document.getElementById("nupBtn").classList.remove("active");
   document.getElementById("hupBtn").classList.add("active");
@@ -1316,7 +1337,11 @@ function loadSavedPoints(){
 }
 
 function showSavedPoints(){
-  if(savedPoints.length===0)return alert("No saved points");
+  if(savedPoints.length===0){
+    const noPointsText=currentLang==="ja"?"保存された地点がありません":"No saved points";
+    alert(noPointsText);
+    return;
+  }
   
   const panel=document.getElementById("savedPointsPanel");
   const list=document.getElementById("savedPointsList");
@@ -1362,13 +1387,34 @@ function editSavedPoints(){
   savedPoints.forEach((p,i)=>{
     const item=document.createElement("div");
     item.className="saved-point-item";
-    item.innerHTML=`
-      <div class="saved-point-name">${i+1}. ${p.name}</div>
-      <div class="saved-point-actions">
-        <div class="saved-point-btn" onclick="editPointName(${i})">${translations[currentLang].edit}</div>
-        <div class="saved-point-btn delete" onclick="deletePoint(${i})">${translations[currentLang].delete}</div>
-      </div>
-    `;
+    
+    const nameDiv=document.createElement("div");
+    nameDiv.className="saved-point-name";
+    nameDiv.textContent=`${i+1}. ${p.name}`;
+    
+    const actionsDiv=document.createElement("div");
+    actionsDiv.className="saved-point-actions";
+    
+    const editBtn=document.createElement("div");
+    editBtn.className="saved-point-btn";
+    editBtn.textContent=translations[currentLang].edit;
+    editBtn.onclick=(e)=>{
+      e.stopPropagation();
+      editPointName(i);
+    };
+    
+    const deleteBtn=document.createElement("div");
+    deleteBtn.className="saved-point-btn delete";
+    deleteBtn.textContent=translations[currentLang].delete;
+    deleteBtn.onclick=(e)=>{
+      e.stopPropagation();
+      deletePoint(i);
+    };
+    
+    actionsDiv.appendChild(editBtn);
+    actionsDiv.appendChild(deleteBtn);
+    item.appendChild(nameDiv);
+    item.appendChild(actionsDiv);
     list.appendChild(item);
   });
   
