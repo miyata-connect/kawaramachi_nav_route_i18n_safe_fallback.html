@@ -251,7 +251,8 @@ input,select{
 }
 .right-btn.primary{background:var(--primary);border:none;color:#000}
 .right-btn.ok{background:var(--ok);border:none;color:#000}
-.right-btn.danger{background:var(--danger);border:none;color:#fff}
+.right-btn.danger{background:var(--danger);border:none;color:#fff;display:none;}
+.right-btn.danger.active{display:flex;}
 .right-btn.accent{background:var(--accent);border:none;color:#000}
 
 .map-controls{
@@ -473,6 +474,10 @@ button[aria-label*="位置情報"] {
       <div id="coordsDisplay" style="text-align:center;font-size:17px;color:var(--muted);margin-top:8px;font-weight:600;cursor:pointer;pointer-events:auto;" onclick="copyCoordinates(event)">📍 緯度: -- / 経度: --</div>
     </div>
     
+    <div id="currentLocationDisplay" style="position:absolute;bottom:100px;left:50%;transform:translateX(-50%);z-index:500;background:var(--glass-strong);border-radius:12px;padding:8px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+      <div style="text-align:center;font-size:14px;color:var(--accent);font-weight:700;">現在地を取得中...</div>
+    </div>
+    
     <div id="mapControls" class="map-controls">
       <div class="map-control-row">
         <div class="map-control-btn" onclick="event.preventDefault();panUp()">↑</div>
@@ -533,7 +538,7 @@ button[aria-label*="位置情報"] {
         </svg>
         <span style="font-size:10px;margin-top:2px;">音声</span>
       </button>
-      <button class="right-btn danger" id="stopNavBtn" onclick="stopNav()" title="案内停止" style="display:none;">
+      <button class="right-btn danger" id="stopNavBtn" onclick="stopNav()" title="案内停止">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="6" y="6" width="12" height="12" fill="currentColor" stroke="currentColor" stroke-width="2"/>
         </svg>
@@ -1038,8 +1043,8 @@ async function executeSearch(){
   if(!searchBox)return;
   
   const q=searchBox.value.trim();
-  if(!q)return showError("Please enter search term");
-  if(!currentLocation)return showError("Getting location");
+  if(!q)return showError("検索ワードを入力してください");
+  if(!currentLocation)return showError("位置情報を取得中");
   
   hideResults();
   
@@ -1057,18 +1062,34 @@ async function executeSearch(){
     if(!res.ok)throw new Error("Search failed");
     
     const data=await res.json();
-    const places=data?.places||[];
+    let places=data?.places||[];
     
     if(places.length===0){
-      showError("No results");
-      speak("No results found");
+      showError("結果が見つかりません");
+      speak("結果が見つかりません");
       return;
     }
     
+    places=places.map(p=>{
+      const lat=p.location?.latitude;
+      const lng=p.location?.longitude;
+      const distance=calculateDistance(currentLocation.lat,currentLocation.lng,lat,lng);
+      return {...p,distance};
+    }).sort((a,b)=>a.distance-b.distance).slice(0,5);
+    
     displayResults(places);
   }catch(e){
-    showError("Search error: "+e.message);
+    showError("検索エラー: "+e.message);
   }
+}
+
+function calculateDistance(lat1,lon1,lat2,lon2){
+  const R=6371;
+  const dLat=(lat2-lat1)*Math.PI/180;
+  const dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
+  const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+  return R*c;
 }
 
 function displayResults(places){
@@ -1078,7 +1099,8 @@ function displayResults(places){
   places.forEach(p=>{
     const item=document.createElement("div");
     item.className="result-item";
-    item.innerHTML=`<div style="font-weight:700">${p.displayName?.text||"Unknown"}</div><div style="font-size:12px;color:var(--muted)">${p.formattedAddress||""}</div>`;
+    const distText=p.distance<1?`${(p.distance*1000).toFixed(0)}m`:`${p.distance.toFixed(1)}km`;
+    item.innerHTML=`<div style="font-weight:700">${p.displayName?.text||"Unknown"}</div><div style="font-size:12px;color:var(--muted)">${p.formattedAddress||""}</div><div style="font-size:11px;color:var(--accent);margin-top:4px;">📍 ${distText}</div>`;
     item.onclick=()=>selectPlace(p);
     list.appendChild(item);
   });
@@ -1259,7 +1281,7 @@ function startNav(){
     
     const stopNavBtn=document.getElementById("stopNavBtn");
     if(stopNavBtn){
-      stopNavBtn.style.display="flex";
+      stopNavBtn.classList.add("active");
     }
     
     const leg=res.routes[0].legs[0];
@@ -1320,7 +1342,7 @@ function stopNav(){
   
   const stopNavBtn=document.getElementById("stopNavBtn");
   if(stopNavBtn){
-    stopNavBtn.style.display="none";
+    stopNavBtn.classList.remove("active");
   }
   
   const routeTextEl=document.getElementById("routeText");
