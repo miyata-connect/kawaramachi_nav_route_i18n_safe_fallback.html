@@ -222,6 +222,7 @@ input,select{
   display:flex;
   align-items:center;
   justify-content:center;
+  margin-top:12px;
 }
 
 /* 地図コントロールボタン群 */
@@ -910,7 +911,8 @@ function initMap(){
       heading:0,
       tilt:45,
       gestureHandling:'greedy',
-      disableDefaultUI:!0
+      disableDefaultUI:!0,
+      clickableIcons:!1
     });
     
     directionsService=new google.maps.DirectionsService;
@@ -955,7 +957,8 @@ function setupCompass(){
   
   function animate(){
     compassAlpha=.8*compassAlpha+.2*targetAlpha;
-    needle.style.transform=`rotate(${compassAlpha}deg)`;
+    // 針を回転（-90度オフセットで上向きに）
+    needle.style.transform=`rotate(${compassAlpha-90}deg)`;
     needle.style.transformOrigin="25px 25px";
     requestAnimationFrame(animate);
   }
@@ -964,10 +967,12 @@ function setupCompass(){
   if(typeof DeviceOrientationEvent!=="undefined"){
     window.addEventListener("deviceorientation",e=>{
       if(typeof e.alpha==="number"){
+        // alphaは北から時計回りの角度（0-360）
         targetAlpha=e.alpha;
         
         if(headingMode==="heading"){
-          map.setHeading(360-e.alpha);
+          // H-UPモード: 地図を端末の向きに合わせる
+          map.setHeading(e.alpha);
         }
       }
     });
@@ -976,12 +981,17 @@ function setupCompass(){
 
 function setNorthUp(){
   headingMode="north";
-  const currentCenter=map.getCenter();
-  map.setOptions({
-    heading:0,
-    tilt:0,
-    center:currentCenter
-  });
+  
+  // 地図を完全に北向きに
+  map.setHeading(0);
+  map.setTilt(0);
+  
+  // 念のため再設定
+  setTimeout(()=>{
+    map.setHeading(0);
+    map.setTilt(0);
+  },100);
+  
   document.getElementById("nupBtn").classList.add("active");
   document.getElementById("hupBtn").classList.remove("active");
   speak("North up mode");
@@ -989,14 +999,13 @@ function setNorthUp(){
 
 function setHeadingUp(){
   headingMode="heading";
-  const currentCenter=map.getCenter();
-  map.setOptions({
-    tilt:45,
-    center:currentCenter
-  });
+  
+  map.setTilt(45);
+  
   if(typeof targetAlpha==="number"){
-    map.setOptions({heading:360-targetAlpha});
+    map.setHeading(targetAlpha);
   }
+  
   document.getElementById("nupBtn").classList.remove("active");
   document.getElementById("hupBtn").classList.add("active");
   speak("Heading up mode");
@@ -1104,19 +1113,24 @@ function voiceSearch(){
   
   const btn=document.getElementById("voiceBtn");
   const rec=new SR;
-  rec.lang="ja-JP";
+  rec.lang=currentLang==="ja"?"ja-JP":"en-US";
+  rec.continuous=false;
+  rec.interimResults=false;
+  rec.maxAlternatives=1;
   
   btn.classList.add("recording");
   btn.innerHTML=`<span style="color:#fff">●</span>`;
   
   rec.onresult=e=>{
-    document.getElementById("searchBox").value=e.results[0][0].transcript;
+    const query=e.results[0][0].transcript;
+    document.getElementById("searchBox").value=query;
     btn.classList.remove("recording");
     btn.innerHTML=`<span id="btnVoice">${translations[currentLang].btnVoice}</span>`;
     searchPlace();
   };
-  rec.onerror=()=>{
-    showError("Voice failed");
+  rec.onerror=err=>{
+    console.error("Voice error:",err);
+    showError("Voice failed: "+err.error);
     btn.classList.remove("recording");
     btn.innerHTML=`<span id="btnVoice">${translations[currentLang].btnVoice}</span>`;
   };
@@ -1124,7 +1138,14 @@ function voiceSearch(){
     btn.classList.remove("recording");
     btn.innerHTML=`<span id="btnVoice">${translations[currentLang].btnVoice}</span>`;
   };
-  rec.start();
+  
+  try{
+    rec.start();
+  }catch(e){
+    showError("Voice start failed");
+    btn.classList.remove("recording");
+    btn.innerHTML=`<span id="btnVoice">${translations[currentLang].btnVoice}</span>`;
+  }
 }
 
 function quickVoiceSearch(){
@@ -1133,7 +1154,10 @@ function quickVoiceSearch(){
   
   const btn=document.getElementById("quickVoiceBtn");
   const rec=new SR;
-  rec.lang="ja-JP";
+  rec.lang=currentLang==="ja"?"ja-JP":"en-US";
+  rec.continuous=false;
+  rec.interimResults=false;
+  rec.maxAlternatives=1;
   
   btn.style.background="var(--danger)";
   btn.innerHTML="<span style='color:#fff'>●</span>";
@@ -1144,10 +1168,18 @@ function quickVoiceSearch(){
     btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
     
     document.getElementById("searchBox").value=query;
-    searchPlace();
+    
+    // 操作パネルを開く
+    document.getElementById("controlPanel").classList.remove("hidden");
+    document.getElementById("panelToggle").classList.remove("show");
+    hideAllElements();
+    
+    // 検索実行
+    setTimeout(()=>searchPlace(),100);
   };
-  rec.onerror=()=>{
-    showError("Voice failed");
+  rec.onerror=err=>{
+    console.error("Voice error:",err);
+    showError("Voice failed: "+err.error);
     btn.style.background="";
     btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
   };
@@ -1155,7 +1187,14 @@ function quickVoiceSearch(){
     btn.style.background="";
     btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
   };
-  rec.start();
+  
+  try{
+    rec.start();
+  }catch(e){
+    showError("Voice start failed");
+    btn.style.background="";
+    btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
+  }
 }
 
 function relocalize(){
@@ -1369,6 +1408,9 @@ function showSavedPoints(){
     list.appendChild(item);
   });
   
+  // 閉じるボタンのテキストを更新
+  document.getElementById("btnCloseSaved").textContent=translations[currentLang].btnCloseSaved;
+  
   panel.style.display="block";
   
   hideAllElements();
@@ -1417,6 +1459,9 @@ function editSavedPoints(){
     item.appendChild(actionsDiv);
     list.appendChild(item);
   });
+  
+  // 閉じるボタンのテキストを更新
+  document.getElementById("btnCloseSaved").textContent=translations[currentLang].btnCloseSaved;
   
   panel.style.display="block";
   
