@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>WalkNav v3</title>
+  <title>WalkNav v4</title>
   <style>
 :root{
   --glass: rgba(20,28,44,.7);
@@ -67,7 +67,7 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
 }
 .panel-btn.primary{background:var(--primary);border:none}
 .panel-btn.recording{background:var(--danger);border:none}
-input{
+input,select{
   width:100%;
   background:var(--glass-strong);
   border:1px solid var(--stroke);
@@ -81,7 +81,7 @@ input{
 .info-panel{
   position:absolute;
   left:10px;
-  right:10px;
+  right:80px;
   top:10px;
   background:var(--glass);
   border:1px solid var(--stroke);
@@ -93,7 +93,6 @@ input{
   display:none;
 }
 .info-panel.show{display:block}
-
 .route-main{
   font-size:18px;
   font-weight:700;
@@ -115,7 +114,6 @@ input{
   align-items:center;
   gap:4px;
 }
-
 .weather-row{
   display:flex;
   align-items:center;
@@ -152,117 +150,48 @@ input{
 .weather-temp{font-weight:700;font-size:13px}
 .weather-rain{color:var(--accent);font-size:10px}
 
-/* 方位計 */
-.compass{
-  position:absolute;
-  right:10px;
-  top:280px;
-  width:60px;
-  height:60px;
-  background:var(--glass);
-  border:1px solid var(--stroke);
-  border-radius:50%;
-  backdrop-filter:blur(10px);
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  z-index:420;
-}
-.compass.hidden{display:none}
-.compass .needle{transform-origin:25px 25px}
-.compass-n{
-  position:absolute;
-  top:6px;
-  font-size:12px;
-  font-weight:700;
-  color:var(--danger);
-}
-
-/* N-UP/H-UPボタン */
-.map-mode-buttons{
-  position:absolute;
-  right:10px;
-  top:350px;
-  z-index:420;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-.map-mode-buttons.hidden{display:none}
-.mode-btn{
-  width:70px;
-  height:55px;
-  background:var(--glass-strong);
-  border:1px solid var(--stroke);
-  border-radius:10px;
-  color:var(--text);
-  font-size:12px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-  font-weight:700;
-}
-.mode-btn.active{background:var(--ok);border:2px solid #fff}
-
-/* ナビボタン */
+/* ナビボタン（右側縦一列） */
 .nav-buttons{
   position:absolute;
   right:10px;
-  top:470px;
+  top:10px;
   z-index:450;
   display:flex;
   flex-direction:column;
-  gap:10px;
+  gap:8px;
 }
 .nav-buttons.hidden{display:none}
-.nav-row{
-  display:flex;
-  gap:10px;
-}
 .nav-btn{
-  width:70px;
-  height:55px;
+  width:60px;
+  height:60px;
   background:var(--glass-strong);
   border:1px solid var(--stroke);
   border-radius:10px;
   color:var(--text);
-  font-size:12px;
+  font-size:11px;
   display:flex;
   align-items:center;
   justify-content:center;
   cursor:pointer;
   font-weight:700;
+  flex-direction:column;
+  gap:2px;
+}
+.nav-btn.compass-btn{
+  position:relative;
+}
+.compass-n{
+  position:absolute;
+  top:6px;
+  font-size:10px;
+  font-weight:700;
+  color:var(--danger);
 }
 .nav-btn.primary{background:var(--primary);border:none}
 .nav-btn.ok{background:var(--ok);border:none}
 .nav-btn.danger{background:var(--danger);border:none}
 .nav-btn.accent{background:var(--accent);border:none}
-
-/* 下部ボタン */
-.bottom-buttons{
-  position:absolute;
-  right:10px;
-  bottom:80px;
-  z-index:450;
-  display:flex;
-  gap:10px;
-}
-.bottom-buttons.hidden{display:none}
-.bottom-btn{
-  width:55px;
-  height:55px;
-  background:var(--glass-strong);
-  border:1px solid var(--stroke);
-  border-radius:10px;
-  color:var(--text);
-  font-size:20px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-}
-.bottom-btn.primary{background:var(--primary);border:none}
+.nav-btn.active{background:var(--ok);border:2px solid #fff}
 
 /* 検索結果 */
 .results-panel{
@@ -300,7 +229,7 @@ input{
   border:1px solid var(--stroke);
   border-radius:12px;
   padding:10px;
-  z-index:490;
+  z:index:490;
   display:none;
 }
 .saved-point-item{
@@ -345,22 +274,6 @@ input{
   <div class="app">
     <div id="map"></div>
     
-    <!-- 方位計 -->
-    <div id="compass" class="compass hidden">
-      <div class="compass-n">N</div>
-      <svg class="needle" width="50" height="50" viewBox="0 0 50 50">
-        <path d="M25 8 L27 25 L25 23 L23 25 Z" fill="#ff6565" stroke="#fff" stroke-width="1"/>
-        <path d="M25 42 L27 25 L25 27 L23 25 Z" fill="#eaf2ff" stroke="#444" stroke-width="1"/>
-        <circle cx="25" cy="25" r="2.5" fill="#5fb1ff" stroke="#fff" stroke-width="1.5"/>
-      </svg>
-    </div>
-    
-    <!-- N-UP/H-UPボタン -->
-    <div id="mapModeButtons" class="map-mode-buttons hidden">
-      <div class="mode-btn" id="nupBtn" onclick="setNorthUp()">N-UP</div>
-      <div class="mode-btn active" id="hupBtn" onclick="setHeadingUp()">H-UP</div>
-    </div>
-    
     <!-- 統合情報パネル -->
     <div id="infoPanel" class="info-panel show">
       <div class="route-main" id="routeText">目的地を設定してください</div>
@@ -402,10 +315,50 @@ input{
       </div>
     </div>
     
+    <!-- ナビボタン（右側縦一列） -->
+    <div id="navButtons" class="nav-buttons">
+      <!-- 方位計 -->
+      <div class="nav-btn compass-btn" id="compassBtn">
+        <div class="compass-n">N</div>
+        <svg width="40" height="40" viewBox="0 0 50 50" style="margin-top:8px">
+          <path id="compassNeedle" d="M25 8 L27 25 L25 23 L23 25 Z" fill="#ff6565" stroke="#fff" stroke-width="1"/>
+          <path d="M25 42 L27 25 L25 27 L23 25 Z" fill="#eaf2ff" stroke="#444" stroke-width="1"/>
+          <circle cx="25" cy="25" r="2.5" fill="#5fb1ff" stroke="#fff" stroke-width="1.5"/>
+        </svg>
+      </div>
+      
+      <!-- N-UP -->
+      <div class="nav-btn" id="nupBtn" onclick="setNorthUp()">N-UP</div>
+      
+      <!-- H-UP -->
+      <div class="nav-btn active" id="hupBtn" onclick="setHeadingUp()">H-UP</div>
+      
+      <!-- 現在地 -->
+      <div class="nav-btn primary" onclick="goToCurrent()">現在地</div>
+      
+      <!-- 目的地 -->
+      <div class="nav-btn primary" onclick="goToDestination()">目的地</div>
+      
+      <!-- 案内開始 -->
+      <div class="nav-btn ok" onclick="startNav()">案内<br>開始</div>
+      
+      <!-- 案内停止 -->
+      <div class="nav-btn danger" onclick="stopNav()">案内<br>停止</div>
+      
+      <!-- リルート -->
+      <div class="nav-btn accent" onclick="reroute()">リルート</div>
+      
+      <!-- 音声検索 -->
+      <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()">🎤</div>
+      
+      <!-- 全画面 -->
+      <div class="nav-btn" onclick="toggleFullscreen()">⛶</div>
+    </div>
+    
     <!-- 操作パネル -->
     <div id="controlPanel" class="control-panel hidden">
       <div style="text-align:center;font-size:13px;color:var(--muted);margin-bottom:10px" id="coordsDisplay">
-        緯度: ---.---- / 経度: ---.------
+        緯度: ---.------ / 経度: ---.------
       </div>
       
       <input id="searchBox" placeholder="店舗名・住所・電話番号で検索" style="margin-bottom:10px">
@@ -423,29 +376,25 @@ input{
       </div>
       
       <div class="panel-row">
+        <select id="langSelect" onchange="changeLanguage()" style="flex:1">
+          <option value="ja">🇯🇵 日本語</option>
+          <option value="en">🇺🇸 English</option>
+          <option value="ko">🇰🇷 한국어</option>
+          <option value="zh">🇨🇳 中文</option>
+          <option value="fr">🇫🇷 Français</option>
+          <option value="it">🇮🇹 Italiano</option>
+          <option value="de">🇩🇪 Deutsch</option>
+          <option value="es">🇪🇸 Español</option>
+        </select>
+      </div>
+      
+      <div class="panel-row">
         <div class="panel-btn" onclick="togglePanel()" style="width:100%">操作パネルを閉じる</div>
       </div>
     </div>
     
     <!-- 操作パネル表示タブ -->
     <div id="panelToggle" class="panel-toggle" onclick="togglePanel()">操作パネルを表示</div>
-    
-    <!-- ナビボタン -->
-    <div id="navButtons" class="nav-buttons">
-      <div class="nav-btn primary" onclick="goToCurrent()">現在地</div>
-      <div class="nav-btn primary" onclick="goToDestination()">目的地</div>
-      <div class="nav-btn ok" onclick="startNav()">案内開始</div>
-      <div class="nav-btn danger" onclick="stopNav()">案内停止</div>
-      <div class="nav-row">
-        <div class="nav-btn accent" onclick="reroute()">リルート</div>
-        <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()">🎤</div>
-      </div>
-    </div>
-    
-    <!-- 下部ボタン（全画面） -->
-    <div id="bottomButtons" class="bottom-buttons">
-      <div class="bottom-btn" onclick="toggleFullscreen()">⛶</div>
-    </div>
     
     <!-- 検索結果 -->
     <div id="resultsPanel" class="results-panel">
@@ -470,9 +419,27 @@ input{
   
   <script>
 "use strict";
-let map,directionsService,directionsRenderer,currentMarker=null,destMarker=null,watchId=null,isNavigating=!1,currentLocation=null,savedPoints=[],selectingMapPoint=!1,stopAnnounced=!1,compassAlpha=0,targetAlpha=0,headingMode="heading";
+let map,directionsService,directionsRenderer,currentMarker=null,destMarker=null,watchId=null,isNavigating=!1,currentLocation=null,savedPoints=[],selectingMapPoint=!1,stopAnnounced=!1,compassAlpha=0,targetAlpha=0,headingMode="heading",currentLang="ja";
 
 const PLACES_PROXY="https://ors-proxy.miyata-connect-jp.workers.dev/v1/places";
+
+const translations={
+  ja:{setDestination:"目的地を設定してください",currentTime:"現在時刻",arrivalTime:"到着予想時刻",loading:"読み込み中..."},
+  en:{setDestination:"Please set destination",currentTime:"Current",arrivalTime:"Arrival",loading:"Loading..."},
+  ko:{setDestination:"목적지를 설정하세요",currentTime:"현재 시각",arrivalTime:"도착 예정",loading:"로딩 중..."},
+  zh:{setDestination:"请设置目的地",currentTime:"当前时间",arrivalTime:"预计到达",loading:"加载中..."},
+  fr:{setDestination:"Définir la destination",currentTime:"Actuel",arrivalTime:"Arrivée",loading:"Chargement..."},
+  it:{setDestination:"Imposta destinazione",currentTime:"Attuale",arrivalTime:"Arrivo",loading:"Caricamento..."},
+  de:{setDestination:"Ziel festlegen",currentTime:"Aktuell",arrivalTime:"Ankunft",loading:"Lädt..."},
+  es:{setDestination:"Establecer destino",currentTime:"Actual",arrivalTime:"Llegada",loading:"Cargando..."}
+};
+
+function changeLanguage(){
+  currentLang=document.getElementById("langSelect").value;
+  document.getElementById("routeText").textContent=translations[currentLang].setDestination;
+  document.getElementById("locationName").textContent=translations[currentLang].loading;
+  fetchLocationName();
+}
 
 function togglePanel(){
   const panel=document.getElementById("controlPanel");
@@ -481,12 +448,10 @@ function togglePanel(){
   const isHidden=panel.classList.contains("hidden");
   
   if(isHidden){
-    // パネルを表示 → すべての要素を非表示
     panel.classList.remove("hidden");
     tab.classList.remove("show");
     hideAllElements();
   }else{
-    // パネルを非表示 → すべての要素を表示
     panel.classList.add("hidden");
     tab.classList.add("show");
     showAllElements();
@@ -494,18 +459,12 @@ function togglePanel(){
 }
 
 function hideAllElements(){
-  document.getElementById("compass").classList.add("hidden");
-  document.getElementById("mapModeButtons").classList.add("hidden");
   document.getElementById("navButtons").classList.add("hidden");
-  document.getElementById("bottomButtons").classList.add("hidden");
   document.getElementById("infoPanel").classList.remove("show");
 }
 
 function showAllElements(){
-  document.getElementById("compass").classList.remove("hidden");
-  document.getElementById("mapModeButtons").classList.remove("hidden");
   document.getElementById("navButtons").classList.remove("hidden");
-  document.getElementById("bottomButtons").classList.remove("hidden");
   document.getElementById("infoPanel").classList.add("show");
 }
 
@@ -537,28 +496,21 @@ function initMap(){
       icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:"#5fb1ff",fillOpacity:1,strokeWeight:2,strokeColor:"#fff"}
     });
     
-    // H-UPモードを初期設定
     headingMode="heading";
     
     document.getElementById("map").style.display="block";
     document.getElementById("loading").classList.add("hide");
     
-    // 初期状態: 方位計、N-UP/H-UP、統合パネル、タブ、下部ボタンを表示
     setTimeout(()=>{
-      document.getElementById("compass").classList.remove("hidden");
-      document.getElementById("mapModeButtons").classList.remove("hidden");
-      document.getElementById("bottomButtons").classList.remove("hidden");
+      document.getElementById("navButtons").classList.remove("hidden");
       document.getElementById("infoPanel").classList.add("show");
       document.getElementById("panelToggle").classList.add("show");
       
-      // 現在時刻を表示
       updateCurrentTime();
       setInterval(updateCurrentTime, 60000);
       
-      // 経度緯度を表示
       updateCoords();
       
-      // 現在地名と天気を取得
       fetchLocationName();
       fetchWeather();
     },100);
@@ -569,12 +521,13 @@ function initMap(){
 }
 
 function setupCompass(){
-  const needle=document.querySelector(".needle");
+  const needle=document.getElementById("compassNeedle");
   if(!needle)return;
   
   function animate(){
     compassAlpha=.8*compassAlpha+.2*targetAlpha;
     needle.style.transform=`rotate(${compassAlpha}deg)`;
+    needle.style.transformOrigin="25px 25px";
     requestAnimationFrame(animate);
   }
   animate();
@@ -584,12 +537,8 @@ function setupCompass(){
       if(typeof e.alpha==="number"){
         targetAlpha=e.alpha;
         
-        // H-UPモードの時のみ地図を回転（N-UPモードでは地図を北に固定）
         if(headingMode==="heading"){
           map.setHeading(360-e.alpha);
-        }else{
-          // N-UPモードでは常に北を指す
-          map.setHeading(0);
         }
       }
     });
@@ -630,7 +579,6 @@ function startWatch(){
     currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
     currentMarker&&currentMarker.setPosition(currentLocation);
     
-    // 経度緯度を表示
     updateCoords();
     
     isNavigating&&reroute(!1);
@@ -693,7 +641,6 @@ function displayResults(places){
   
   document.getElementById("resultsPanel").style.display="block";
   
-  // 検索結果表示時: 操作パネルとタブを非表示、すべての要素を非表示
   document.getElementById("controlPanel").classList.add("hidden");
   document.getElementById("panelToggle").classList.remove("show");
   hideAllElements();
@@ -701,7 +648,6 @@ function displayResults(places){
 
 function hideResults(){
   document.getElementById("resultsPanel").style.display="none";
-  // 検索結果を閉じたらすべての要素を表示
   showAllElements();
 }
 
@@ -716,7 +662,6 @@ function selectPlace(place){
   
   hideResults();
   
-  // 選択後: タブ表示、すべての要素を表示
   document.getElementById("controlPanel").classList.add("hidden");
   document.getElementById("panelToggle").classList.add("show");
   showAllElements();
@@ -771,7 +716,6 @@ function quickVoiceSearch(){
     btn.style.background="";
     btn.textContent="🎤";
     
-    // 検索ボックスに入力して検索実行
     document.getElementById("searchBox").value=query;
     searchPlace();
   };
@@ -839,7 +783,6 @@ function startNav(){
     
     speak(`案内を開始します。${routeText}です。`);
     
-    // 案内開始時: すべての要素を表示
     document.getElementById("controlPanel").classList.add("hidden");
     document.getElementById("panelToggle").classList.remove("show");
     showAllElements();
@@ -857,8 +800,7 @@ function stopNav(){
   
   isNavigating=!1;
   
-  // 案内停止後も文字案内窓は表示維持（内容を変更）
-  document.getElementById("routeText").textContent="目的地を設定してください";
+  document.getElementById("routeText").textContent=translations[currentLang].setDestination;
   document.getElementById("arrivalTime").textContent="--:--";
   
   document.getElementById("panelToggle").classList.add("show");
@@ -960,7 +902,6 @@ function showSavedPoints(){
       map.setZoom(18);
       hideSavedPoints();
       
-      // 登録地点選択後: タブ表示、すべての要素を表示
       document.getElementById("controlPanel").classList.add("hidden");
       document.getElementById("panelToggle").classList.add("show");
       showAllElements();
@@ -974,13 +915,11 @@ function showSavedPoints(){
   
   panel.style.display="block";
   
-  // 登録地点パネル表示時: すべての要素を非表示
   hideAllElements();
 }
 
 function hideSavedPoints(){
   document.getElementById("savedPointsPanel").style.display="none";
-  // 登録地点パネルを閉じたらすべての要素を表示
   showAllElements();
 }
 
@@ -988,16 +927,16 @@ async function fetchLocationName(){
   if(!currentLocation)return;
   
   try{
-    const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${currentLocation.lat}&lon=${currentLocation.lng}&format=json&accept-language=ja`);
+    const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${currentLocation.lat}&lon=${currentLocation.lng}&format=json&accept-language=${currentLang}`);
     const data=await res.json();
     
     const city=data.address?.city||data.address?.town||data.address?.village||"";
     const ward=data.address?.suburb||"";
-    const locationText=ward?`${city}${ward}`:city?`${city}`:"現在地";
+    const locationText=ward?`${city}${ward}`:city?`${city}`:translations[currentLang].loading;
     
     document.getElementById("locationName").textContent=locationText;
   }catch(e){
-    document.getElementById("locationName").textContent="現在地";
+    document.getElementById("locationName").textContent=translations[currentLang].loading;
   }
 }
 
