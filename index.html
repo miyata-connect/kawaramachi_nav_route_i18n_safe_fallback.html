@@ -224,7 +224,7 @@ input,select{
 .right-buttons{
   position:absolute;
   right:10px;
-  top:420px;
+  top:640px;
   z-index:450;
   display:flex;
   flex-direction:column;
@@ -252,14 +252,14 @@ input,select{
 .right-btn.primary{background:var(--primary);border:none;color:#000}
 .right-btn.ok{background:var(--ok);border:none;color:#000}
 .right-btn.danger{background:var(--danger);border:none;color:#fff;}
-.right-btn.danger:disabled{opacity:0.3;cursor:not-allowed;}
+.right-btn.danger:disabled{opacity:1;background:#666;cursor:not-allowed;}
 .right-btn.accent{background:var(--accent);border:none;color:#000}
 .right-btn.warning{background:#ffa500;border:none;color:#000}
 
 .map-controls{
   position:fixed;
   right:10px;
-  bottom:120px;
+  bottom:150px;
   z-index:450;
   display:none;
   gap:8px;
@@ -475,7 +475,7 @@ button[aria-label*="位置情報"] {
       <div id="coordsDisplay" style="text-align:center;font-size:17px;color:var(--muted);margin-top:8px;font-weight:600;cursor:pointer;pointer-events:auto;" onclick="copyCoordinates(event)">📍 緯度: -- / 経度: --</div>
     </div>
     
-    <div id="currentLocationDisplay" style="position:absolute;bottom:100px;left:50%;transform:translateX(-50%);z-index:500;background:var(--glass-strong);border-radius:12px;padding:8px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+    <div id="currentLocationDisplay" style="position:absolute;bottom:80px;left:50%;transform:translateX(-50%);z-index:500;background:var(--glass-strong);border-radius:12px;padding:8px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
       <div style="text-align:center;font-size:14px;color:var(--accent);font-weight:700;">現在地を取得中...</div>
     </div>
     
