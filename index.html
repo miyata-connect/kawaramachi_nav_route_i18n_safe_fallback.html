@@ -396,51 +396,6 @@ input,select{
       </div>
     </div>
     
-    <div id="controlPanel" class="control-panel hidden">
-      <div style="text-align:center;font-size:15px;color:var(--text);font-weight:700;margin-bottom:12px;background:var(--glass-strong);padding:10px;border-radius:8px" id="coordsDisplay">
-        📍 緯度: ---.------ / 経度: ---.------
-      </div>
-      
-      <input id="searchBox" placeholder="店舗名・住所・電話番号で検索" style="margin-bottom:10px">
-      
-      <div class="panel-row">
-        <div class="panel-btn primary" onclick="searchPlace()"><span id="btnSearch">検索</span></div>
-        <div class="panel-btn primary" id="voiceBtn" onclick="voiceSearch()"><span id="btnVoice">音声検索</span></div>
-        <div class="panel-btn" onclick="relocalize()"><span id="btnRelocate">現在地</span></div>
-      </div>
-      
-      <div class="panel-row" id="stopNavRow" style="display:none">
-        <div class="panel-btn danger" onclick="stopNavFromPanel()" style="width:100%"><span id="btnStopNav">案内中止</span></div>
-      </div>
-      
-      <div class="panel-row">
-        <div class="panel-btn" onclick="saveCurrentPoint()"><span id="btnSaveCurrent">現在地を登録</span></div>
-        <div class="panel-btn" onclick="saveMapPoint()"><span id="btnSaveMap">地図上を登録</span></div>
-        <div class="panel-btn" onclick="showSavedPoints()"><span id="btnShowSaved">登録地点</span></div>
-      </div>
-      
-      <div class="panel-row">
-        <div class="panel-btn" onclick="editSavedPoints()"><span id="btnEditSaved">登録地点編集</span></div>
-      </div>
-      
-      <div class="panel-row">
-        <select id="langSelect" onchange="changeLanguage()" style="flex:1">
-          <option value="ja">🇯🇵 日本語</option>
-          <option value="en">🇺🇸 English</option>
-          <option value="ko">🇰🇷 한국어</option>
-          <option value="zh">🇨🇳 中文</option>
-          <option value="fr">🇫🇷 Français</option>
-          <option value="it">🇮🇹 Italiano</option>
-          <option value="de">🇩🇪 Deutsch</option>
-          <option value="es">🇪🇸 Español</option>
-        </select>
-      </div>
-      
-      <div class="panel-row">
-        <div class="panel-btn" onclick="togglePanel()" style="width:100%"><span id="btnClosePanel">操作パネルを閉じる</span></div>
-      </div>
-    </div>
-    
     <div id="panelToggle" class="panel-toggle" onclick="togglePanel()"><span id="btnOpenPanel">操作パネルを表示</span></div>
     
     <div id="resultsPanel" class="results-panel">
@@ -556,36 +511,36 @@ function updateAllTexts(){
   // document.getElementById("btnCurrent").textContent=t.btnCurrent;
   // document.getElementById("btnDest").textContent=t.btnDest;
   // document.getElementById("btnStop").innerHTML=t.btnStop.replace('\n','<br>');
-  document.getElementById("btnStopNav").textContent=t.btnStopNav;
+  // document.getElementById("btnStopNav").textContent=t.btnStopNav;
   // document.getElementById("btnReroute").textContent=t.btnReroute;
-  document.getElementById("btnSearch").textContent=t.btnSearch;
-  document.getElementById("btnVoice").textContent=t.btnVoice;
-  document.getElementById("btnRelocate").textContent=t.btnRelocate;
-  document.getElementById("btnSaveCurrent").textContent=t.btnSaveCurrent;
-  document.getElementById("btnSaveMap").textContent=t.btnSaveMap;
-  document.getElementById("btnShowSaved").textContent=t.btnShowSaved;
-  document.getElementById("btnEditSaved").textContent=t.btnEditSaved;
-  document.getElementById("btnClosePanel").textContent=t.btnClosePanel;
-  document.getElementById("btnOpenPanel").textContent=t.btnOpenPanel;
+  // document.getElementById("btnSearch").textContent=t.btnSearch;
+  // document.getElementById("btnVoice").textContent=t.btnVoice;
+  // document.getElementById("btnRelocate").textContent=t.btnRelocate;
+  // document.getElementById("btnSaveCurrent").textContent=t.btnSaveCurrent;
+  // document.getElementById("btnSaveMap").textContent=t.btnSaveMap;
+  // document.getElementById("btnShowSaved").textContent=t.btnShowSaved;
+  // document.getElementById("btnEditSaved").textContent=t.btnEditSaved;
+  // document.getElementById("btnClosePanel").textContent=t.btnClosePanel;
+  // document.getElementById("btnOpenPanel").textContent=t.btnOpenPanel;
   document.getElementById("loadingText").textContent=t.loadingText;
   document.getElementById("loadingWait").textContent=t.loadingWait;
 }
 
 function togglePanel(){
-  const panel=document.getElementById("controlPanel");
-  const tab=document.getElementById("panelToggle");
+  // const panel=document.getElementById("controlPanel");
+  // const tab=document.getElementById("panelToggle");
   
-  const isHidden=panel.classList.contains("hidden");
+  // const isHidden=panel.classList.contains("hidden");
   
-  if(isHidden){
-    panel.classList.remove("hidden");
-    tab.classList.remove("show");
-    hideAllElements();
-  }else{
-    panel.classList.add("hidden");
-    tab.classList.add("show");
-    showAllElements();
-  }
+  // if(isHidden){
+  //   panel.classList.remove("hidden");
+  //   tab.classList.remove("show");
+  //   hideAllElements();
+  // }else{
+  //   panel.classList.add("hidden");
+  //   tab.classList.add("show");
+  //   showAllElements();
+  // }
 }
 
 function hideAllElements(){
@@ -661,7 +616,7 @@ function initMap(){
   
   const urlParams=new URLSearchParams(window.location.search);
   currentLang=urlParams.get('lang')||'ja';
-  document.getElementById("langSelect").value=currentLang;
+  // document.getElementById("langSelect").value=currentLang;
   updateAllTexts();
   
   navigator.geolocation.getCurrentPosition(pos=>{
@@ -907,7 +862,7 @@ function voiceSearch(){
   
   rec.onresult=e=>{
     const query=e.results[0][0].transcript;
-    document.getElementById("searchBox").value=query;
+    // document.getElementById("searchBox").value=query;
     btn.classList.remove("recording");
     btn.innerHTML=`<span id="btnVoice">${translations[currentLang].btnVoice}</span>`;
     
@@ -952,10 +907,10 @@ function quickVoiceSearch(){
     btn.style.background="";
     btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
     
-    document.getElementById("searchBox").value=query;
+    // document.getElementById("searchBox").value=query;
     
-    document.getElementById("controlPanel").classList.remove("hidden");
-    document.getElementById("panelToggle").classList.remove("show");
+    // document.getElementById("controlPanel").classList.remove("hidden");
+    // document.getElementById("panelToggle").classList.remove("show");
     hideAllElements();
     
     setTimeout(()=>searchPlace(),100);
@@ -1051,13 +1006,13 @@ function stopNav(){
   
   isNavigating=!1;
   
-  document.getElementById("stopNavRow").style.display="none";
+  // document.getElementById("stopNavRow").style.display="none";
   
-  document.getElementById("routeText").textContent=translations[currentLang].setDestination;
-  document.getElementById("arrivalTime").textContent="--:--";
-  document.getElementById("searchBox").value="";
+  // document.getElementById("routeText").textContent=translations[currentLang].setDestination;
+  // document.getElementById("arrivalTime").textContent="--:--";
+  // document.getElementById("searchBox").value="";
   
-  document.getElementById("panelToggle").classList.add("show");
+  // document.getElementById("panelToggle").classList.add("show");
   
   if(currentMarker){
     map.panTo(currentMarker.getPosition());
@@ -1068,7 +1023,7 @@ function stopNav(){
 function stopNavFromPanel(){
   stopNav();
   
-  document.getElementById("searchBox").value="";
+  // document.getElementById("searchBox").value="";
   
   if(destMarker){
     destMarker.setMap(null);
