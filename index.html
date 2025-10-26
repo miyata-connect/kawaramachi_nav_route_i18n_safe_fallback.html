@@ -198,13 +198,13 @@ input,select{
   left:10px;
   top:200px;
   z-index:450;
-  display:flex;
+  display:none;
   flex-direction:column;
   gap:10px;
   pointer-events:none;
 }
-.left-buttons.hidden{display:none}
-.left-buttons.show{display:flex}
+.left-buttons.hidden{display:none !important}
+.left-buttons.show{display:flex !important}
 
 .location-btn{
   width:70px;
@@ -822,15 +822,13 @@ function initMap(){
     loadSavedPoints();
     
     setTimeout(()=>{
-      const navButtons=document.getElementById("navButtons");
       const leftButtons=document.getElementById("leftButtons");
       const infoPanel=document.getElementById("infoPanel");
       const panelToggle=document.getElementById("panelToggle");
       
-      if(navButtons)navButtons.classList.remove("hidden");
       if(leftButtons){
-        leftButtons.classList.remove("hidden");
         leftButtons.classList.add("show");
+        console.log("Left buttons displayed:", leftButtons);
       }
       if(infoPanel)infoPanel.classList.add("show");
       if(panelToggle)panelToggle.classList.add("show");
