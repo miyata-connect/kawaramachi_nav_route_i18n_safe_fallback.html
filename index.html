@@ -624,10 +624,15 @@ function initMap(){
     loadSavedPoints();
     
     setTimeout(()=>{
-      document.getElementById("navButtons").classList.remove("hidden");
-      document.getElementById("leftButtons").classList.remove("hidden");
-      document.getElementById("infoPanel").classList.add("show");
-      document.getElementById("panelToggle").classList.add("show");
+      const navButtons=document.getElementById("navButtons");
+      const leftButtons=document.getElementById("leftButtons");
+      const infoPanel=document.getElementById("infoPanel");
+      const panelToggle=document.getElementById("panelToggle");
+      
+      if(navButtons)navButtons.classList.remove("hidden");
+      if(leftButtons)leftButtons.classList.remove("hidden");
+      if(infoPanel)infoPanel.classList.add("show");
+      if(panelToggle)panelToggle.classList.add("show");
       
       updateCurrentTime();
       setInterval(updateCurrentTime, 60000);
