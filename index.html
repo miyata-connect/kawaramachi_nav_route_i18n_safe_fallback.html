@@ -120,6 +120,7 @@ input,select{
 .weather-row{
   display:flex;
   align-items:center;
+  justify-content:center;
   gap:10px;
 }
 .location-name{
@@ -386,8 +387,10 @@ button[aria-label*="位置情報"] {
         <span><span id="timeLabel">現在時刻</span>: <span id="currentTime">--:--</span></span>
         <span><span id="arrivalLabel">到着予想時刻</span>: <span id="arrivalTime">--:--</span></span>
       </div>
-      <div class="weather-row">
+      <div style="text-align:center;margin-bottom:8px;">
         <div id="locationName" class="location-name">読み込み中...</div>
+      </div>
+      <div class="weather-row">
         <div class="weather-items">
           <div class="weather-item">
             <div class="weather-time">3H</div>
@@ -418,7 +421,7 @@ button[aria-label*="位置情報"] {
           </div>
         </div>
       </div>
-      <div id="coordsDisplay" style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">📍 緯度: -- / 経度: --</div>
+      <div id="coordsDisplay" style="text-align:center;font-size:13px;color:var(--muted);margin-top:8px;font-weight:600;">📍 緯度: -- / 経度: --</div>
     </div>
     
     <div id="mapControls" class="map-controls">
