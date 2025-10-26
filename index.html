@@ -251,8 +251,8 @@ input,select{
 }
 .right-btn.primary{background:var(--primary);border:none;color:#000}
 .right-btn.ok{background:var(--ok);border:none;color:#000}
-.right-btn.danger{background:var(--danger);border:none;color:#fff;display:none;}
-.right-btn.danger.active{display:flex;}
+.right-btn.danger{background:var(--danger);border:none;color:#fff;}
+.right-btn.danger:disabled{opacity:0.3;cursor:not-allowed;}
 .right-btn.accent{background:var(--accent);border:none;color:#000}
 .right-btn.warning{background:#ffa500;border:none;color:#000}
 
@@ -539,7 +539,7 @@ button[aria-label*="位置情報"] {
         </svg>
         <span style="font-size:10px;margin-top:2px;">音声</span>
       </button>
-      <button class="right-btn danger" id="stopNavBtn" onclick="stopNav()" title="案内停止">
+      <button class="right-btn danger" id="stopNavBtn" onclick="stopNav()" title="案内停止" disabled>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="6" y="6" width="12" height="12" fill="currentColor" stroke="currentColor" stroke-width="2"/>
         </svg>
@@ -916,6 +916,8 @@ function closeRouteSelectModal(){
 
 function selectRouteType(type){
   selectedRouteType=type;
+  const routeName=type==="fastest"?"最短AIルート":"楽チンAIルート";
+  speak(`${routeName}を選択しました`);
   closeRouteSelectModal();
   
   if(pendingRouteAction==="search"){
@@ -927,6 +929,7 @@ function selectRouteType(type){
 
 function executeReroute(){
   if(!isNavigating){
+    speak("目的地を設定してください");
     showError("目的地を設定してください");
     return;
   }
@@ -993,6 +996,7 @@ function executeReroute(){
 }
 
 function showSearchPanel(){
+  speak("検索パネルを開きます");
   const controlPanel=document.getElementById("controlPanel");
   if(controlPanel){
     controlPanel.classList.remove("hidden");
@@ -1006,6 +1010,7 @@ function showSearchPanel(){
 
 function voiceSearch(){
   if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
+    speak("音声認識に対応していません");
     showError("音声認識に対応していません");
     return;
   }
@@ -1016,11 +1021,13 @@ function voiceSearch(){
   recognition.interimResults=false;
   
   recognition.onstart=()=>{
+    speak("音声入力を開始します");
     showSuccess("音声入力中...");
   };
   
   recognition.onresult=(event)=>{
     const transcript=event.results[0][0].transcript;
+    speak(`${transcript}を検索します`);
     const searchBox=document.getElementById("searchBox");
     if(searchBox){
       searchBox.value=transcript;
@@ -1029,6 +1036,7 @@ function voiceSearch(){
   };
   
   recognition.onerror=(event)=>{
+    speak("音声認識エラーが発生しました");
     showError("音声認識エラー");
   };
   
@@ -1247,6 +1255,7 @@ function quickVoiceSearch(){
 
 function zoomToCurrentLocation(){
   if(!currentMarker){
+    speak("現在地が取得できていません");
     showError("現在地が取得できていません");
     return;
   }
@@ -1260,6 +1269,7 @@ function zoomToCurrentLocation(){
 
 function zoomToDestination(){
   if(!destMarker){
+    speak("目的地が設定されていません");
     showError("目的地が設定されていません");
     return;
   }
@@ -1315,7 +1325,7 @@ function startNav(){
     
     const stopNavBtn=document.getElementById("stopNavBtn");
     if(stopNavBtn){
-      stopNavBtn.classList.add("active");
+      stopNavBtn.disabled=false;
     }
     
     const leg=res.routes[0].legs[0];
@@ -1359,9 +1369,15 @@ function startNav(){
 }
 
 function stopNav(){
+  if(!isNavigating){
+    speak("案内中ではありません");
+    return;
+  }
+  
+  speak("案内を停止します");
+  
   if(!stopAnnounced){
     stopAnnounced=!0;
-    speak(translations[currentLang].navStop);
   }
   
   directionsRenderer.setMap(null);
@@ -1376,7 +1392,7 @@ function stopNav(){
   
   const stopNavBtn=document.getElementById("stopNavBtn");
   if(stopNavBtn){
-    stopNavBtn.classList.remove("active");
+    stopNavBtn.disabled=true;
   }
   
   const routeTextEl=document.getElementById("routeText");
@@ -1701,6 +1717,14 @@ async function fetchLocationName(){
     const locationNameEl=document.getElementById("locationName");
     if(locationNameEl){
       locationNameEl.textContent=locationText;
+    }
+    
+    const currentLocationDisplayEl=document.getElementById("currentLocationDisplay");
+    if(currentLocationDisplayEl){
+      const displayEl=currentLocationDisplayEl.querySelector("div");
+      if(displayEl){
+        displayEl.textContent=locationText;
+      }
     }
   }catch(e){
     const locationNameEl=document.getElementById("locationName");
