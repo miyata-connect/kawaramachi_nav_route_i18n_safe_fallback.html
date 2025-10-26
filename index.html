@@ -369,46 +369,6 @@ input,select{
   <div class="app">
     <div id="map"></div>
     
-    <div id="infoPanel" class="info-panel show">
-      <div class="route-main" id="routeText">目的地を設定してください</div>
-      <div class="route-time">
-        <span>🕐 <span id="timeLabel">現在時刻</span>: <span id="currentTime">--:--</span></span>
-        <span>🎯 <span id="arrivalLabel">到着予想時刻</span>: <span id="arrivalTime">--:--</span></span>
-      </div>
-      <div class="weather-row">
-        <div class="location-name" id="locationName">読み込み中...</div>
-        <div class="weather-items">
-          <div class="weather-item">
-            <div>3H</div>
-            <div class="weather-icon" id="w3h">☀️</div>
-            <div class="weather-temp" id="t3h">--°</div>
-            <div class="weather-rain" id="r3h">--%</div>
-          </div>
-          <div class="weather-arrow">→</div>
-          <div class="weather-item">
-            <div>6H</div>
-            <div class="weather-icon" id="w6h">☁️</div>
-            <div class="weather-temp" id="t6h">--°</div>
-            <div class="weather-rain" id="r6h">--%</div>
-          </div>
-          <div class="weather-arrow">→</div>
-          <div class="weather-item">
-            <div>9H</div>
-            <div class="weather-icon" id="w9h">🌧️</div>
-            <div class="weather-temp" id="t9h">--°</div>
-            <div class="weather-rain" id="r9h">--%</div>
-          </div>
-          <div class="weather-arrow">→</div>
-          <div class="weather-item">
-            <div>12H</div>
-            <div class="weather-icon" id="w12h">☁️</div>
-            <div class="weather-temp" id="t12h">--°</div>
-            <div class="weather-rain" id="r12h">--%</div>
-          </div>
-        </div>
-      </div>
-    </div>
-    
     <div id="leftButtons" class="left-buttons">
       <div class="nav-btn compass-btn" id="compassBtn">
         <div class="compass-n">N</div>
@@ -419,27 +379,6 @@ input,select{
       </div>
       <div class="nav-btn" id="nupBtn" onclick="setNorthUp()" style="color:#fff">N-UP</div>
       <div class="nav-btn active" id="hupBtn" onclick="setHeadingUp()" style="color:#fff">H-UP</div>
-    </div>
-    
-    <div id="navButtons" class="nav-buttons">
-      <div class="nav-btn primary" onclick="fastestRoute()"><span id="btnFastest">最短AI</span></div>
-      <div class="nav-btn primary" onclick="easyRoute()"><span id="btnEasy">楽チンAI</span></div>
-      <div class="nav-btn primary" onclick="walkRoute()"><span id="btnWalk">お散歩AI</span></div>
-      <div class="nav-btn primary" onclick="goToCurrent()"><span id="btnCurrent">現在地</span></div>
-      <div class="nav-btn primary" onclick="goToDestination()"><span id="btnDest">目的地</span></div>
-      <div class="nav-btn danger" onclick="stopNav()"><span id="btnStop">案内<br>停止</span></div>
-      <div class="nav-btn accent" onclick="reroute()"><span id="btnReroute">リルート</span></div>
-      <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()"><span id="btnVoiceNav">音声<br>案内</span></div>
-      <button class="location-btn" onclick="toggleMapControls()">
-        <svg width="32" height="32" viewBox="0 0 48 48">
-          <circle cx="24" cy="24" r="20" stroke="currentColor" stroke-width="2.5" fill="none"/>
-          <polygon points="24,6 21,16 27,16" fill="currentColor"/>
-          <polygon points="24,42 21,32 27,32" fill="currentColor"/>
-          <polygon points="6,24 16,21 16,27" fill="currentColor"/>
-          <polygon points="42,24 32,21 32,27" fill="currentColor"/>
-          <circle cx="24" cy="24" r="5" fill="currentColor"/>
-        </svg>
-      </button>
     </div>
     
     <div id="mapControls" class="map-controls">
@@ -606,18 +545,19 @@ function changeLanguage(){
 
 function updateAllTexts(){
   const t=translations[currentLang];
-  document.getElementById("routeText").textContent=t.setDestination;
-  document.getElementById("timeLabel").textContent=t.currentTime;
-  document.getElementById("arrivalLabel").textContent=t.arrivalTime;
-  document.getElementById("locationName").textContent=t.loading;
-  document.getElementById("btnFastest").textContent=t.btnFastest;
-  document.getElementById("btnEasy").textContent=t.btnEasy;
-  document.getElementById("btnWalk").textContent=t.btnWalk;
-  document.getElementById("btnCurrent").textContent=t.btnCurrent;
-  document.getElementById("btnDest").textContent=t.btnDest;
-  document.getElementById("btnStop").innerHTML=t.btnStop.replace('\n','<br>');
+  // 削除された要素への参照をコメントアウト
+  // document.getElementById("routeText").textContent=t.setDestination;
+  // document.getElementById("timeLabel").textContent=t.currentTime;
+  // document.getElementById("arrivalLabel").textContent=t.arrivalTime;
+  // document.getElementById("locationName").textContent=t.loading;
+  // document.getElementById("btnFastest").textContent=t.btnFastest;
+  // document.getElementById("btnEasy").textContent=t.btnEasy;
+  // document.getElementById("btnWalk").textContent=t.btnWalk;
+  // document.getElementById("btnCurrent").textContent=t.btnCurrent;
+  // document.getElementById("btnDest").textContent=t.btnDest;
+  // document.getElementById("btnStop").innerHTML=t.btnStop.replace('\n','<br>');
   document.getElementById("btnStopNav").textContent=t.btnStopNav;
-  document.getElementById("btnReroute").textContent=t.btnReroute;
+  // document.getElementById("btnReroute").textContent=t.btnReroute;
   document.getElementById("btnSearch").textContent=t.btnSearch;
   document.getElementById("btnVoice").textContent=t.btnVoice;
   document.getElementById("btnRelocate").textContent=t.btnRelocate;
@@ -649,18 +589,18 @@ function togglePanel(){
 }
 
 function hideAllElements(){
-  document.getElementById("navButtons").classList.add("hidden");
-  document.getElementById("leftButtons").classList.add("hidden");
-  document.getElementById("infoPanel").classList.remove("show");
+  // document.getElementById("navButtons").classList.add("hidden");
+  // document.getElementById("leftButtons").classList.add("hidden");
+  // document.getElementById("infoPanel").classList.remove("show");
   document.getElementById("resultsPanel").style.display="none";
   document.getElementById("savedPointsPanel").style.display="none";
   document.getElementById("mapControls").classList.remove("show");
 }
 
 function showAllElements(){
-  document.getElementById("navButtons").classList.remove("hidden");
-  document.getElementById("leftButtons").classList.remove("hidden");
-  document.getElementById("infoPanel").classList.add("show");
+  // document.getElementById("navButtons").classList.remove("hidden");
+  // document.getElementById("leftButtons").classList.remove("hidden");
+  // document.getElementById("infoPanel").classList.add("show");
 }
 
 function fastestRoute(){
