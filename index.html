@@ -393,15 +393,15 @@ button[aria-label*="位置情報"] {
         <div id="routeText">目的地を設定してください</div>
         <div style="text-align:center;font-size:12px;color:var(--muted);margin-top:6px;font-weight:600;">半径5km圏内の情報を表示しています。</div>
         <div id="incidentMarquee" style="background:rgba(255,101,101,.2);border-radius:6px;padding:2px 8px;margin-top:6px;overflow:hidden;white-space:nowrap;height:24px;display:flex;align-items:center;">
-          <div id="incidentText" style="display:inline-block;animation:marquee 20s linear infinite;font-size:16px;color:#ff6565;">
+          <div id="incidentText" style="display:inline-block;animation:marquee 20s linear infinite;font-size:18px;color:#ff6565;">
             現在、周辺半径5km圏内で特に報告されている事件、事故の報告はありません。
           </div>
         </div>
       </div>
       <div class="route-time">
-        <span><span id="timeLabel" style="display:inline-block;line-height:1.2;">現在<br>時刻</span>: <span id="currentTime">--:--</span></span>
-        <span><span id="arrivalLabel" style="display:inline-block;line-height:1.2;">到着<br>予想</span>: <span id="arrivalTime">--:--</span></span>
-        <span><span style="display:inline-block;line-height:1.2;">所要<br>時間</span>: <span id="durationTime">--分</span></span>
+        <span><span id="timeLabel" style="display:inline-block;line-height:1.2;">現在<br>時刻</span>: <span id="currentTime" style="font-size:20px;">--:--</span></span>
+        <span><span id="arrivalLabel" style="display:inline-block;line-height:1.2;">到着<br>予想</span>: <span id="arrivalTime" style="font-size:20px;">--:--</span></span>
+        <span><span style="display:inline-block;line-height:1.2;">所要<br>時間</span>: <span id="durationTime" style="font-size:20px;">--分</span></span>
       </div>
       <div style="text-align:center;margin-bottom:8px;">
         <div id="locationName" class="location-name">読み込み中...</div>
@@ -1455,12 +1455,97 @@ async function fetchIncidents(){
 }
 
 // TODO: 歩行者向けインシデント情報の取得設定
-// - 気象警報・注意報API
-// - 自治体の防災情報API
-// - 歩道工事情報
-// - 不審者情報
-// - 野生動物出没情報
-// などの取得先を後で設定する
+// 
+// === 気象情報API ===
+// 1. 気象庁API (無料)
+//    - 警報・注意報: https://www.jma.go.jp/bosai/warning/data/warning/{地域コード}.json
+//    - 天気予報: https://www.jma.go.jp/bosai/forecast/data/forecast/{地域コード}.json
+//    - 降水ナウキャスト: https://www.jma.go.jp/bosai/jmatile/data/nowc/{timestamp}/none/{z}/{x}/{y}.png
+//    
+// 2. OpenWeatherMap API (無料枠あり)
+//    - URL: https://api.openweathermap.org/data/2.5/weather
+//    - 気象警報: https://api.openweathermap.org/data/2.5/onecall
+//    - 必要: APIキー登録
+//
+// 3. 気象庁防災情報XML (無料)
+//    - URL: http://www.data.jma.go.jp/developer/xml/feed/regular.xml
+//    - 各種気象警報・注意報のリアルタイム配信
+//
+// === 防災・安全情報API ===
+// 4. 内閣府 防災情報システム
+//    - L-Alert (公共情報コモンズ)
+//    - 各自治体の防災情報を統合配信
+//    - URL: 各自治体により異なる
+//
+// 5. Yahoo! Japan 災害情報API (無料)
+//    - URL: https://map.yahooapis.jp/disaster/V1/get
+//    - 必要: Yahoo! JAPAN アプリケーションID
+//
+// 6. 国土交通省 防災情報提供センター
+//    - URL: http://www.mlit.go.jp/saigai/bosaijoho/
+//    - リアルタイム雨量、河川水位など
+//
+// === 道路・交通情報API ===
+// 7. 国土交通省 道路交通情報
+//    - URL: https://www.jartic.or.jp/ (JARTIC)
+//    - 歩道工事情報も含む
+//
+// 8. Google Maps Roads API
+//    - URL: https://roads.googleapis.com/v1/snapToRoads
+//    - 必要: Google Cloud APIキー、有料
+//    - 料金: $10.00 per 1,000 requests (1000リクエストあたり10ドル)
+//    - 無料枠: 2025年3月1日以降、新料金体系では月間無料枠あり
+//    - 用途: GPS座標を道路にスナップして正確なルートを取得
+//    - 注意: 歩行者向けアプリには過剰スペックで高コスト
+//
+// === 治安・安全情報 ===
+// 9. 警察庁 安全・安心情報
+//    - URL: 各都道府県警察のオープンデータ
+//    - 不審者情報、事件情報など
+//    - 例: 東京都 https://www.keishicho.metro.tokyo.lg.jp/
+//
+// 10. gaccom (学校安全情報) API
+//    - URL: https://www.gaccom.jp/
+//    - 不審者情報、事件情報
+//    - 民間サービス、利用条件確認必要
+//
+// === 野生動物情報 ===
+// 11. 環境省 野生鳥獣情報
+//    - URL: 各自治体の鳥獣対策課のオープンデータ
+//    - 熊・猪・鹿などの出没情報
+//
+// 12. 自治体の有害鳥獣出没マップ
+//    - 各都道府県・市町村が提供
+//    - 例: 長野県 https://www.pref.nagano.lg.jp/
+//
+// === その他有用なAPI ===
+// 13. NHK ニュース防災API (非公式)
+//    - リアルタイムの災害・事件情報
+//
+// 14. Twitter API (X API)
+//    - URL: https://developer.twitter.com/
+//    - 自治体公式アカウントや防災アカウントの情報収集
+//    - 必要: APIキー、有料プランが推奨
+//
+// === 実装優先順位 ===
+// [高] 気象庁API - 無料で信頼性が高い
+// [高] OpenWeatherMap - 統合しやすい
+// [中] 都道府県警察のオープンデータ - 治安情報
+// [中] 各自治体の防災情報 - 地域特化情報
+// [低] Twitter API - リアルタイム性は高いが有料
+//
+// === 実装方法の例 ===
+// async function fetchWeatherAlerts(){
+//   const lat = currentLocation.lat;
+//   const lon = currentLocation.lng;
+//   const res = await fetch(`https://api.openweathermap.org/data/2.5/onecall?lat=${lat}&lon=${lon}&appid=YOUR_API_KEY&lang=ja`);
+//   const data = await res.json();
+//   if(data.alerts && data.alerts.length > 0){
+//     return data.alerts[0].description;
+//   }
+//   return null;
+// }
+//
 
 function showError(msg){
   const el=document.getElementById("error");
