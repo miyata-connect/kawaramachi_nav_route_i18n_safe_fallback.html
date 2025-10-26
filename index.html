@@ -369,18 +369,6 @@ input,select{
   <div class="app">
     <div id="map"></div>
     
-    <div id="leftButtons" class="left-buttons">
-      <div class="nav-btn compass-btn" id="compassBtn">
-        <div class="compass-n">N</div>
-        <svg width="40" height="40" viewBox="0 0 50 50" style="margin-top:8px">
-          <path id="compassNeedle" d="M25 5 L27 25 L25 23 L23 25 Z" fill="#ff6565" stroke="#fff" stroke-width="1"/>
-          <circle cx="25" cy="25" r="2.5" fill="#5fb1ff" stroke="#fff" stroke-width="1.5"/>
-        </svg>
-      </div>
-      <div class="nav-btn" id="nupBtn" onclick="setNorthUp()" style="color:#fff">N-UP</div>
-      <div class="nav-btn active" id="hupBtn" onclick="setHeadingUp()" style="color:#fff">H-UP</div>
-    </div>
-    
     <div id="mapControls" class="map-controls">
       <div class="map-control-row">
         <div class="map-control-btn" onclick="event.preventDefault();panUp()">↑</div>
@@ -674,81 +662,75 @@ function initMap(){
 }
 
 function setupCompass(){
-  const needle=document.getElementById("compassNeedle");
-  if(!needle)return;
+  // const needle=document.getElementById("compassNeedle");
+  // if(!needle)return;
   
-  function animate(){
-    compassAlpha=.8*compassAlpha+.2*targetAlpha;
-    needle.style.transform=`rotate(${compassAlpha}deg)`;
-    needle.style.transformOrigin="25px 25px";
-    requestAnimationFrame(animate);
-  }
-  animate();
+  // function animate(){
+  //   compassAlpha=.8*compassAlpha+.2*targetAlpha;
+  //   needle.style.transform=`rotate(${compassAlpha}deg)`;
+  //   needle.style.transformOrigin="25px 25px";
+  //   requestAnimationFrame(animate);
+  // }
+  // animate();
   
-  if(typeof DeviceOrientationEvent!=="undefined"){
-    if(typeof DeviceOrientationEvent.requestPermission==='function'){
-      DeviceOrientationEvent.requestPermission()
-        .then(response=>{
-          if(response==='granted'){
-            attachOrientationListener();
-          }
-        })
-        .catch(console.error);
-    }else{
-      attachOrientationListener();
-    }
-  }
+  // if(typeof DeviceOrientationEvent!=="undefined"){
+  //   if(typeof DeviceOrientationEvent.requestPermission==='function'){
+  //     DeviceOrientationEvent.requestPermission()
+  //       .then(response=>{
+  //         if(response==='granted'){
+  //           attachOrientationListener();
+  //         }
+  //       })
+  //       .catch(console.error);
+  //   }else{
+  //     attachOrientationListener();
+  //   }
+  // }
   
-  function attachOrientationListener(){
-    window.addEventListener("deviceorientationabsolute",handleOrientation,true);
-    window.addEventListener("deviceorientation",handleOrientation,true);
-  }
+  // function attachOrientationListener(){
+  //   window.addEventListener("deviceorientationabsolute",handleOrientation,true);
+  //   window.addEventListener("deviceorientation",handleOrientation,true);
+  // }
   
-  function handleOrientation(e){
-    let alpha=e.alpha;
-    
-    if(e.webkitCompassHeading){
-      alpha=e.webkitCompassHeading;
-    }
-    
-    if(typeof alpha==="number"){
-      targetAlpha=alpha;
-      
-      if(headingMode==="heading" && map){
-        map.setHeading(alpha);
-      }
-    }
-  }
+  // function handleOrientation(e){
+  //   let alpha=e.alpha;
+  //   
+  //   if(e.webkitCompassHeading){
+  //     alpha=e.webkitCompassHeading;
+  //   }
+  //   
+  //   if(typeof alpha==="number"){
+  //     targetAlpha=alpha;
+  //     
+  //     if(headingMode==="heading" && map){
+  //       map.setHeading(alpha);
+  //     }
+  //   }
+  // }
 }
 
 function setNorthUp(){
-  headingMode="north";
-  
-  map.setHeading(0);
-  map.setTilt(0);
-  
-  setTimeout(()=>{
-    map.setHeading(0);
-    map.setTilt(0);
-  },100);
-  
-  document.getElementById("nupBtn").classList.add("active");
-  document.getElementById("hupBtn").classList.remove("active");
-  speak("North up mode");
+  // headingMode="north";
+  // map.setHeading(0);
+  // map.setTilt(0);
+  // setTimeout(()=>{
+  //   map.setHeading(0);
+  //   map.setTilt(0);
+  // },100);
+  // document.getElementById("nupBtn").classList.add("active");
+  // document.getElementById("hupBtn").classList.remove("active");
+  // speak("North up mode");
 }
 
 function setHeadingUp(){
-  headingMode="heading";
-  
-  map.setTilt(45);
-  
-  if(typeof targetAlpha==="number"){
-    map.setHeading(targetAlpha);
-  }
-  
-  document.getElementById("nupBtn").classList.remove("active");
-  document.getElementById("hupBtn").classList.add("active");
-  speak("Heading up mode");
+  // headingMode="heading";
+  // map.setTilt(45);
+  // if(typeof targetAlpha==="number"){
+  //   map.setHeading(targetAlpha);
+  // }
+  // document.getElementById("nupBtn").classList.remove("active");
+  // document.getElementById("hupBtn").classList.add("active");
+  // speak("Heading up mode");
 }
 
 function startWatch(){
