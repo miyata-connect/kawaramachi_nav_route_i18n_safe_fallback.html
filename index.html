@@ -198,12 +198,13 @@ input,select{
   left:10px;
   top:200px;
   z-index:450;
-  display:none !important;
+  display:flex;
   flex-direction:column;
   gap:10px;
   pointer-events:none;
 }
 .left-buttons.hidden{display:none}
+.left-buttons.show{display:flex}
 
 .location-btn{
   width:70px;
@@ -555,6 +556,16 @@ div[title*="付近"] {
     <div id="error" class="error-banner hidden"></div>
     <div id="success" class="success-banner hidden"></div>
     
+    <div id="leftButtons" class="left-buttons">
+      <button class="location-btn" onclick="zoomToCurrentLocation()" title="現在地を表示">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="3" fill="currentColor"/>
+          <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 2V6M12 18V22M22 12H18M6 12H2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+    
     <div id="rightButtons" class="right-buttons">
       <button class="right-btn accent" onclick="zoomToCurrentLocation()" title="現在地を拡大表示">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -817,7 +828,10 @@ function initMap(){
       const panelToggle=document.getElementById("panelToggle");
       
       if(navButtons)navButtons.classList.remove("hidden");
-      if(leftButtons)leftButtons.classList.remove("hidden");
+      if(leftButtons){
+        leftButtons.classList.remove("hidden");
+        leftButtons.classList.add("show");
+      }
       if(infoPanel)infoPanel.classList.add("show");
       if(panelToggle)panelToggle.classList.add("show");
       
@@ -1229,7 +1243,7 @@ function quickVoiceSearch(){
 }
 
 function zoomToCurrentLocation(){
-  if(!currentMarker){
+  if(!currentLocation){
     speak("現在地が取得できていません");
     showError("現在地が取得できていません");
     return;
@@ -1278,7 +1292,7 @@ function goToDestination(){
 }
 
 function startNav(){
-  if(!currentMarker||!destMarker)return showError("Location or destination not set");
+  if(!currentLocation||!destMarker)return showError("Location or destination not set");
   
   stopAnnounced=!1;
   
@@ -1390,7 +1404,7 @@ function stopNav(){
   
   document.getElementById("panelToggle").classList.add("show");
   
-  if(currentMarker){
+  if(currentLocation){
     map.panTo(currentLocation);
     map.setZoom(18);
   }
