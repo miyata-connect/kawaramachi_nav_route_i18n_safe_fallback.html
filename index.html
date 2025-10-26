@@ -83,8 +83,8 @@ input,select{
 /* 統合情報パネル */
 .info-panel{
   position:absolute;
-  left:10px;
-  right:10px;
+  left:80px;
+  right:80px;
   top:10px;
   background:var(--glass);
   border:1px solid var(--stroke);
@@ -151,13 +151,13 @@ input,select{
 }
 .weather-icon{font-size:20px;margin:2px 0}
 .weather-temp{font-weight:700;font-size:13px}
-.weather-rain{color:var(--accent);font-size:10px}
+.weather-rain{color:var(--accent);font-size:11px;font-weight:700}
 
 /* ナビボタン（右側縦一列） */
 .nav-buttons{
   position:absolute;
   right:10px;
-  top:420px;
+  top:190px;
   z-index:450;
   display:flex;
   flex-direction:column;
@@ -200,7 +200,7 @@ input,select{
 .left-buttons{
   position:absolute;
   left:10px;
-  top:420px;
+  top:190px;
   z-index:450;
   display:flex;
   flex-direction:column;
@@ -369,28 +369,28 @@ input,select{
         <div class="location-name" id="locationName">読み込み中...</div>
         <div class="weather-items">
           <div class="weather-item">
-            <div>3h</div>
+            <div>3H</div>
             <div class="weather-icon" id="w3h">☀️</div>
             <div class="weather-temp" id="t3h">--°</div>
             <div class="weather-rain" id="r3h">--%</div>
           </div>
           <div class="weather-arrow">→</div>
           <div class="weather-item">
-            <div>6h</div>
+            <div>6H</div>
             <div class="weather-icon" id="w6h">☁️</div>
             <div class="weather-temp" id="t6h">--°</div>
             <div class="weather-rain" id="r6h">--%</div>
           </div>
           <div class="weather-arrow">→</div>
           <div class="weather-item">
-            <div>9h</div>
+            <div>9H</div>
             <div class="weather-icon" id="w9h">🌧️</div>
             <div class="weather-temp" id="t9h">--°</div>
             <div class="weather-rain" id="r9h">--%</div>
           </div>
           <div class="weather-arrow">→</div>
           <div class="weather-item">
-            <div>12h</div>
+            <div>12H</div>
             <div class="weather-icon" id="w12h">☁️</div>
             <div class="weather-temp" id="t12h">--°</div>
             <div class="weather-rain" id="r12h">--%</div>
@@ -414,7 +414,7 @@ input,select{
       <div class="nav-btn" id="nupBtn" onclick="setNorthUp()" style="color:#fff">N-UP</div>
       
       <!-- H-UP -->
-      <div class="nav-btn active" id="hupBtn" onclick="setHeadingUp()">H-UP</div>
+      <div class="nav-btn active" id="hupBtn" onclick="setHeadingUp()" style="color:#fff">H-UP</div>
     </div>
     
     <!-- ナビボタン（右側縦一列） -->
@@ -436,7 +436,7 @@ input,select{
     </div>
     
     <!-- ロケーションボタン（右下固定） -->
-    <button class="location-btn" onclick="toggleMapControls()">⊕</button>
+    <button class="location-btn" onclick="toggleMapControls()">🗺️</button>
     
     <!-- 地図コントロールボタン群 -->
     <div id="mapControls" class="map-controls">
@@ -866,8 +866,13 @@ function initMap(){
       streetViewControl:!1,
       fullscreenControl:!1,
       zoomControl:!1,
+      mapTypeControlOptions:!1,
+      rotateControl:!1,
+      scaleControl:!1,
       heading:0,
-      tilt:45
+      tilt:45,
+      gestureHandling:'greedy',
+      disableDefaultUI:!0
     });
     
     directionsService=new google.maps.DirectionsService;
@@ -933,8 +938,8 @@ function setupCompass(){
 
 function setNorthUp(){
   headingMode="north";
-  map.setHeading(0);
   map.setTilt(0);
+  map.setHeading(0);
   document.getElementById("nupBtn").classList.add("active");
   document.getElementById("hupBtn").classList.remove("active");
   speak("North up mode");
@@ -942,10 +947,10 @@ function setNorthUp(){
 
 function setHeadingUp(){
   headingMode="heading";
+  map.setTilt(45);
   if(typeof targetAlpha==="number"){
     map.setHeading(360-targetAlpha);
   }
-  map.setTilt(45);
   document.getElementById("nupBtn").classList.remove("active");
   document.getElementById("hupBtn").classList.add("active");
   speak("Heading up mode");
