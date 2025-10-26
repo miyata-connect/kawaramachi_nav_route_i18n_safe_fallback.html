@@ -393,7 +393,7 @@ button[aria-label*="位置情報"] {
         <div id="routeText">目的地を設定してください</div>
         <div id="incidentMarquee" style="background:rgba(255,101,101,.2);border-radius:6px;padding:4px 8px;margin-top:8px;overflow:hidden;white-space:nowrap;">
           <div id="incidentText" style="display:inline-block;animation:marquee 20s linear infinite;font-size:16px;color:#ff6565;">
-            現在地付近の事件、事故情報をお伝えします。
+            現在、周辺半径5km圏内で特に報告されている事件、事故の報告はありません。
           </div>
         </div>
       </div>
@@ -435,7 +435,7 @@ button[aria-label*="位置情報"] {
           </div>
         </div>
       </div>
-      <div id="coordsDisplay" style="text-align:center;font-size:17px;color:var(--muted);margin-top:8px;font-weight:600;cursor:pointer;pointer-events:auto;" onclick="copyCoordinates()">📍 緯度: -- / 経度: --</div>
+      <div id="coordsDisplay" style="text-align:center;font-size:17px;color:var(--muted);margin-top:8px;font-weight:600;cursor:pointer;pointer-events:auto;" onclick="copyCoordinates(event)">📍 緯度: -- / 経度: --</div>
     </div>
     
     <div id="mapControls" class="map-controls">
@@ -666,8 +666,18 @@ function initMap(){
     locationButton.style.display = "flex";
     locationButton.style.alignItems = "center";
     locationButton.style.justifyContent = "center";
-    locationButton.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0013 3.06V1h-2v2.06A8.994 8.994 0 003.06 11H1v2h2.06A8.994 8.994 0 0011 20.94V23h2v-2.06A8.994 8.994 0 0020.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z" fill="#000"/>
+    locationButton.innerHTML = `<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <!-- 上矢印 -->
+      <path d="M16 4 L16 10 M16 4 L13 7 M16 4 L19 7" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- 下矢印 -->
+      <path d="M16 28 L16 22 M16 28 L13 25 M16 28 L19 25" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- 左矢印 -->
+      <path d="M4 16 L10 16 M4 16 L7 13 M4 16 L7 19" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- 右矢印 -->
+      <path d="M28 16 L22 16 M28 16 L25 13 M28 16 L25 19" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <!-- 中央のプラスマイナス -->
+      <circle cx="16" cy="16" r="4" fill="#000"/>
+      <path d="M14 16 L18 16 M16 14 L16 18" stroke="#64d2ff" stroke-width="1.5" stroke-linecap="round"/>
     </svg>`;
     
     locationButton.addEventListener("click", () => {
@@ -736,7 +746,12 @@ function updateCoords(){
   }
 }
 
-function copyCoordinates(){
+function copyCoordinates(event){
+  if(event){
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  
   if(!currentLocation)return;
   
   const lat=currentLocation.lat.toFixed(6);
@@ -1403,7 +1418,7 @@ async function fetchWeather(){
 
 async function fetchIncidents(){
   const incidents=[
-    "⚠️ 現在、特に報告されている事件・事故はありません。",
+    "⚠️ 現在、周辺半径5km圏内で特に報告されている事件、事故の報告はありません。",
     "🚗 国道438号線で軽微な渋滞が発生しています。",
     "⚡ 天候の急変にご注意ください。",
     "🚸 学校付近では速度を落としてください。",
