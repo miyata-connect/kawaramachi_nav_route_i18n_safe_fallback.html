@@ -124,7 +124,7 @@ input,select{
   gap:10px;
 }
 .location-name{
-  font-size:16px;
+  font-size:20px;
   font-weight:700;
   color:var(--primary);
   white-space:nowrap;
@@ -146,7 +146,7 @@ input,select{
   font-size:11px;
   color:var(--text);
   padding:8px 6px;
-  background:var(--glass-strong);
+  background:rgba(16,22,36,.35);
   border-radius:8px;
   min-width:60px;
 }
@@ -421,7 +421,7 @@ button[aria-label*="位置情報"] {
           </div>
         </div>
       </div>
-      <div id="coordsDisplay" style="text-align:center;font-size:13px;color:var(--muted);margin-top:8px;font-weight:600;">📍 緯度: -- / 経度: --</div>
+      <div id="coordsDisplay" style="text-align:center;font-size:17px;color:var(--muted);margin-top:8px;font-weight:600;">📍 緯度: -- / 経度: --</div>
     </div>
     
     <div id="mapControls" class="map-controls">
@@ -1273,9 +1273,19 @@ async function fetchLocationName(){
     const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${currentLocation.lat}&lon=${currentLocation.lng}&format=json&accept-language=${currentLang}`);
     const data=await res.json();
     
+    const state=data.address?.state||"";
     const city=data.address?.city||data.address?.town||data.address?.village||"";
-    const ward=data.address?.suburb||"";
-    const locationText=ward?`${city}${ward}`:city?`${city}`:translations[currentLang].loading;
+    const suburb=data.address?.suburb||"";
+    const road=data.address?.road||"";
+    
+    let locationText="";
+    if(state)locationText+=state;
+    if(city)locationText+=city;
+    if(suburb)locationText+=suburb;
+    if(road)locationText+=road;
+    if(locationText)locationText+="付近";
+    
+    if(!locationText)locationText=translations[currentLang].loading;
     
     const locationNameEl=document.getElementById("locationName");
     if(locationNameEl){
