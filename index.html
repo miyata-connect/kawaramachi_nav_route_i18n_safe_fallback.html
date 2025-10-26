@@ -357,6 +357,45 @@ input,select{
   <div class="app">
     <div id="map"></div>
     
+    <div id="infoPanel" class="info-panel">
+      <div class="route-main">
+        <div id="routeText">目的地を設定してください</div>
+      </div>
+      <div class="route-time">
+        <span><span id="timeLabel">現在時刻</span>: <span id="currentTime">--:--</span></span>
+        <span><span id="arrivalLabel">到着予想時刻</span>: <span id="arrivalTime">--:--</span></span>
+      </div>
+      <div class="weather-row">
+        <div id="locationName" class="location-name">読み込み中...</div>
+        <div class="weather-items">
+          <div class="weather-item">
+            <div class="weather-icon" id="w3h">☁️</div>
+            <div class="weather-temp" id="t3h">--°</div>
+            <div class="weather-rain" id="r3h">--%</div>
+          </div>
+          <div class="weather-arrow">→</div>
+          <div class="weather-item">
+            <div class="weather-icon" id="w6h">☁️</div>
+            <div class="weather-temp" id="t6h">--°</div>
+            <div class="weather-rain" id="r6h">--%</div>
+          </div>
+          <div class="weather-arrow">→</div>
+          <div class="weather-item">
+            <div class="weather-icon" id="w9h">☁️</div>
+            <div class="weather-temp" id="t9h">--°</div>
+            <div class="weather-rain" id="r9h">--%</div>
+          </div>
+          <div class="weather-arrow">→</div>
+          <div class="weather-item">
+            <div class="weather-icon" id="w12h">☁️</div>
+            <div class="weather-temp" id="t12h">--°</div>
+            <div class="weather-rain" id="r12h">--%</div>
+          </div>
+        </div>
+      </div>
+      <div id="coordsDisplay" style="text-align:center;font-size:11px;color:var(--muted);margin-top:8px;">📍 緯度: -- / 経度: --</div>
+    </div>
+    
     <div id="mapControls" class="map-controls">
       <div class="map-control-row">
         <div class="map-control-btn" onclick="event.preventDefault();panUp()">↑</div>
