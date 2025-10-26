@@ -625,18 +625,16 @@ function initMap(){
     map=new google.maps.Map(document.getElementById("map"),{
       center:currentLocation,
       zoom:17,
-      mapTypeControl:!1,
-      streetViewControl:!1,
-      fullscreenControl:!1,
-      zoomControl:!1,
-      mapTypeControlOptions:!1,
-      rotateControl:!1,
-      scaleControl:!1,
+      mapTypeControl:false,
+      streetViewControl:false,
+      fullscreenControl:false,
+      zoomControl:false,
+      rotateControl:false,
+      scaleControl:false,
       heading:0,
       tilt:45,
       gestureHandling:'greedy',
-      disableDefaultUI:!0,
-      clickableIcons:!1
+      clickableIcons:false
     });
     
     directionsService=new google.maps.DirectionsService;
