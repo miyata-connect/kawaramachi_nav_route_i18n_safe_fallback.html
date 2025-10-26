@@ -62,13 +62,13 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
   border:1px solid var(--stroke);
   border-radius:10px;
   padding:10px;
-  color:#000;
+  color:#fff;
   font-size:14px;
   text-align:center;
   cursor:pointer;
   font-weight:700;
 }
-.panel-btn.primary{background:var(--primary);border:none}
+.panel-btn.primary{background:var(--primary);border:none;color:#000}
 .panel-btn.recording{background:var(--danger);border:none;color:#fff}
 input,select{
   width:100%;
@@ -195,6 +195,38 @@ input,select{
 .nav-btn.danger{background:var(--danger);border:none;color:#000}
 .nav-btn.accent{background:var(--accent);border:none}
 .nav-btn.active{background:var(--ok);border:2px solid #fff}
+
+/* 左側ボタングループ */
+.left-buttons{
+  position:absolute;
+  left:10px;
+  top:190px;
+  z-index:450;
+  display:flex;
+  gap:8px;
+}
+.left-buttons.hidden{display:none}
+
+/* 現在地ボタン（右下固定） */
+.recenter-btn{
+  position:fixed;
+  right:10px;
+  bottom:80px;
+  width:60px;
+  height:60px;
+  background:var(--accent);
+  border:none;
+  border-radius:10px;
+  color:#000;
+  font-size:20px;
+  cursor:pointer;
+  font-weight:700;
+  box-shadow:0 4px 12px rgba(0,0,0,.3);
+  z-index:450;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
 
 /* 検索結果 */
 .results-panel{
@@ -333,24 +365,26 @@ input,select{
       </div>
     </div>
     
-    <!-- ナビボタン（右側縦一列） -->
-    <div id="navButtons" class="nav-buttons">
+    <!-- 左側ボタングループ（方位計、N-UP、H-UP） -->
+    <div id="leftButtons" class="left-buttons">
       <!-- 方位計 -->
       <div class="nav-btn compass-btn" id="compassBtn">
         <div class="compass-n">N</div>
         <svg width="40" height="40" viewBox="0 0 50 50" style="margin-top:8px">
           <path id="compassNeedle" d="M25 5 L27 25 L25 23 L23 25 Z" fill="#ff6565" stroke="#fff" stroke-width="1"/>
-          <path d="M25 45 L27 25 L25 27 L23 25 Z" fill="#eaf2ff" stroke="#444" stroke-width="1"/>
           <circle cx="25" cy="25" r="2.5" fill="#5fb1ff" stroke="#fff" stroke-width="1.5"/>
         </svg>
       </div>
       
       <!-- N-UP -->
-      <div class="nav-btn" id="nupBtn" onclick="setNorthUp()">N-UP</div>
+      <div class="nav-btn" id="nupBtn" onclick="setNorthUp()" style="color:#fff">N-UP</div>
       
       <!-- H-UP -->
       <div class="nav-btn active" id="hupBtn" onclick="setHeadingUp()">H-UP</div>
-      
+    </div>
+    
+    <!-- ナビボタン（右側縦一列） -->
+    <div id="navButtons" class="nav-buttons">
       <!-- 現在地 -->
       <div class="nav-btn primary" onclick="goToCurrent()"><span id="btnCurrent">現在地</span></div>
       
@@ -363,9 +397,12 @@ input,select{
       <!-- リルート -->
       <div class="nav-btn accent" onclick="reroute()"><span id="btnReroute">リルート</span></div>
       
-      <!-- 音声検索 -->
-      <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()">🎤</div>
+      <!-- 音声案内 -->
+      <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()"><span id="btnVoiceNav">音声<br>案内</span></div>
     </div>
+    
+    <!-- 現在地ボタン（右下固定） -->
+    <button class="recenter-btn" onclick="goToCurrent()">📍</button>
     
     <!-- 操作パネル -->
     <div id="controlPanel" class="control-panel hidden">
@@ -706,14 +743,18 @@ function togglePanel(){
 
 function hideAllElements(){
   document.getElementById("navButtons").classList.add("hidden");
+  document.getElementById("leftButtons").classList.add("hidden");
   document.getElementById("infoPanel").classList.remove("show");
   document.getElementById("resultsPanel").style.display="none";
   document.getElementById("savedPointsPanel").style.display="none";
+  document.querySelector(".recenter-btn").style.display="none";
 }
 
 function showAllElements(){
   document.getElementById("navButtons").classList.remove("hidden");
+  document.getElementById("leftButtons").classList.remove("hidden");
   document.getElementById("infoPanel").classList.add("show");
+  document.querySelector(".recenter-btn").style.display="flex";
 }
 
 window.gm_authFailure=()=>alert("Maps API Error");
@@ -753,6 +794,7 @@ function initMap(){
     
     setTimeout(()=>{
       document.getElementById("navButtons").classList.remove("hidden");
+      document.getElementById("leftButtons").classList.remove("hidden");
       document.getElementById("infoPanel").classList.add("show");
       document.getElementById("panelToggle").classList.add("show");
       
@@ -949,12 +991,12 @@ function quickVoiceSearch(){
   rec.lang="ja-JP";
   
   btn.style.background="var(--danger)";
-  btn.textContent="●";
+  btn.innerHTML="<span style='color:#fff'>●</span>";
   
   rec.onresult=e=>{
     const query=e.results[0][0].transcript;
     btn.style.background="";
-    btn.textContent="🎤";
+    btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
     
     document.getElementById("searchBox").value=query;
     searchPlace();
@@ -962,11 +1004,11 @@ function quickVoiceSearch(){
   rec.onerror=()=>{
     showError("Voice failed");
     btn.style.background="";
-    btn.textContent="🎤";
+    btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
   };
   rec.onend=()=>{
     btn.style.background="";
-    btn.textContent="🎤";
+    btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
   };
   rec.start();
 }
