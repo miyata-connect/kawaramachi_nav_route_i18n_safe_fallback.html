@@ -84,7 +84,7 @@ input,select{
 .info-panel{
   position:absolute;
   left:10px;
-  right:80px;
+  right:10px;
   top:10px;
   background:var(--glass);
   border:1px solid var(--stroke);
@@ -157,7 +157,7 @@ input,select{
 .nav-buttons{
   position:absolute;
   right:10px;
-  top:200px;
+  top:420px;
   z-index:450;
   display:flex;
   flex-direction:column;
@@ -200,7 +200,7 @@ input,select{
 .left-buttons{
   position:absolute;
   left:10px;
-  top:200px;
+  top:420px;
   z-index:450;
   display:flex;
   flex-direction:column;
@@ -215,15 +215,48 @@ input,select{
   bottom:80px;
   width:60px;
   height:60px;
-  background:var(--glass-strong);
-  border:1px solid var(--stroke);
+  background:var(--accent);
+  border:none;
   border-radius:10px;
-  color:#fff;
+  color:#000;
   font-size:24px;
   cursor:pointer;
   font-weight:700;
   box-shadow:0 4px 12px rgba(0,0,0,.3);
   z-index:450;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* 地図コントロールボタン群 */
+.map-controls{
+  position:fixed;
+  right:80px;
+  bottom:80px;
+  z-index:450;
+  display:none;
+  gap:8px;
+}
+.map-controls.show{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+.map-control-row{
+  display:flex;
+  gap:8px;
+}
+.map-control-btn{
+  width:50px;
+  height:50px;
+  background:var(--glass-strong);
+  border:1px solid var(--stroke);
+  border-radius:10px;
+  color:#fff;
+  font-size:20px;
+  cursor:pointer;
+  font-weight:700;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -404,6 +437,22 @@ input,select{
     
     <!-- ロケーションボタン（右下固定） -->
     <button class="location-btn" onclick="toggleMapControls()">⊕</button>
+    
+    <!-- 地図コントロールボタン群 -->
+    <div id="mapControls" class="map-controls">
+      <div class="map-control-row">
+        <div class="map-control-btn" onclick="panUp()">↑</div>
+      </div>
+      <div class="map-control-row">
+        <div class="map-control-btn" onclick="panLeft()">←</div>
+        <div class="map-control-btn" onclick="zoomIn()">+</div>
+        <div class="map-control-btn" onclick="zoomOut()">−</div>
+        <div class="map-control-btn" onclick="panRight()">→</div>
+      </div>
+      <div class="map-control-row">
+        <div class="map-control-btn" onclick="panDown()">↓</div>
+      </div>
+    </div>
     
     <!-- 操作パネル -->
     <div id="controlPanel" class="control-panel hidden">
@@ -753,6 +802,7 @@ function hideAllElements(){
   document.getElementById("resultsPanel").style.display="none";
   document.getElementById("savedPointsPanel").style.display="none";
   document.querySelector(".location-btn").style.display="none";
+  document.getElementById("mapControls").classList.remove("show");
 }
 
 function showAllElements(){
@@ -763,7 +813,36 @@ function showAllElements(){
 }
 
 function toggleMapControls(){
-  alert("Map controls (zoom in/out, pan) feature coming soon!");
+  const controls=document.getElementById("mapControls");
+  controls.classList.toggle("show");
+}
+
+function panUp(){
+  const center=map.getCenter();
+  map.panTo({lat:center.lat()+0.005,lng:center.lng()});
+}
+
+function panDown(){
+  const center=map.getCenter();
+  map.panTo({lat:center.lat()-0.005,lng:center.lng()});
+}
+
+function panLeft(){
+  const center=map.getCenter();
+  map.panTo({lat:center.lat(),lng:center.lng()-0.005});
+}
+
+function panRight(){
+  const center=map.getCenter();
+  map.panTo({lat:center.lat(),lng:center.lng()+0.005});
+}
+
+function zoomIn(){
+  map.setZoom(map.getZoom()+1);
+}
+
+function zoomOut(){
+  map.setZoom(map.getZoom()-1);
 }
 
 window.gm_authFailure=()=>alert("Maps API Error");
