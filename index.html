@@ -1307,30 +1307,32 @@ async function fetchLocationName(){
     const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${currentLocation.lat}&lon=${currentLocation.lng}&format=json&accept-language=${currentLang}`);
     const data=await res.json();
     
+    console.log("=== Location Debug ===");
+    console.log("Display name:", data.display_name);
+    console.log("Address:", data.address);
+    
+    let locationText="";
+    
+    // addressオブジェクトから直接取得（roadを除外）
     const state=data.address?.state||"";
     const county=data.address?.county||"";
     const city=data.address?.city||data.address?.town||data.address?.village||"";
     const suburb=data.address?.suburb||"";
-    const quarter=data.address?.quarter||data.address?.neighbourhood||"";
-    const road=data.address?.road||"";
+    const hamlet=data.address?.hamlet||"";
     const house_number=data.address?.house_number||"";
     
-    let locationText="";
+    console.log("Parsed parts:", {state, county, city, suburb, hamlet, house_number});
     
-    if(state)locationText+=state;
-    
-    if(county){
-      locationText+=county;
-    }else if(city){
-      locationText+=city;
-    }
-    
+    // 都道府県を除外して表示
+    if(county)locationText+=county;
+    if(city)locationText+=city;
     if(suburb)locationText+=suburb;
-    if(quarter)locationText+=quarter;
-    if(road)locationText+=road;
+    if(hamlet)locationText+=hamlet;
     if(house_number)locationText+=house_number;
     
     if(locationText)locationText+="付近";
+    
+    console.log("Final text:", locationText);
     
     if(!locationText)locationText=translations[currentLang].loading;
     
