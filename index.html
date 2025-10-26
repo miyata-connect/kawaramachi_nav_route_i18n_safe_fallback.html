@@ -88,8 +88,7 @@ input,select{
   margin-bottom:10px;
 }
 .lang-row select{
-  width:auto;
-  min-width:200px;
+  width:100%;
   text-align:center;
 }
 
@@ -171,7 +170,7 @@ input,select{
   position:absolute;
   right:10px;
   top:200px;
-  bottom:120px; /* ロケーションボタンの余白確保 */
+  bottom:100px; /* ロケーションボタンの余白確保 */
   z-index:450;
   display:flex;
   flex-direction:column;
@@ -229,9 +228,9 @@ input,select{
 .location-btn{
   position:fixed;
   right:10px;
-  bottom:20px; /* 余白確保 */
+  bottom:10px; /* さらに下に配置 */
   width:70px;
-  height:70px; /* サイズ見直し */
+  height:70px;
   background:var(--accent);
   border:none;
   border-radius:10px;
@@ -321,6 +320,44 @@ input,select{
   padding:10px;
   z-index:510;
   display:none;
+}
+
+/* ルート選択パネル */
+.route-select-panel{
+  position:absolute;
+  left:10px;
+  right:10px;
+  top:50%;
+  transform:translateY(-50%);
+  background:var(--glass);
+  border:1px solid var(--stroke);
+  border-radius:12px;
+  padding:20px;
+  z-index:515;
+  display:none;
+}
+.route-select-title{
+  font-size:18px;
+  font-weight:700;
+  text-align:center;
+  margin-bottom:20px;
+  color:var(--text);
+}
+.route-select-btn{
+  width:100%;
+  padding:16px;
+  background:var(--primary);
+  border:none;
+  border-radius:10px;
+  color:#000;
+  font-size:16px;
+  font-weight:700;
+  cursor:pointer;
+  margin-bottom:10px;
+  text-align:center;
+}
+.route-select-btn:last-child{
+  background:var(--accent);
 }
 .saved-point-item{
   padding:12px;
@@ -438,12 +475,8 @@ input,select{
       <div class="nav-btn active" id="hupBtn" onclick="setHeadingUp()" style="color:#fff">H-UP</div>
     </div>
     
-    <!-- ナビボタン（右側縦一列）- お散歩AI削除 -->
+    <!-- ナビボタン（右側縦一列）- AIボタンは削除 -->
     <div id="navButtons" class="nav-buttons">
-      <!-- AIボタン2つ -->
-      <div class="nav-btn primary" onclick="fastestRoute()"><span id="btnFastest">最短AI</span></div>
-      <div class="nav-btn primary" onclick="easyRoute()"><span id="btnEasy">楽チンAI</span></div>
-      
       <!-- 現在地 -->
       <div class="nav-btn primary" onclick="goToCurrent()"><span id="btnCurrent">現在地</span></div>
       
@@ -454,7 +487,7 @@ input,select{
       <div class="nav-btn danger" onclick="stopNav()"><span id="btnStop">案内<br>停止</span></div>
       
       <!-- リルート -->
-      <div class="nav-btn accent" onclick="reroute()"><span id="btnReroute">リルート</span></div>
+      <div class="nav-btn accent" onclick="rerouteWithSelection()"><span id="btnReroute">リルート</span></div>
       
       <!-- 音声案内 -->
       <div class="nav-btn primary" id="quickVoiceBtn" onclick="quickVoiceSearch()"><span id="btnVoiceNav">音声<br>案内</span></div>
@@ -499,7 +532,7 @@ input,select{
       <div class="panel-row">
         <div class="panel-btn primary" onclick="searchPlace()"><span id="btnSearch">検索</span></div>
         <div class="panel-btn primary" id="voiceBtn" onclick="voiceSearch()"><span id="btnVoice">音声検索</span></div>
-        <div class="panel-btn" onclick="relocalize()"><span id="btnRelocate">現在地</span></div>
+        <div class="panel-btn" onclick="clearSearch()"><span id="btnClear">クリア</span></div>
       </div>
       
       <!-- 案内中止ボタン -->
@@ -551,6 +584,13 @@ input,select{
       <div class="saved-close" onclick="hideSavedPoints()"><span id="btnCloseSaved">閉じる</span></div>
     </div>
     
+    <!-- ルート選択パネル -->
+    <div id="routeSelectPanel" class="route-select-panel">
+      <div class="route-select-title" id="routeSelectTitle">ルートを選択してください</div>
+      <button class="route-select-btn" onclick="selectRouteMode('fastest')"><span id="btnSelectFastest">最短AIルート</span></button>
+      <button class="route-select-btn" onclick="selectRouteMode('easy')"><span id="btnSelectEasy">楽チンAIルート</span></button>
+    </div>
+    
     <div id="error" class="error-banner hidden"></div>
     <div id="loading" class="loading-screen">
       <div style="text-align:center">
@@ -596,6 +636,10 @@ const translations={
     navStop:"案内を終了します。",
     edit:"編集",
     delete:"削除",
+    btnClear:"クリア",
+    routeSelectTitle:"ルートを選択してください",
+    btnSelectFastest:"最短AIルート",
+    btnSelectEasy:"楽チンAIルート",
     fastestRouteMsg:"最短AIルートで案内します。安全を確保しつつ最短経路で目的地へご案内します。",
     easyRouteMsg:"楽チンAIルートで案内します。階段や坂道を回避し、快適な経路でご案内します。"
   },
@@ -628,6 +672,10 @@ const translations={
     navStop:"Navigation stopped.",
     edit:"Edit",
     delete:"Delete",
+    btnClear:"Clear",
+    routeSelectTitle:"Select Route",
+    btnSelectFastest:"Fastest AI Route",
+    btnSelectEasy:"Easy AI Route",
     fastestRouteMsg:"Fastest AI route selected. Navigating via shortest safe route.",
     easyRouteMsg:"Easy AI route selected. Avoiding stairs and slopes for comfortable navigation."
   }
@@ -648,8 +696,6 @@ function updateAllTexts(){
   document.getElementById("timeLabel").textContent=t.currentTime;
   document.getElementById("arrivalLabel").textContent=t.arrivalTime;
   document.getElementById("locationName").textContent=t.loading;
-  document.getElementById("btnFastest").textContent=t.btnFastest;
-  document.getElementById("btnEasy").textContent=t.btnEasy;
   document.getElementById("btnCurrent").textContent=t.btnCurrent;
   document.getElementById("btnDest").textContent=t.btnDest;
   document.getElementById("btnStop").innerHTML=t.btnStop.replace('\n','<br>');
@@ -657,7 +703,7 @@ function updateAllTexts(){
   document.getElementById("btnReroute").textContent=t.btnReroute;
   document.getElementById("btnSearch").textContent=t.btnSearch;
   document.getElementById("btnVoice").textContent=t.btnVoice;
-  document.getElementById("btnRelocate").textContent=t.btnRelocate;
+  document.getElementById("btnClear").textContent=t.btnClear;
   document.getElementById("btnSaveCurrent").textContent=t.btnSaveCurrent;
   document.getElementById("btnSaveMap").textContent=t.btnSaveMap;
   document.getElementById("btnShowSaved").textContent=t.btnShowSaved;
@@ -666,6 +712,9 @@ function updateAllTexts(){
   document.getElementById("btnOpenPanel").textContent=t.btnOpenPanel;
   document.getElementById("loadingText").textContent=t.loadingText;
   document.getElementById("loadingWait").textContent=t.loadingWait;
+  document.getElementById("routeSelectTitle").textContent=t.routeSelectTitle;
+  document.getElementById("btnSelectFastest").textContent=t.btnSelectFastest;
+  document.getElementById("btnSelectEasy").textContent=t.btnSelectEasy;
 }
 
 function togglePanel(){
@@ -767,9 +816,9 @@ function initMap(){
     currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
     
     map=new google.maps.Map(document.getElementById("map"),{
+      mapId:'DEMO_MAP_ID',
       center:currentLocation,
       zoom:17,
-      renderingType:'vector',
       mapTypeControl:!1,
       streetViewControl:!1,
       fullscreenControl:!1,
@@ -785,6 +834,8 @@ function initMap(){
       disableDefaultUI:!0,
       clickableIcons:!1
     });
+    
+    console.log("Map Rendering Type:",map.getRenderingType());
     
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
@@ -827,7 +878,7 @@ function setupCompass(){
   if(!needle)return;
   
   function animate(){
-    compassAlpha=.8*compassAlpha+.2*targetAlpha;
+    compassAlpha=.95*compassAlpha+.05*targetAlpha;
     needle.style.transform=`rotate(${compassAlpha}deg)`;
     needle.style.transformOrigin="25px 25px";
     requestAnimationFrame(animate);
@@ -865,6 +916,7 @@ function setupCompass(){
     if(typeof alpha==="number" && !isNaN(alpha)){
       targetAlpha=alpha;
       
+      // ヘディングアップモード時のみ地図を回転（北固定中は回転させない）
       if(headingMode==="heading" && map){
         map.setHeading(alpha);
       }
@@ -872,7 +924,7 @@ function setupCompass(){
   }
 }
 
-// ノースアップモード完全修正（ChatGPT推奨の方式）
+// ノースアップ（ChatGPT推奨のハードロック方式）
 function setNorthUp(){
   headingMode="north";
   
@@ -881,14 +933,19 @@ function setNorthUp(){
     map.setHeading(0);
     map.setTilt(0);
     
-    // 2. ユーザー操作での回転・チルトを完全無効化（決定打）
-    map.setHeadingInteractionEnabled(!1);
-    map.setTiltInteractionEnabled(!1);
+    // 2. ユーザー操作での回転・チルトを完全無効化
+    if(typeof map.setHeadingInteractionEnabled==='function'){
+      map.setHeadingInteractionEnabled(!1);
+      map.setTiltInteractionEnabled(!1);
+      console.log("North-up: Interactions disabled");
+    }else{
+      console.warn("setHeadingInteractionEnabled not available - map may be RASTER");
+    }
   }
   
   document.getElementById("nupBtn").classList.add("active");
   document.getElementById("hupBtn").classList.remove("active");
-  speak("North up mode");
+  speak("North up");
 }
 
 function setHeadingUp(){
@@ -896,8 +953,11 @@ function setHeadingUp(){
   
   if(map){
     // 1. ユーザー操作での回転・チルトを有効化
-    map.setHeadingInteractionEnabled(!0);
-    map.setTiltInteractionEnabled(!0);
+    if(typeof map.setHeadingInteractionEnabled==='function'){
+      map.setHeadingInteractionEnabled(!0);
+      map.setTiltInteractionEnabled(!0);
+      console.log("Heading-up: Interactions enabled");
+    }
     
     // 2. チルトを設定
     map.setTilt(45);
@@ -910,7 +970,7 @@ function setHeadingUp(){
   
   document.getElementById("nupBtn").classList.remove("active");
   document.getElementById("hupBtn").classList.add("active");
-  speak("Heading up mode");
+  speak("Heading up");
 }
 
 function startWatch(){
@@ -980,10 +1040,20 @@ function displayResults(places){
   });
   
   document.getElementById("resultsPanel").style.display="block";
+  
+  // 検索結果表示中は他の機能を非表示
+  document.getElementById("navButtons").classList.add("hidden");
+  document.getElementById("leftButtons").classList.add("hidden");
+  document.getElementById("infoPanel").classList.remove("show");
 }
 
 function hideResults(){
   document.getElementById("resultsPanel").style.display="none";
+  
+  // 他の機能を表示
+  document.getElementById("navButtons").classList.remove("hidden");
+  document.getElementById("leftButtons").classList.remove("hidden");
+  document.getElementById("infoPanel").classList.add("show");
 }
 
 function selectPlace(place){
@@ -997,13 +1067,35 @@ function selectPlace(place){
   
   hideResults();
   
-  document.getElementById("controlPanel").classList.add("hidden");
-  document.getElementById("panelToggle").classList.add("show");
-  showAllElements();
+  // ルート選択パネルを表示
+  document.getElementById("routeSelectPanel").style.display="block";
+  document.getElementById("navButtons").classList.add("hidden");
+  document.getElementById("leftButtons").classList.add("hidden");
+  document.getElementById("infoPanel").classList.remove("show");
+}
+
+function selectRouteMode(mode){
+  routeMode=mode;
   
-  setTimeout(()=>{
-    if(currentMarker&&destMarker)startNav();
-  },500);
+  document.getElementById("routeSelectPanel").style.display="none";
+  
+  document.getElementById("navButtons").classList.remove("hidden");
+  document.getElementById("leftButtons").classList.remove("hidden");
+  document.getElementById("infoPanel").classList.add("show");
+  
+  if(currentMarker&&destMarker){
+    startNav();
+  }
+}
+
+function rerouteWithSelection(){
+  if(!isNavigating)return showError("Not navigating");
+  
+  // ルート選択パネルを表示
+  document.getElementById("routeSelectPanel").style.display="block";
+  document.getElementById("navButtons").classList.add("hidden");
+  document.getElementById("leftButtons").classList.add("hidden");
+  document.getElementById("infoPanel").classList.remove("show");
 }
 
 function voiceSearch(){
@@ -1102,6 +1194,10 @@ function relocalize(){
     map.panTo(currentLocation);
     map.setZoom(18);
   },()=>showError("Location failed"));
+}
+
+function clearSearch(){
+  document.getElementById("searchBox").value="";
 }
 
 function goToCurrent(){
