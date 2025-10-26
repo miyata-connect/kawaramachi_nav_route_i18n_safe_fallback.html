@@ -216,7 +216,7 @@ input,select{
 
 .map-controls{
   position:fixed;
-  right:90px;
+  right:10px;
   bottom:80px;
   z-index:450;
   display:none;
@@ -356,22 +356,15 @@ input,select{
 .gm-control-active.gm-fullscreen-control {
   display: none !important;
 }
+.gm-svpc,
+.gm-style .gm-style-cc,
 button[title*="現在地"],
 button[title*="location"],
 button[aria-label*="現在地"],
 button[aria-label*="location"],
-.gm-svpc {
-  background: #64d2ff !important;
-  border-radius: 8px !important;
-  width: 50px !important;
-  height: 50px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,.3) !important;
-}
-button[title*="現在地"] img,
-button[title*="location"] img,
-button[aria-label*="現在地"] img,
-button[aria-label*="location"] img {
-  filter: brightness(0) invert(0) !important;
+button[title*="位置情報"],
+button[aria-label*="位置情報"] {
+  display: none !important;
 }
   </style>
 </head>
@@ -629,9 +622,7 @@ function initMap(){
       scaleControl:false,
       gestureHandling:'greedy',
       clickableIcons:false,
-      zoomControlOptions: {
-        position: google.maps.ControlPosition.RIGHT_CENTER
-      }
+      disableDefaultUI: true
     });
     
     // ロケーションボタンを追加
@@ -653,10 +644,7 @@ function initMap(){
     </svg>`;
     
     locationButton.addEventListener("click", () => {
-      if (currentLocation) {
-        map.setCenter(currentLocation);
-        map.setZoom(18);
-      }
+      toggleMapControls();
     });
     
     map.controls[google.maps.ControlPosition.RIGHT_BOTTOM].push(locationButton);
