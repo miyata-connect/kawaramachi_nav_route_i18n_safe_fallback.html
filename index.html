@@ -786,11 +786,11 @@ function initMap(){
       fetchLocationName();
       fetchWeather();
       
-      // 初期表示時に現在地マーカーを画面上部に表示
-      // 正のY値 = 地図が下に移動 = マーカーが上に見える
-      const offsetY = window.innerHeight * 0.25 + 70;
+      // 初期表示時に現在地マーカーを情報パネルの下の見える範囲に表示
+      // 負のY値 = 地図が上に移動 = マーカーが画面下の見える範囲に表示
+      const offsetY = window.innerHeight * 0.25;
       const offsetX = 60;
-      map.panBy(offsetX, offsetY);
+      map.panBy(offsetX, -offsetY);
     },100);
     
     startWatch();
