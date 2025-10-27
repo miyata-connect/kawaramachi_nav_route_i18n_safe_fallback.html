@@ -786,13 +786,11 @@ function initMap(){
       fetchLocationName();
       fetchWeather();
       
-      // 初期表示時に現在地を見える範囲（下半分）に調整
-      // 70px上、60px左に表示
-      // panBy: 負のY = 地図が上に移動（マーカーが下に見える）
-      // panBy: 正のX = 地図が右に移動（マーカーが左に見える）
+      // 初期表示時に現在地マーカーを画面上部に表示
+      // 正のY値 = 地図が下に移動 = マーカーが上に見える
       const offsetY = window.innerHeight * 0.25 + 70;
       const offsetX = 60;
-      map.panBy(offsetX, -offsetY);
+      map.panBy(offsetX, offsetY);
     },100);
     
     startWatch();
