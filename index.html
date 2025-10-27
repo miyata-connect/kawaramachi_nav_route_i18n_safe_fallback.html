@@ -661,18 +661,18 @@ function initMap(){
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
     
-    // 現在地マーカーを作成（ピクトグラムの人型）
+    // 現在地マーカーを作成（黒色の歩くピクトグラム）
     currentMarker=new google.maps.Marker({
       position:currentLocation,
       map:map,
       icon:{
-        path:"M12 2C10.9 2 10 2.9 10 4C10 5.1 10.9 6 12 6C13.1 6 14 5.1 14 4C14 2.9 13.1 2 12 2ZM15.5 8.5C15.2 8.2 14.8 8 14.5 8H9.5C9.2 8 8.8 8.2 8.5 8.5C8.2 8.8 8 9.2 8 9.5V15H10V22H14V15H16V9.5C16 9.2 15.8 8.8 15.5 8.5Z",
-        fillColor:"#5fb1ff",
+        path:"M13.5 5.5C14.59 5.5 15.5 4.58 15.5 3.5C15.5 2.42 14.59 1.5 13.5 1.5C12.4 1.5 11.5 2.42 11.5 3.5C11.5 4.58 12.4 5.5 13.5 5.5ZM9.8 8.9L7 23H9.1L10.9 15L13 17V23H15V15.5L12.9 13.5L13.5 10.5C14.79 12 16.79 13 19 13V11C17.09 11 15.5 10 14.69 8.6L13.69 7C13.29 6.4 12.69 6 12 6C11.69 6 11.5 6.1 11.3 6.1L6 8.3V13H8V9.6L9.8 8.9Z",
+        fillColor:"#1a1a1a",
         fillOpacity:1,
         strokeColor:"#ffffff",
-        strokeWeight:2,
-        scale:1.5,
-        anchor:new google.maps.Point(12, 22)
+        strokeWeight:2.5,
+        scale:1.8,
+        anchor:new google.maps.Point(13, 23)
       },
       zIndex:1000
     });
@@ -1066,7 +1066,7 @@ function zoomToCurrentLocation(){
   const offset = window.innerHeight * 0.25;
   map.panBy(0, -offset);
   
-  speak("現在地を表示");
+  speak("現在地を表示します");
 }
 
 function zoomToDestination(){
