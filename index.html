@@ -173,8 +173,8 @@ input,select{
 .right-btn{
   width:65px;
   height:65px;
-  background:rgba(16,22,36,.75);
-  border:1px solid var(--stroke);
+  background:rgba(16,22,36,.4);
+  border:1px solid rgba(255,255,255,.25);
   border-radius:10px;
   color:#fff;
   font-size:11px;
@@ -187,15 +187,15 @@ input,select{
   gap:2px;
   pointer-events:auto;
   box-shadow:0 4px 12px rgba(0,0,0,.3);
-  backdrop-filter:blur(12px);
-  -webkit-backdrop-filter:blur(12px);
+  backdrop-filter:blur(20px) saturate(180%);
+  -webkit-backdrop-filter:blur(20px) saturate(180%);
 }
-.right-btn.primary{background:rgba(95,177,255,.85);border:1px solid rgba(255,255,255,.2);color:#000;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
-.right-btn.ok{background:rgba(37,208,122,.85);border:1px solid rgba(255,255,255,.2);color:#000;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
-.right-btn.danger{background:rgba(255,101,101,.85);border:1px solid rgba(255,255,255,.2);color:#fff;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
-.right-btn.danger:disabled{opacity:1;background:rgba(255,101,101,.85);cursor:not-allowed;color:#fff;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
-.right-btn.accent{background:rgba(100,210,255,.85);border:1px solid rgba(255,255,255,.2);color:#000;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
-.right-btn.warning{background:rgba(255,165,0,.85);border:1px solid rgba(255,255,255,.2);color:#000;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);}
+.right-btn.primary{background:rgba(95,177,255,.85);border:1px solid rgba(255,255,255,.3);color:#000;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
+.right-btn.ok{background:rgba(37,208,122,.85);border:1px solid rgba(255,255,255,.3);color:#000;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
+.right-btn.danger{background:rgba(255,101,101,.85);border:1px solid rgba(255,255,255,.3);color:#fff;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
+.right-btn.danger:disabled{opacity:1;background:rgba(255,101,101,.85);cursor:not-allowed;color:#fff;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
+.right-btn.accent{background:rgba(100,210,255,.85);border:1px solid rgba(255,255,255,.3);color:#000;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
+.right-btn.warning{background:rgba(255,165,0,.85);border:1px solid rgba(255,255,255,.3);color:#000;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
 
 .map-controls{
   position:fixed;
