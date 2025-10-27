@@ -493,6 +493,15 @@ div[title*="付近"] {
     <div id="error" class="error-banner hidden"></div>
     <div id="success" class="success-banner hidden"></div>
     
+    <!-- デバッグパネル（スマホ用） -->
+    <div id="debugPanel" style="position:fixed;bottom:80px;left:10px;right:10px;max-height:200px;overflow-y:auto;background:rgba(0,0,0,0.9);border:2px solid #00ff00;border-radius:8px;padding:10px;font-size:11px;color:#00ff00;font-family:monospace;z-index:10000;display:none;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;border-bottom:1px solid #00ff00;padding-bottom:5px;">
+        <strong>🐛 DEBUG LOG</strong>
+        <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:none;border:none;color:#ff0000;font-size:16px;cursor:pointer;">✕</button>
+      </div>
+      <div id="debugLog"></div>
+    </div>
+    
     <div id="rightButtons" class="right-buttons">
       <button class="right-btn accent" onclick="zoomToCurrentLocation()" title="現在地を拡大表示">
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1060,18 +1069,29 @@ function searchPlace(){
 }
 
 function executeSearch(){
+  debugLog("🔍 executeSearch() 開始");
+  
   const searchBox=document.getElementById("searchBox");
-  if(!searchBox)return;
+  if(!searchBox){
+    debugLog("❌ searchBox要素が見つからない");
+    return;
+  }
+  debugLog("✅ searchBox要素取得成功");
   
   const q=searchBox.value.trim();
+  debugLog(`検索ワード: "${q}"`);
+  
   if(!q){
     showError("検索ワードを入力してください");
     return;
   }
+  
   if(!currentLocation){
+    debugLog("❌ currentLocationがnull");
     showError("位置情報を取得中");
     return;
   }
+  debugLog(`✅ currentLocation: lat=${currentLocation.lat}, lng=${currentLocation.lng}`);
   
   // 検索パネルを閉じる
   const controlPanel=document.getElementById("controlPanel");
@@ -1083,18 +1103,41 @@ function executeSearch(){
   speak(`${q}を検索中`);
   showSuccess("検索中...");
   
+  debugLog("🌐 PlacesService作成中...");
+  
   // 安定版PlacesService.textSearch()を使用
   try{
+    if(!map){
+      debugLog("❌ mapオブジェクトが未定義");
+      showError("地図が初期化されていません");
+      return;
+    }
+    debugLog("✅ mapオブジェクト存在確認");
+    
+    if(!google || !google.maps || !google.maps.places){
+      debugLog("❌ google.maps.placesが未定義");
+      showError("Places APIが読み込まれていません");
+      return;
+    }
+    debugLog("✅ google.maps.places存在確認");
+    
     const service=new google.maps.places.PlacesService(map);
+    debugLog("✅ PlacesService作成成功");
+    
     const request={
       query:q,
       location:currentLocation,
       radius:50000,
       language:"ja"
     };
+    debugLog(`📤 リクエスト送信: ${JSON.stringify(request)}`);
     
     service.textSearch(request,(results,status)=>{
+      debugLog(`📥 レスポンス受信: status=${status}`);
+      
       if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results.length>0){
+        debugLog(`✅ 検索成功: ${results.length}件`);
+        
         const places=results.map(p=>{
           const lat=p.geometry.location.lat();
           const lng=p.geometry.location.lng();
@@ -1110,15 +1153,22 @@ function executeSearch(){
         
         speak(`${places.length}件の結果が見つかりました`);
         displayResults(places);
+        debugLog(`✅ displayResults()呼び出し完了`);
       }else if(status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
+        debugLog("⚠️ 検索結果0件");
         showError("結果が見つかりませんでした");
         speak("結果が見つかりませんでした");
       }else{
+        debugLog(`❌ 検索エラー: ${status}`);
         showError("検索エラー: "+status);
         console.error("Places textSearch error:",status,results);
       }
     });
+    
+    debugLog("✅ textSearch()呼び出し完了（コールバック待機中）");
+    
   }catch(err){
+    debugLog(`💥 例外発生: ${err.message}`);
     showError("検索処理で例外が発生しました");
     console.error("executeSearch exception:",err);
   }
@@ -1527,6 +1577,7 @@ function showError(msg){
   el.textContent=msg;
   el.classList.remove("hidden");
   setTimeout(()=>el.classList.add("hidden"),3000);
+  debugLog("❌ ERROR: " + msg);
 }
 
 function showSuccess(msg){
@@ -1534,6 +1585,16 @@ function showSuccess(msg){
   el.textContent=msg;
   el.classList.remove("hidden");
   setTimeout(()=>el.classList.add("hidden"),3000);
+  debugLog("✅ SUCCESS: " + msg);
+}
+
+function debugLog(msg){
+  const panel=document.getElementById("debugPanel");
+  const log=document.getElementById("debugLog");
+  const time=new Date().toLocaleTimeString();
+  log.innerHTML+=`<div>[${time}] ${msg}</div>`;
+  panel.style.display="block";
+  log.scrollTop=log.scrollHeight;
 }
 
 function speak(text){
