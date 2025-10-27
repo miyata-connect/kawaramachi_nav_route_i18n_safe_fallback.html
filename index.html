@@ -1037,8 +1037,8 @@ function zoomToCurrentLocation(){
   map.panTo(currentLocation);
   map.setZoom(18);
   
-  // 現在地マーカーを操作パネルから見えるように250px下にずらす
-  map.panBy(0, -250);
+  // 情報パネル分だけ地図を下方向にオフセット
+  map.panBy(0, -175);
   
   speak("現在地を表示");
 }
