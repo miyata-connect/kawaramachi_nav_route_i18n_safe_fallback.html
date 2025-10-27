@@ -1083,50 +1083,44 @@ async function executeSearch(){
   speak(`${q}を検索中`);
   showSuccess("検索中...");
   
-  // 新しいPlaces API (Place class) を使用
-  const {Place} = await google.maps.importLibrary("places");
-  
-  // テキスト検索リクエスト
-  const request = {
-    textQuery: q,
-    fields: ['displayName', 'formattedAddress', 'location'],
-    locationBias: {
-      center: currentLocation,
-      radius: 50000
-    },
-    language: 'ja',
-    maxResultCount: 20
-  };
-  
-  try {
-    const {places} = await Place.searchByText(request);
+  // 安定版PlacesService.textSearch()を使用
+  try{
+    const service=new google.maps.places.PlacesService(map);
+    const request={
+      query:q,
+      location:currentLocation,
+      radius:50000,
+      language:"ja"
+    };
     
-    if(!places || places.length === 0){
-      showError("結果が見つかりませんでした");
-      speak("結果が見つかりませんでした");
-      return;
-    }
-    
-    // 距離を計算してソート
-    const placesWithDistance = places.map(place => {
-      const lat = place.location.lat();
-      const lng = place.location.lng();
-      const distance = calculateDistance(currentLocation.lat(), currentLocation.lng(), lat, lng);
-      return {
-        displayName: {text: place.displayName},
-        formattedAddress: place.formattedAddress,
-        location: {latitude: lat, longitude: lng},
-        place_id: place.id,
-        distance: distance
-      };
-    }).sort((a, b) => a.distance - b.distance).slice(0, 5);
-    
-    speak(`${placesWithDistance.length}件の結果が見つかりました`);
-    displayResults(placesWithDistance);
-  } catch(error) {
-    showError("検索エラーが発生しました");
-    speak("検索エラーが発生しました");
-    console.error('検索エラー:', error);
+    service.textSearch(request,(results,status)=>{
+      if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results.length>0){
+        const places=results.map(p=>{
+          const lat=p.geometry.location.lat();
+          const lng=p.geometry.location.lng();
+          const distance=calculateDistance(currentLocation.lat,currentLocation.lng,lat,lng);
+          return{
+            displayName:{text:p.name||"Unknown"},
+            formattedAddress:p.formatted_address||"",
+            location:{latitude:lat,longitude:lng},
+            place_id:p.place_id,
+            distance
+          };
+        }).sort((a,b)=>a.distance-b.distance).slice(0,5);
+        
+        speak(`${places.length}件の結果が見つかりました`);
+        displayResults(places);
+      }else if(status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
+        showError("結果が見つかりませんでした");
+        speak("結果が見つかりませんでした");
+      }else{
+        showError("検索エラー: "+status);
+        console.error("Places textSearch error:",status,results);
+      }
+    });
+  }catch(err){
+    showError("検索処理で例外が発生しました");
+    console.error("executeSearch exception:",err);
   }
 }
 
@@ -1553,12 +1547,6 @@ function speak(text){
 
 // initMapはGoogle Maps APIのcallback=initMapパラメータにより自動実行されます
   </script>
-  <script>
-    const script=document.createElement('script');
-    script.src=`https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places,marker&callback=initMap`;
-    script.async=true;
-    script.defer=true;
-    document.body.appendChild(script);
-  </script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places&callback=initMap" async defer></script>
 </body>
 </html>
