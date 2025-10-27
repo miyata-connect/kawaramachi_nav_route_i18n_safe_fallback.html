@@ -173,8 +173,8 @@ input,select{
 .right-btn{
   width:65px;
   height:65px;
-  background:rgba(16,22,36,.4);
-  border:1px solid rgba(255,255,255,.25);
+  background:rgba(16,22,36,.25);
+  border:1px solid rgba(255,255,255,.3);
   border-radius:10px;
   color:#fff;
   font-size:11px;
@@ -186,16 +186,16 @@ input,select{
   font-weight:700;
   gap:2px;
   pointer-events:auto;
-  box-shadow:0 4px 12px rgba(0,0,0,.3);
-  backdrop-filter:blur(20px) saturate(180%);
-  -webkit-backdrop-filter:blur(20px) saturate(180%);
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+  backdrop-filter:blur(24px) saturate(200%);
+  -webkit-backdrop-filter:blur(24px) saturate(200%);
 }
-.right-btn.primary{background:rgba(95,177,255,.85);border:1px solid rgba(255,255,255,.3);color:#000;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
-.right-btn.ok{background:rgba(37,208,122,.85);border:1px solid rgba(255,255,255,.3);color:#000;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
-.right-btn.danger{background:rgba(255,101,101,.85);border:1px solid rgba(255,255,255,.3);color:#fff;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
-.right-btn.danger:disabled{opacity:1;background:rgba(255,101,101,.85);cursor:not-allowed;color:#fff;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
-.right-btn.accent{background:rgba(100,210,255,.85);border:1px solid rgba(255,255,255,.3);color:#000;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
-.right-btn.warning{background:rgba(255,165,0,.85);border:1px solid rgba(255,255,255,.3);color:#000;backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%);}
+.right-btn.primary{background:rgba(95,177,255,.6);border:1px solid rgba(255,255,255,.4);color:#000;backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);}
+.right-btn.ok{background:rgba(37,208,122,.6);border:1px solid rgba(255,255,255,.4);color:#000;backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);}
+.right-btn.danger{background:rgba(255,101,101,.6);border:1px solid rgba(255,255,255,.4);color:#fff;backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);}
+.right-btn.danger:disabled{opacity:1;background:rgba(255,101,101,.6);cursor:not-allowed;color:#fff;backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);}
+.right-btn.accent{background:rgba(100,210,255,.6);border:1px solid rgba(255,255,255,.4);color:#000;backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);}
+.right-btn.warning{background:rgba(255,165,0,.6);border:1px solid rgba(255,255,255,.4);color:#000;backdrop-filter:blur(24px) saturate(200%);-webkit-backdrop-filter:blur(24px) saturate(200%);}
 
 .map-controls{
   position:fixed;
@@ -439,6 +439,16 @@ div[title*="付近"] {
     </div>
     
     <div id="panelToggle" class="panel-toggle" onclick="togglePanel()"><span id="btnOpenPanel">操作パネルを表示</span></div>
+    
+    <div id="controlPanel" class="control-panel hidden">
+      <div class="panel-row">
+        <input type="text" id="searchBox" placeholder="場所を検索..." />
+      </div>
+      <div class="panel-row">
+        <button class="panel-btn primary" onclick="searchPlace()">検索</button>
+        <button class="panel-btn" onclick="document.getElementById('controlPanel').classList.add('hidden')">閉じる</button>
+      </div>
+    </div>
     
     <div id="resultsPanel" class="results-panel">
       <div id="resultsList"></div>
@@ -1020,12 +1030,12 @@ function voiceSearch(){
   
   recognition.onresult=(event)=>{
     const transcript=event.results[0][0].transcript;
-    speak(`${transcript}を検索します`);
     const searchBox=document.getElementById("searchBox");
     if(searchBox){
       searchBox.value=transcript;
-      searchPlace();
     }
+    // 音声入力後、すぐに検索を実行
+    showRouteSelectModal("search");
   };
   
   recognition.onerror=(event)=>{
