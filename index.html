@@ -695,6 +695,10 @@ function initMap(){
       
       fetchLocationName();
       fetchWeather();
+      
+      // 初期表示時に現在地を見える範囲に調整
+      const offset = window.innerHeight * 0.25;
+      map.panBy(0, offset);
     },100);
     
     startWatch();
@@ -1055,9 +1059,8 @@ function zoomToCurrentLocation(){
   map.panTo(currentLocation);
   map.setZoom(18);
   
-  // 情報パネルの下の見える範囲に現在地を表示するため
-  // 正の値で地図を下方向に移動（マーカーが上に見える）
-  const offset = window.innerHeight * 0.3;
+  // 情報パネルの下の見える範囲に現在地を表示
+  const offset = window.innerHeight * 0.25;
   map.panBy(0, offset);
   
   speak("現在地を表示");
