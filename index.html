@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>WalkNav v5</title>
+  <title>WalkNav v5 - Fixed</title>
   <style>
 :root{
   --glass: rgba(20,28,44,.7);
@@ -22,19 +22,23 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
 #map{position:absolute;inset:0;display:none}
 
 .control-panel{
-  position:absolute;
+  position:fixed;
   left:10px;
   right:10px;
-  bottom:0;
+  bottom:10px;
   z-index:500;
   background:var(--glass);
   border:1px solid var(--stroke);
-  border-radius:16px 16px 0 0;
+  border-radius:16px;
   backdrop-filter:blur(14px);
   padding:16px;
-  transition:transform 0.3s;
+  transition:opacity 0.3s, transform 0.3s;
 }
-.control-panel.hidden{transform:translateY(100%)}
+.control-panel.hidden{
+  opacity:0;
+  pointer-events:none;
+  transform:translateY(20px);
+}
 .panel-toggle{
   position:fixed;
   bottom:10px;
@@ -49,7 +53,7 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
   font-weight:700;
   cursor:pointer;
   z-index:490;
-  display:none !important;
+  display:none;
   box-shadow:0 4px 12px rgba(0,0,0,.3);
 }
 .panel-toggle.show{display:block}
@@ -76,8 +80,11 @@ input,select{
   border:1px solid var(--stroke);
   color:var(--text);
   border-radius:10px;
-  padding:10px;
-  font-size:14px;
+  padding:12px;
+  font-size:16px;
+}
+input::placeholder{
+  color:var(--muted);
 }
 
 .info-panel{
@@ -368,15 +375,7 @@ div[title*="付近"] {
   </style>
 </head>
 <body>
-  <!-- 緊急用：強制表示検索バー -->
-  <div style="position:fixed;top:0;left:0;right:0;z-index:10001;background:rgba(10,19,33,0.95);padding:10px;border-bottom:2px solid #5fb1ff;box-shadow:0 2px 8px rgba(0,0,0,0.5);">
-    <div style="display:flex;gap:8px;max-width:600px;margin:0 auto;">
-      <input type="text" id="emergencySearchBox" placeholder="🔍 場所を検索..." style="flex:1;padding:12px;border:2px solid #5fb1ff;border-radius:8px;background:rgba(255,255,255,0.1);color:#fff;font-size:16px;outline:none;" />
-      <button onclick="emergencySearch()" style="padding:12px 24px;background:#5fb1ff;border:none;border-radius:8px;color:#000;font-weight:700;font-size:16px;cursor:pointer;">検索</button>
-    </div>
-  </div>
-  
-  <div class="app" style="margin-top:60px;">
+  <div class="app">
     <div id="map"></div>
     
     <div id="infoPanel" class="info-panel">
@@ -450,11 +449,11 @@ div[title*="付近"] {
     
     <div id="controlPanel" class="control-panel hidden">
       <div class="panel-row">
-        <input type="text" id="searchBox" placeholder="場所を検索..." />
+        <input type="text" id="searchBox" placeholder="🔍 場所を検索..." />
       </div>
       <div class="panel-row">
         <button class="panel-btn primary" onclick="executeSearch()">検索</button>
-        <button class="panel-btn" onclick="document.getElementById('controlPanel').classList.add('hidden')">閉じる</button>
+        <button class="panel-btn" onclick="closeSearchPanel()">閉じる</button>
       </div>
     </div>
     
@@ -500,15 +499,6 @@ div[title*="付近"] {
     
     <div id="error" class="error-banner hidden"></div>
     <div id="success" class="success-banner hidden"></div>
-    
-    <!-- デバッグパネル（スマホ用） -->
-    <div id="debugPanel" style="position:fixed;top:60px;left:10px;right:10px;max-height:250px;overflow-y:auto;background:rgba(0,0,0,0.9);border:2px solid #00ff00;border-radius:8px;padding:10px;font-size:11px;color:#00ff00;font-family:monospace;z-index:10000;display:none;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:5px;border-bottom:1px solid #00ff00;padding-bottom:5px;">
-        <strong>🐛 DEBUG LOG</strong>
-        <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:none;border:none;color:#ff0000;font-size:16px;cursor:pointer;">✕</button>
-      </div>
-      <div id="debugLog"></div>
-    </div>
     
     <div id="rightButtons" class="right-buttons">
       <button class="right-btn accent" onclick="zoomToCurrentLocation()" title="現在地を拡大表示">
@@ -574,8 +564,6 @@ div[title*="付近"] {
 "use strict";
 let map,directionsService,directionsRenderer,currentMarker=null,destMarker=null,watchId=null,isNavigating=!1,currentLocation=null,savedPoints=[],selectingMapPoint=!1,stopAnnounced=!1,currentLang="ja";
 
-const PLACES_PROXY="https://ors-proxy.miyata-connect-jp.workers.dev/v1/places";
-
 const translations={
   ja:{
     setDestination:"目的地を設定してください",
@@ -617,7 +605,20 @@ function updateAllTexts(){
   document.getElementById("loadingWait").textContent=t.loadingWait;
 }
 
-function togglePanel(){}
+function togglePanel(){
+  const panel=document.getElementById("controlPanel");
+  if(panel.classList.contains("hidden")){
+    panel.classList.remove("hidden");
+    document.getElementById("searchBox").focus();
+  }else{
+    panel.classList.add("hidden");
+  }
+}
+
+function closeSearchPanel(){
+  const panel=document.getElementById("controlPanel");
+  panel.classList.add("hidden");
+}
 
 function hideAllElements(){
   document.getElementById("resultsPanel").style.display="none";
@@ -689,8 +690,6 @@ function initMap(){
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
     
-    // 立体的な3Dピン型マーカーを作成（赤色）
-    // SVGで立体感のあるピンを描画
     const pinSvg = `
       <svg width="40" height="60" viewBox="0 0 40 60" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -716,17 +715,13 @@ function initMap(){
             </feMerge>
           </filter>
         </defs>
-        <!-- 影 -->
         <ellipse cx="20" cy="56" rx="8" ry="3" fill="rgba(0,0,0,0.2)"/>
-        <!-- ピンの本体 -->
         <g filter="url(#shadow)">
           <path d="M20 5 C12 5 5 12 5 20 C5 28 12 35 20 50 C28 35 35 28 35 20 C35 12 28 5 20 5 Z" 
                 fill="url(#pinGradient)" 
                 stroke="#ffffff" 
                 stroke-width="1.5"/>
-          <!-- ハイライト効果 -->
           <ellipse cx="16" cy="15" rx="6" ry="8" fill="url(#innerGlow)" opacity="0.6"/>
-          <!-- 中心の穴 -->
           <circle cx="20" cy="20" r="6" fill="#330000" opacity="0.7"/>
           <circle cx="20" cy="20" r="4" fill="#1a0000" opacity="0.9"/>
         </g>
@@ -745,7 +740,6 @@ function initMap(){
       optimized:false
     });
     
-    // 強調されたパルスエフェクト（赤色、フラッシュ抑制版）
     const pulseMarker=new google.maps.Marker({
       position:currentLocation,
       map:map,
@@ -761,7 +755,6 @@ function initMap(){
       zIndex:999
     });
     
-    // 滑らかなパルスアニメーション（フラッシュ抑制）
     let pulseScale=20;
     let pulseGrowing=true;
     setInterval(()=>{
@@ -776,7 +769,6 @@ function initMap(){
           pulseGrowing=true;
         }
       }
-      // 透明度の変化を緩やかに（最小0.15、最大0.25）
       const opacity=0.25-((pulseScale-20)/50);
       const strokeOpacity=0.5-((pulseScale-20)/40);
       pulseMarker.setIcon({
@@ -790,7 +782,6 @@ function initMap(){
       });
     },60);
     
-    // パルスマーカーも位置更新できるように保存
     window.pulseMarker=pulseMarker;
     
     document.getElementById("map").style.display="block";
@@ -813,8 +804,6 @@ function initMap(){
       fetchLocationName();
       fetchWeather();
       
-      // 初期表示時に現在地マーカーを情報パネルの下の見える範囲に表示
-      // 右へ25px、上へ25px調整
       const offsetY = window.innerHeight * 0.25 - 25;
       const offsetX = 60 - 25;
       map.panBy(offsetX, -offsetY);
@@ -829,7 +818,6 @@ function startWatch(){
   watchId=navigator.geolocation.watchPosition(pos=>{
     currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
     
-    // 現在地マーカーとパルスマーカーの位置を更新
     if(currentMarker){
       currentMarker.setPosition(currentLocation);
     }
@@ -1025,7 +1013,9 @@ function showSearchPanel(){
   }
   const searchBox=document.getElementById("searchBox");
   if(searchBox){
-    searchBox.focus();
+    setTimeout(()=>{
+      searchBox.focus();
+    },100);
   }
 }
 
@@ -1052,7 +1042,6 @@ function voiceSearch(){
     if(searchBox){
       searchBox.value=transcript;
     }
-    // 音声入力後、自動で検索を実行
     executeSearch();
   };
   
@@ -1064,164 +1053,38 @@ function voiceSearch(){
   recognition.start();
 }
 
-function searchPlace(){
+function executeSearch(){
   const searchBox=document.getElementById("searchBox");
   if(!searchBox)return;
   
   const q=searchBox.value.trim();
-  if(!q)return showError("検索ワードを入力してください");
-  if(!currentLocation)return showError("位置情報を取得中");
-  
-  // 直接検索を実行
-  executeSearch();
-}
-
-function emergencySearch(){
-  debugLog("🚨 緊急検索バーから実行");
-  const searchBox=document.getElementById("emergencySearchBox");
-  if(!searchBox){
-    debugLog("❌ emergencySearchBox が見つからない");
-    return;
-  }
-  
-  const q=searchBox.value.trim();
-  debugLog(`検索ワード: "${q}"`);
-  
-  if(!q){
-    showError("検索ワードを入力してください");
-    return;
-  }
-  if(!currentLocation){
-    showError("位置情報を取得中");
-    return;
-  }
-  
-  // executeSearch()と同じ処理を実行
-  showSuccess("検索中...");
-  speak(`${q}を検索中`);
-  
-  debugLog("🌐 PlacesService作成中...");
-  
-  try{
-    if(!map){
-      debugLog("❌ mapオブジェクトが未定義");
-      showError("地図が初期化されていません");
-      return;
-    }
-    
-    if(!google || !google.maps || !google.maps.places){
-      debugLog("❌ google.maps.placesが未定義");
-      showError("Places APIが読み込まれていません");
-      return;
-    }
-    
-    const service=new google.maps.places.PlacesService(map);
-    debugLog("✅ PlacesService作成成功");
-    
-    const request={
-      query:q,
-      location:currentLocation,
-      radius:50000,
-      language:"ja"
-    };
-    debugLog(`📤 リクエスト送信: ${JSON.stringify(request)}`);
-    
-    service.textSearch(request,(results,status)=>{
-      debugLog(`📥 レスポンス受信: status=${status}`);
-      
-      if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results.length>0){
-        debugLog(`✅ 検索成功: ${results.length}件`);
-        
-        const places=results.map(p=>{
-          const lat=p.geometry.location.lat();
-          const lng=p.geometry.location.lng();
-          const distance=calculateDistance(currentLocation.lat,currentLocation.lng,lat,lng);
-          return{
-            displayName:{text:p.name||"Unknown"},
-            formattedAddress:p.formatted_address||"",
-            location:{latitude:lat,longitude:lng},
-            place_id:p.place_id,
-            distance
-          };
-        }).sort((a,b)=>a.distance-b.distance).slice(0,5);
-        
-        speak(`${places.length}件の結果が見つかりました`);
-        displayResults(places);
-        debugLog(`✅ displayResults()呼び出し完了`);
-      }else if(status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
-        debugLog("⚠️ 検索結果0件");
-        showError("結果が見つかりませんでした");
-        speak("結果が見つかりませんでした");
-      }else{
-        debugLog(`❌ 検索エラー: ${status}`);
-        showError("検索エラー: "+status);
-      }
-    });
-    
-    debugLog("✅ textSearch()呼び出し完了（コールバック待機中）");
-    
-  }catch(err){
-    debugLog(`💥 例外発生: ${err.message}`);
-    showError("検索処理で例外が発生しました");
-    console.error("emergencySearch exception:",err);
-  }
-}
-
-function executeSearch(){
-  debugLog("🔍 executeSearch() 開始");
-  
-  const searchBox=document.getElementById("searchBox");
-  if(!searchBox){
-    debugLog("❌ searchBox要素が見つからない");
-    return;
-  }
-  debugLog("✅ searchBox要素取得成功");
-  
-  const q=searchBox.value.trim();
-  debugLog(`検索ワード: "${q}"`);
-  
   if(!q){
     showError("検索ワードを入力してください");
     return;
   }
   
   if(!currentLocation){
-    debugLog("❌ currentLocationがnull");
     showError("位置情報を取得中");
     return;
   }
-  debugLog(`✅ currentLocation: lat=${currentLocation.lat}, lng=${currentLocation.lng}`);
   
-  // 検索パネルを閉じる
-  const controlPanel=document.getElementById("controlPanel");
-  if(controlPanel){
-    controlPanel.classList.add("hidden");
-  }
-  
+  closeSearchPanel();
   hideResults();
   speak(`${q}を検索中`);
   showSuccess("検索中...");
   
-  debugLog("🌐 PlacesService作成中...");
-  
-  // 安定版PlacesService.textSearch()を使用
   try{
     if(!map){
-      debugLog("❌ mapオブジェクトが未定義");
       showError("地図が初期化されていません");
       return;
     }
-    debugLog("✅ mapオブジェクト存在確認");
     
     if(!google || !google.maps || !google.maps.places){
-      debugLog("❌ google.maps.placesが未定義");
       showError("Places APIが読み込まれていません");
       return;
     }
-    debugLog("✅ google.maps.places存在確認");
     
     const service=new google.maps.places.PlacesService(map);
-    debugLog("✅ PlacesService作成成功");
     
     const request={
       query:q,
@@ -1229,14 +1092,9 @@ function executeSearch(){
       radius:50000,
       language:"ja"
     };
-    debugLog(`📤 リクエスト送信: ${JSON.stringify(request)}`);
     
     service.textSearch(request,(results,status)=>{
-      debugLog(`📥 レスポンス受信: status=${status}`);
-      
       if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results.length>0){
-        debugLog(`✅ 検索成功: ${results.length}件`);
-        
         const places=results.map(p=>{
           const lat=p.geometry.location.lat();
           const lng=p.geometry.location.lng();
@@ -1252,22 +1110,16 @@ function executeSearch(){
         
         speak(`${places.length}件の結果が見つかりました`);
         displayResults(places);
-        debugLog(`✅ displayResults()呼び出し完了`);
       }else if(status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
-        debugLog("⚠️ 検索結果0件");
         showError("結果が見つかりませんでした");
         speak("結果が見つかりませんでした");
       }else{
-        debugLog(`❌ 検索エラー: ${status}`);
         showError("検索エラー: "+status);
         console.error("Places textSearch error:",status,results);
       }
     });
     
-    debugLog("✅ textSearch()呼び出し完了（コールバック待機中）");
-    
   }catch(err){
-    debugLog(`💥 例外発生: ${err.message}`);
     showError("検索処理で例外が発生しました");
     console.error("executeSearch exception:",err);
   }
@@ -1335,9 +1187,6 @@ function zoomToCurrentLocation(){
   map.panTo(currentLocation);
   map.setZoom(18);
   
-  // 情報パネルの下の見える範囲に現在地を表示
-  // 負の値で地図が上に移動し、マーカーが下に見える
-  // さらに20px上に表示するため値を調整
   const offset = window.innerHeight * 0.25 + 20;
   map.panBy(0, -offset);
   
@@ -1676,7 +1525,6 @@ function showError(msg){
   el.textContent=msg;
   el.classList.remove("hidden");
   setTimeout(()=>el.classList.add("hidden"),3000);
-  debugLog("❌ ERROR: " + msg);
 }
 
 function showSuccess(msg){
@@ -1684,16 +1532,6 @@ function showSuccess(msg){
   el.textContent=msg;
   el.classList.remove("hidden");
   setTimeout(()=>el.classList.add("hidden"),3000);
-  debugLog("✅ SUCCESS: " + msg);
-}
-
-function debugLog(msg){
-  const panel=document.getElementById("debugPanel");
-  const log=document.getElementById("debugLog");
-  const time=new Date().toLocaleTimeString();
-  log.innerHTML+=`<div>[${time}] ${msg}</div>`;
-  panel.style.display="block";
-  log.scrollTop=log.scrollHeight;
 }
 
 function speak(text){
@@ -1704,8 +1542,6 @@ function speak(text){
     speechSynthesis.speak(u);
   }catch(e){}
 }
-
-// initMapはGoogle Maps APIのcallback=initMapパラメータにより自動実行されます
   </script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places&callback=initMap" async defer></script>
 </body>
