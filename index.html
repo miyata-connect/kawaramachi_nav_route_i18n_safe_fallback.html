@@ -163,7 +163,7 @@ input,select{
 .right-buttons{
   position:absolute;
   right:10px;
-  top:360px;
+  top:500px;
   z-index:470;
   display:flex;
   flex-direction:column;
@@ -1036,6 +1036,10 @@ function zoomToCurrentLocation(){
   
   map.panTo(currentLocation);
   map.setZoom(18);
+  
+  // 現在地マーカーを操作パネルから見えるように250px下にずらす
+  map.panBy(0, -250);
+  
   speak("現在地を表示");
 }
 
