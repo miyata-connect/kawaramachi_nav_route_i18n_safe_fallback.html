@@ -661,64 +661,104 @@ function initMap(){
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
     
-    // スパイ映画風の動的な現在地マーカーを作成
-    // 中心のドット
+    // 立体的な3Dピン型マーカーを作成
+    // SVGで立体感のあるピンを描画
+    const pinSvg = `
+      <svg width="40" height="60" viewBox="0 0 40 60" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="pinGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#00ffaa;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#00dd88;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#00bb66;stop-opacity:1" />
+          </linearGradient>
+          <radialGradient id="innerGlow" cx="50%" cy="40%">
+            <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.8" />
+            <stop offset="50%" style="stop-color:#00ffaa;stop-opacity:0.5" />
+            <stop offset="100%" style="stop-color:#00dd88;stop-opacity:0" />
+          </radialGradient>
+          <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+            <feOffset dx="1" dy="3" result="offsetblur"/>
+            <feComponentTransfer>
+              <feFuncA type="linear" slope="0.3"/>
+            </feComponentTransfer>
+            <feMerge>
+              <feMergeNode/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        <!-- 影 -->
+        <ellipse cx="20" cy="56" rx="8" ry="3" fill="rgba(0,0,0,0.2)"/>
+        <!-- ピンの本体 -->
+        <g filter="url(#shadow)">
+          <path d="M20 5 C12 5 5 12 5 20 C5 28 12 35 20 50 C28 35 35 28 35 20 C35 12 28 5 20 5 Z" 
+                fill="url(#pinGradient)" 
+                stroke="#ffffff" 
+                stroke-width="1.5"/>
+          <!-- ハイライト効果 -->
+          <ellipse cx="16" cy="15" rx="6" ry="8" fill="url(#innerGlow)" opacity="0.6"/>
+          <!-- 中心の穴 -->
+          <circle cx="20" cy="20" r="6" fill="#003322" opacity="0.7"/>
+          <circle cx="20" cy="20" r="4" fill="#001a11" opacity="0.9"/>
+        </g>
+      </svg>
+    `;
+    
     currentMarker=new google.maps.Marker({
       position:currentLocation,
       map:map,
       icon:{
-        path:google.maps.SymbolPath.CIRCLE,
-        scale:6,
-        fillColor:"#00ff88",
-        fillOpacity:1,
-        strokeColor:"#ffffff",
-        strokeWeight:2
+        url:'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(pinSvg),
+        scaledSize:new google.maps.Size(40, 60),
+        anchor:new google.maps.Point(20, 55)
       },
-      zIndex:1000
+      zIndex:1000,
+      optimized:false
     });
     
-    // パルスエフェクト用の外側の円
+    // パルスエフェクト用の外側の円（控えめに）
     const pulseMarker=new google.maps.Marker({
       position:currentLocation,
       map:map,
       icon:{
         path:google.maps.SymbolPath.CIRCLE,
-        scale:15,
-        fillColor:"#00ff88",
-        fillOpacity:0.3,
-        strokeColor:"#00ff88",
-        strokeWeight:2,
-        strokeOpacity:0.6
+        scale:12,
+        fillColor:"#00ffaa",
+        fillOpacity:0.15,
+        strokeColor:"#00ffaa",
+        strokeWeight:1.5,
+        strokeOpacity:0.4
       },
       zIndex:999
     });
     
-    // パルスアニメーション
-    let pulseScale=15;
+    // パルスアニメーション（控えめに）
+    let pulseScale=12;
     let pulseGrowing=true;
     setInterval(()=>{
       if(pulseGrowing){
-        pulseScale+=0.5;
-        if(pulseScale>=25){
+        pulseScale+=0.3;
+        if(pulseScale>=18){
           pulseGrowing=false;
         }
       }else{
-        pulseScale-=0.5;
-        if(pulseScale<=15){
+        pulseScale-=0.3;
+        if(pulseScale<=12){
           pulseGrowing=true;
         }
       }
-      const opacity=0.5-(pulseScale-15)/20;
+      const opacity=0.25-(pulseScale-12)/30;
       pulseMarker.setIcon({
         path:google.maps.SymbolPath.CIRCLE,
         scale:pulseScale,
-        fillColor:"#00ff88",
+        fillColor:"#00ffaa",
         fillOpacity:opacity,
-        strokeColor:"#00ff88",
-        strokeWeight:2,
-        strokeOpacity:opacity
+        strokeColor:"#00ffaa",
+        strokeWeight:1.5,
+        strokeOpacity:opacity*2
       });
-    },50);
+    },60);
     
     // パルスマーカーも位置更新できるように保存
     window.pulseMarker=pulseMarker;
