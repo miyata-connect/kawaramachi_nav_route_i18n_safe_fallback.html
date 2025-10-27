@@ -661,20 +661,20 @@ function initMap(){
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
     
-    // 立体的な3Dピン型マーカーを作成
+    // 立体的な3Dピン型マーカーを作成（赤色）
     // SVGで立体感のあるピンを描画
     const pinSvg = `
       <svg width="40" height="60" viewBox="0 0 40 60" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="pinGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#00ffaa;stop-opacity:1" />
-            <stop offset="50%" style="stop-color:#00dd88;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#00bb66;stop-opacity:1" />
+            <stop offset="0%" style="stop-color:#ff6565;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#ff4444;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#dd2222;stop-opacity:1" />
           </linearGradient>
           <radialGradient id="innerGlow" cx="50%" cy="40%">
             <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.8" />
-            <stop offset="50%" style="stop-color:#00ffaa;stop-opacity:0.5" />
-            <stop offset="100%" style="stop-color:#00dd88;stop-opacity:0" />
+            <stop offset="50%" style="stop-color:#ff8888;stop-opacity:0.5" />
+            <stop offset="100%" style="stop-color:#ff4444;stop-opacity:0" />
           </radialGradient>
           <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
@@ -699,8 +699,8 @@ function initMap(){
           <!-- ハイライト効果 -->
           <ellipse cx="16" cy="15" rx="6" ry="8" fill="url(#innerGlow)" opacity="0.6"/>
           <!-- 中心の穴 -->
-          <circle cx="20" cy="20" r="6" fill="#003322" opacity="0.7"/>
-          <circle cx="20" cy="20" r="4" fill="#001a11" opacity="0.9"/>
+          <circle cx="20" cy="20" r="6" fill="#330000" opacity="0.7"/>
+          <circle cx="20" cy="20" r="4" fill="#1a0000" opacity="0.9"/>
         </g>
       </svg>
     `;
@@ -717,16 +717,16 @@ function initMap(){
       optimized:false
     });
     
-    // 強調されたパルスエフェクト
+    // 強調されたパルスエフェクト（赤色）
     const pulseMarker=new google.maps.Marker({
       position:currentLocation,
       map:map,
       icon:{
         path:google.maps.SymbolPath.CIRCLE,
         scale:20,
-        fillColor:"#00ffaa",
+        fillColor:"#ff6565",
         fillOpacity:0.4,
-        strokeColor:"#00ffaa",
+        strokeColor:"#ff6565",
         strokeWeight:3,
         strokeOpacity:0.8
       },
@@ -753,9 +753,9 @@ function initMap(){
       pulseMarker.setIcon({
         path:google.maps.SymbolPath.CIRCLE,
         scale:pulseScale,
-        fillColor:"#00ffaa",
+        fillColor:"#ff6565",
         fillOpacity:opacity,
-        strokeColor:"#00ffaa",
+        strokeColor:"#ff6565",
         strokeWeight:3,
         strokeOpacity:strokeOpacity
       });
@@ -785,10 +785,10 @@ function initMap(){
       fetchWeather();
       
       // 初期表示時に現在地を見える範囲（下半分）に調整
-      // 負の値で地図が上に移動し、マーカーが下に見える
-      // さらに20px上に表示するため値を調整
-      const offset = window.innerHeight * 0.25 + 20;
-      map.panBy(0, -offset);
+      // 70px上、60px左に表示
+      const offsetY = window.innerHeight * 0.25 + 70;
+      const offsetX = -60;
+      map.panBy(offsetX, -offsetY);
     },100);
     
     startWatch();
