@@ -717,7 +717,7 @@ function initMap(){
       optimized:false
     });
     
-    // 強調されたパルスエフェクト（赤色）
+    // 強調されたパルスエフェクト（赤色、フラッシュ抑制版）
     const pulseMarker=new google.maps.Marker({
       position:currentLocation,
       map:map,
@@ -725,41 +725,42 @@ function initMap(){
         path:google.maps.SymbolPath.CIRCLE,
         scale:20,
         fillColor:"#ff6565",
-        fillOpacity:0.4,
+        fillOpacity:0.25,
         strokeColor:"#ff6565",
-        strokeWeight:3,
-        strokeOpacity:0.8
+        strokeWeight:2,
+        strokeOpacity:0.5
       },
       zIndex:999
     });
     
-    // 強調されたパルスアニメーション
+    // 滑らかなパルスアニメーション（フラッシュ抑制）
     let pulseScale=20;
     let pulseGrowing=true;
     setInterval(()=>{
       if(pulseGrowing){
-        pulseScale+=0.8;
-        if(pulseScale>=35){
+        pulseScale+=0.4;
+        if(pulseScale>=30){
           pulseGrowing=false;
         }
       }else{
-        pulseScale-=0.8;
+        pulseScale-=0.4;
         if(pulseScale<=20){
           pulseGrowing=true;
         }
       }
-      const opacity=0.6-(pulseScale-20)/25;
-      const strokeOpacity=0.9-(pulseScale-20)/20;
+      // 透明度の変化を緩やかに（最小0.15、最大0.25）
+      const opacity=0.25-((pulseScale-20)/50);
+      const strokeOpacity=0.5-((pulseScale-20)/40);
       pulseMarker.setIcon({
         path:google.maps.SymbolPath.CIRCLE,
         scale:pulseScale,
         fillColor:"#ff6565",
         fillOpacity:opacity,
         strokeColor:"#ff6565",
-        strokeWeight:3,
+        strokeWeight:2,
         strokeOpacity:strokeOpacity
       });
-    },40);
+    },60);
     
     // パルスマーカーも位置更新できるように保存
     window.pulseMarker=pulseMarker;
