@@ -661,7 +661,20 @@ function initMap(){
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
     
-    currentMarker=null;
+    // 現在地マーカーを作成
+    currentMarker=new google.maps.Marker({
+      position:currentLocation,
+      map:map,
+      icon:{
+        path:google.maps.SymbolPath.CIRCLE,
+        scale:8,
+        fillColor:"#5fb1ff",
+        fillOpacity:1,
+        strokeColor:"#ffffff",
+        strokeWeight:3
+      },
+      zIndex:1000
+    });
     
     document.getElementById("map").style.display="block";
     document.getElementById("loading").classList.add("hide");
@@ -692,6 +705,11 @@ function startWatch(){
   watchId&&navigator.geolocation.clearWatch(watchId);
   watchId=navigator.geolocation.watchPosition(pos=>{
     currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
+    
+    // 現在地マーカーの位置を更新
+    if(currentMarker){
+      currentMarker.setPosition(currentLocation);
+    }
     
     updateCoords();
     
@@ -1038,9 +1056,9 @@ function zoomToCurrentLocation(){
   map.setZoom(18);
   
   // 情報パネルの下の見える範囲に現在地を表示するため
-  // 画面高さの約30%分、地図を下方向に移動
+  // 正の値で地図を下方向に移動（マーカーが上に見える）
   const offset = window.innerHeight * 0.3;
-  map.panBy(0, -offset);
+  map.panBy(0, offset);
   
   speak("現在地を表示");
 }
