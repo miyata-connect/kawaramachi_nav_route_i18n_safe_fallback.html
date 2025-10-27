@@ -1089,8 +1089,9 @@ function executeSearch(){
     const request={
       query:q,
       location:currentLocation,
-      radius:50000,
-      language:"ja"
+      radius:5000,
+      language:"ja",
+      rankBy:google.maps.places.RankBy.DISTANCE
     };
     
     service.textSearch(request,(results,status)=>{
@@ -1106,7 +1107,7 @@ function executeSearch(){
             place_id:p.place_id,
             distance
           };
-        }).sort((a,b)=>a.distance-b.distance).slice(0,5);
+        }).filter(p=>p.distance<=10).sort((a,b)=>a.distance-b.distance).slice(0,5);
         
         speak(`${places.length}件の結果が見つかりました`);
         displayResults(places);
