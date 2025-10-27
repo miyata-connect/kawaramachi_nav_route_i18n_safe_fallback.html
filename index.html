@@ -661,17 +661,18 @@ function initMap(){
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
     
-    // 現在地マーカーを作成
+    // 現在地マーカーを作成（ピクトグラムの人型）
     currentMarker=new google.maps.Marker({
       position:currentLocation,
       map:map,
       icon:{
-        path:google.maps.SymbolPath.CIRCLE,
-        scale:8,
+        path:"M12 2C10.9 2 10 2.9 10 4C10 5.1 10.9 6 12 6C13.1 6 14 5.1 14 4C14 2.9 13.1 2 12 2ZM15.5 8.5C15.2 8.2 14.8 8 14.5 8H9.5C9.2 8 8.8 8.2 8.5 8.5C8.2 8.8 8 9.2 8 9.5V15H10V22H14V15H16V9.5C16 9.2 15.8 8.8 15.5 8.5Z",
         fillColor:"#5fb1ff",
         fillOpacity:1,
         strokeColor:"#ffffff",
-        strokeWeight:3
+        strokeWeight:2,
+        scale:1.5,
+        anchor:new google.maps.Point(12, 22)
       },
       zIndex:1000
     });
