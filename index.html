@@ -661,26 +661,19 @@ function initMap(){
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
     
-    // 立体的な3Dピン型マーカーを作成
-    // SVGで立体感のあるピンを描画
+    // シンプルな青いピン型マーカーを作成
     const pinSvg = `
-      <svg width="40" height="60" viewBox="0 0 40 60" xmlns="http://www.w3.org/2000/svg">
+      <svg width="48" height="72" viewBox="0 0 48 72" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="pinGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#00ffaa;stop-opacity:1" />
-            <stop offset="50%" style="stop-color:#00dd88;stop-opacity:1" />
-            <stop offset="100%" style="stop-color:#00bb66;stop-opacity:1" />
+            <stop offset="0%" style="stop-color:#5fb1ff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#2980ff;stop-opacity:1" />
           </linearGradient>
-          <radialGradient id="innerGlow" cx="50%" cy="40%">
-            <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.8" />
-            <stop offset="50%" style="stop-color:#00ffaa;stop-opacity:0.5" />
-            <stop offset="100%" style="stop-color:#00dd88;stop-opacity:0" />
-          </radialGradient>
           <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
-            <feOffset dx="1" dy="3" result="offsetblur"/>
+            <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+            <feOffset dx="0" dy="4" result="offsetblur"/>
             <feComponentTransfer>
-              <feFuncA type="linear" slope="0.3"/>
+              <feFuncA type="linear" slope="0.4"/>
             </feComponentTransfer>
             <feMerge>
               <feMergeNode/>
@@ -689,18 +682,14 @@ function initMap(){
           </filter>
         </defs>
         <!-- 影 -->
-        <ellipse cx="20" cy="56" rx="8" ry="3" fill="rgba(0,0,0,0.2)"/>
+        <ellipse cx="24" cy="68" rx="10" ry="3" fill="rgba(0,0,0,0.3)"/>
         <!-- ピンの本体 -->
         <g filter="url(#shadow)">
-          <path d="M20 5 C12 5 5 12 5 20 C5 28 12 35 20 50 C28 35 35 28 35 20 C35 12 28 5 20 5 Z" 
-                fill="url(#pinGradient)" 
-                stroke="#ffffff" 
-                stroke-width="1.5"/>
-          <!-- ハイライト効果 -->
-          <ellipse cx="16" cy="15" rx="6" ry="8" fill="url(#innerGlow)" opacity="0.6"/>
-          <!-- 中心の穴 -->
-          <circle cx="20" cy="20" r="6" fill="#003322" opacity="0.7"/>
-          <circle cx="20" cy="20" r="4" fill="#001a11" opacity="0.9"/>
+          <!-- 円形の頭部 -->
+          <circle cx="24" cy="18" r="16" fill="url(#pinGradient)" stroke="#ffffff" stroke-width="2"/>
+          <circle cx="24" cy="18" r="12" fill="#1a4d80" opacity="0.6"/>
+          <!-- 三角形の下部 -->
+          <path d="M 12 28 L 24 60 L 36 28 Z" fill="url(#pinGradient)" stroke="#ffffff" stroke-width="2"/>
         </g>
       </svg>
     `;
@@ -710,55 +699,56 @@ function initMap(){
       map:map,
       icon:{
         url:'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(pinSvg),
-        scaledSize:new google.maps.Size(40, 60),
-        anchor:new google.maps.Point(20, 55)
+        scaledSize:new google.maps.Size(48, 72),
+        anchor:new google.maps.Point(24, 65)
       },
       zIndex:1000,
       optimized:false
     });
     
-    // パルスエフェクト用の外側の円（控えめに）
+    // 強調されたパルスエフェクト
     const pulseMarker=new google.maps.Marker({
       position:currentLocation,
       map:map,
       icon:{
         path:google.maps.SymbolPath.CIRCLE,
-        scale:12,
-        fillColor:"#00ffaa",
-        fillOpacity:0.15,
-        strokeColor:"#00ffaa",
-        strokeWeight:1.5,
-        strokeOpacity:0.4
+        scale:20,
+        fillColor:"#5fb1ff",
+        fillOpacity:0.4,
+        strokeColor:"#5fb1ff",
+        strokeWeight:3,
+        strokeOpacity:0.8
       },
       zIndex:999
     });
     
-    // パルスアニメーション（控えめに）
-    let pulseScale=12;
+    // 強調されたパルスアニメーション
+    let pulseScale=20;
     let pulseGrowing=true;
     setInterval(()=>{
       if(pulseGrowing){
-        pulseScale+=0.3;
-        if(pulseScale>=18){
+        pulseScale+=0.8;
+        if(pulseScale>=35){
           pulseGrowing=false;
         }
       }else{
-        pulseScale-=0.3;
-        if(pulseScale<=12){
+        pulseScale-=0.8;
+        if(pulseScale<=20){
           pulseGrowing=true;
         }
       }
-      const opacity=0.25-(pulseScale-12)/30;
+      const opacity=0.6-(pulseScale-20)/25;
+      const strokeOpacity=0.9-(pulseScale-20)/20;
       pulseMarker.setIcon({
         path:google.maps.SymbolPath.CIRCLE,
         scale:pulseScale,
-        fillColor:"#00ffaa",
+        fillColor:"#5fb1ff",
         fillOpacity:opacity,
-        strokeColor:"#00ffaa",
-        strokeWeight:1.5,
-        strokeOpacity:opacity*2
+        strokeColor:"#5fb1ff",
+        strokeWeight:3,
+        strokeOpacity:strokeOpacity
       });
-    },60);
+    },40);
     
     // パルスマーカーも位置更新できるように保存
     window.pulseMarker=pulseMarker;
@@ -785,7 +775,8 @@ function initMap(){
       
       // 初期表示時に現在地を見える範囲（下半分）に調整
       // 負の値で地図が上に移動し、マーカーが下に見える
-      const offset = window.innerHeight * 0.25;
+      // さらに20px上に表示するため値を調整
+      const offset = window.innerHeight * 0.25 + 20;
       map.panBy(0, -offset);
     },100);
     
@@ -1152,7 +1143,8 @@ function zoomToCurrentLocation(){
   
   // 情報パネルの下の見える範囲に現在地を表示
   // 負の値で地図が上に移動し、マーカーが下に見える
-  const offset = window.innerHeight * 0.25;
+  // さらに20px上に表示するため値を調整
+  const offset = window.innerHeight * 0.25 + 20;
   map.panBy(0, -offset);
   
   speak("現在地を表示します");
