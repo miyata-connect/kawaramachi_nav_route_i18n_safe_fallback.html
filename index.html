@@ -1082,42 +1082,43 @@ async function executeSearch(){
   speak(`${q}を検索中`);
   showSuccess("検索中...");
   
-  try{
-    const res=await fetch(PLACES_PROXY,{
-      method:"POST",
-      headers:{"Content-Type":"application/json","X-Goog-FieldMask":"places.id,places.displayName,places.formattedAddress,places.location"},
-      body:JSON.stringify({
-        textQuery:q,
-        locationBias:{circle:{center:{latitude:currentLocation.lat(),longitude:currentLocation.lng()},radius:5000}},
-        maxResultCount:5
-      })
-    });
-    
-    if(!res.ok)throw new Error("Search failed");
-    
-    const data=await res.json();
-    let places=data?.places||[];
-    
-    if(places.length===0){
-      showError("結果が見つかりません");
-      speak("結果が見つかりません");
-      return;
+  // Google Places APIのText Searchを使用
+  const service=new google.maps.places.PlacesService(map);
+  const request={
+    query:q,
+    location:currentLocation,
+    radius:5000
+  };
+  
+  service.textSearch(request,(results,status)=>{
+    if(status===google.maps.places.PlacesServiceStatus.OK&&results){
+      // 距離を計算してソート
+      const places=results.map(p=>{
+        const lat=p.geometry.location.lat();
+        const lng=p.geometry.location.lng();
+        const distance=calculateDistance(currentLocation.lat(),currentLocation.lng(),lat,lng);
+        return{
+          displayName:{text:p.name},
+          formattedAddress:p.formatted_address,
+          location:{latitude:lat,longitude:lng},
+          place_id:p.place_id,
+          distance:distance
+        };
+      }).sort((a,b)=>a.distance-b.distance).slice(0,5);
+      
+      if(places.length===0){
+        showError("結果が見つかりません");
+        speak("結果が見つかりません");
+        return;
+      }
+      
+      speak(`${places.length}件の結果が見つかりました`);
+      displayResults(places);
+    }else{
+      showError("検索結果が見つかりません");
+      speak("検索結果が見つかりません");
     }
-    
-    places=places.map(p=>{
-      const lat=p.location?.latitude;
-      const lng=p.location?.longitude;
-      const distance=calculateDistance(currentLocation.lat(),currentLocation.lng(),lat,lng);
-      return{...p,distance};
-    }).sort((a,b)=>a.distance-b.distance).slice(0,5);
-    
-    speak(`${places.length}件の結果が見つかりました`);
-    displayResults(places);
-  }catch(e){
-    showError("検索エラー");
-    speak("検索エラーが発生しました");
-    console.error(e);
-  }
+  });
 }
 
 function calculateDistance(lat1,lon1,lat2,lon2){
