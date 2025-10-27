@@ -699,13 +699,17 @@ function initMap(){
             </feMerge>
           </filter>
         </defs>
+        <!-- 影 -->
         <ellipse cx="20" cy="56" rx="8" ry="3" fill="rgba(0,0,0,0.2)"/>
+        <!-- ピンの本体 -->
         <g filter="url(#shadow)">
           <path d="M20 5 C12 5 5 12 5 20 C5 28 12 35 20 50 C28 35 35 28 35 20 C35 12 28 5 20 5 Z" 
                 fill="url(#pinGradient)" 
                 stroke="#ffffff" 
                 stroke-width="1.5"/>
+          <!-- ハイライト効果 -->
           <ellipse cx="16" cy="15" rx="6" ry="8" fill="url(#innerGlow)" opacity="0.6"/>
+          <!-- 中心の穴 -->
           <circle cx="20" cy="20" r="6" fill="#330000" opacity="0.7"/>
           <circle cx="20" cy="20" r="4" fill="#1a0000" opacity="0.9"/>
         </g>
@@ -1043,7 +1047,7 @@ function voiceSearch(){
   recognition.start();
 }
 
-async function searchPlace(){
+function searchPlace(){
   const searchBox=document.getElementById("searchBox");
   if(!searchBox)return;
   
@@ -1052,15 +1056,10 @@ async function searchPlace(){
   if(!currentLocation)return showError("位置情報を取得中");
   
   // 直接検索を実行
-  await executeSearch();
+  executeSearch();
 }
 
-// ==================================================
-// == 修正点 ==
-// ==================================================
-// executeSearch関数を、クライアントサイドのPlacesServiceから
-// PLACES_PROXY (Cloudflare Worker) を使うように変更
-async function executeSearch(){
+function executeSearch(){
   const searchBox=document.getElementById("searchBox");
   if(!searchBox)return;
   
@@ -1084,54 +1083,46 @@ async function executeSearch(){
   speak(`${q}を検索中`);
   showSuccess("検索中...");
   
-  // 【修正】クライアントサイドのPlacesServiceの代わりに、定義済みのPLACES_PROXYを使用
+  // 安定版PlacesService.textSearch()を使用
   try{
-    const url = new URL(PLACES_PROXY);
-    url.searchParams.append('query', q);
-    url.searchParams.append('location', `${currentLocation.lat},${currentLocation.lng}`);
-    url.searchParams.append('radius', 50000); // 50km
-    url.searchParams.append('language', 'ja');
-
-    const res = await fetch(url.toString());
+    const service=new google.maps.places.PlacesService(map);
+    const request={
+      query:q,
+      location:currentLocation,
+      radius:50000,
+      language:"ja"
+    };
     
-    if (!res.ok) {
-      throw new Error(`Proxy search failed with status ${res.status}`);
-    }
-    
-    const data = await res.json();
-    
-    // Google Places API (via proxy)の標準的なレスポンスを想定
-    if(data.status === "OK" && data.results && data.results.length > 0){
-      const places = data.results.map(p => {
-        const lat = p.geometry.location.lat;
-        const lng = p.geometry.location.lng;
-        const distance = calculateDistance(currentLocation.lat, currentLocation.lng, lat, lng);
-        return {
-          displayName: { text: p.name || "Unknown" },
-          formattedAddress: p.formatted_address || "",
-          location: { latitude: lat, longitude: lng },
-          place_id: p.place_id,
-          distance
-        };
-      }).sort((a, b) => a.distance - b.distance).slice(0, 5); // 5件に絞る
-      
-      speak(`${places.length}件の結果が見つかりました`);
-      displayResults(places);
-    } else if (data.status === "ZERO_RESULTS") {
-      showError("結果が見つかりませんでした");
-      speak("結果が見つかりませんでした");
-    } else {
-      showError("検索エラー: " + (data.status || "Unknown proxy error"));
-      console.error("Proxy search error:", data);
-    }
+    service.textSearch(request,(results,status)=>{
+      if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results.length>0){
+        const places=results.map(p=>{
+          const lat=p.geometry.location.lat();
+          const lng=p.geometry.location.lng();
+          const distance=calculateDistance(currentLocation.lat,currentLocation.lng,lat,lng);
+          return{
+            displayName:{text:p.name||"Unknown"},
+            formattedAddress:p.formatted_address||"",
+            location:{latitude:lat,longitude:lng},
+            place_id:p.place_id,
+            distance
+          };
+        }).sort((a,b)=>a.distance-b.distance).slice(0,5);
+        
+        speak(`${places.length}件の結果が見つかりました`);
+        displayResults(places);
+      }else if(status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
+        showError("結果が見つかりませんでした");
+        speak("結果が見つかりませんでした");
+      }else{
+        showError("検索エラー: "+status);
+        console.error("Places textSearch error:",status,results);
+      }
+    });
   }catch(err){
     showError("検索処理で例外が発生しました");
-    console.error("executeSearch exception:", err);
+    console.error("executeSearch exception:",err);
   }
 }
-// ==================================================
-// == 修正ここまで ==
-// ==================================================
 
 function calculateDistance(lat1,lon1,lat2,lon2){
   const R=6371;
