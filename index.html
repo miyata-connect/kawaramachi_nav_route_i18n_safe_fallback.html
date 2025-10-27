@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>WalkNav v5 - Fixed</title>
+  <title>WalkNav v5</title>
   <style>
 :root{
   --glass: rgba(20,28,44,.7);
@@ -22,23 +22,19 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
 #map{position:absolute;inset:0;display:none}
 
 .control-panel{
-  position:fixed;
+  position:absolute;
   left:10px;
   right:10px;
-  bottom:10px;
+  bottom:0;
   z-index:500;
   background:var(--glass);
   border:1px solid var(--stroke);
-  border-radius:16px;
+  border-radius:16px 16px 0 0;
   backdrop-filter:blur(14px);
   padding:16px;
-  transition:opacity 0.3s, transform 0.3s;
+  transition:transform 0.3s;
 }
-.control-panel.hidden{
-  opacity:0;
-  pointer-events:none;
-  transform:translateY(20px);
-}
+.control-panel.hidden{transform:translateY(100%)}
 .panel-toggle{
   position:fixed;
   bottom:10px;
@@ -53,7 +49,7 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
   font-weight:700;
   cursor:pointer;
   z-index:490;
-  display:none;
+  display:none !important;
   box-shadow:0 4px 12px rgba(0,0,0,.3);
 }
 .panel-toggle.show{display:block}
@@ -80,11 +76,8 @@ input,select{
   border:1px solid var(--stroke);
   color:var(--text);
   border-radius:10px;
-  padding:12px;
-  font-size:16px;
-}
-input::placeholder{
-  color:var(--muted);
+  padding:10px;
+  font-size:14px;
 }
 
 .info-panel{
@@ -449,11 +442,11 @@ div[title*="付近"] {
     
     <div id="controlPanel" class="control-panel hidden">
       <div class="panel-row">
-        <input type="text" id="searchBox" placeholder="🔍 場所を検索..." />
+        <input type="text" id="searchBox" placeholder="場所を検索..." />
       </div>
       <div class="panel-row">
         <button class="panel-btn primary" onclick="executeSearch()">検索</button>
-        <button class="panel-btn" onclick="closeSearchPanel()">閉じる</button>
+        <button class="panel-btn" onclick="document.getElementById('controlPanel').classList.add('hidden')">閉じる</button>
       </div>
     </div>
     
@@ -564,6 +557,8 @@ div[title*="付近"] {
 "use strict";
 let map,directionsService,directionsRenderer,currentMarker=null,destMarker=null,watchId=null,isNavigating=!1,currentLocation=null,savedPoints=[],selectingMapPoint=!1,stopAnnounced=!1,currentLang="ja";
 
+const PLACES_PROXY="https://ors-proxy.miyata-connect-jp.workers.dev/v1/places";
+
 const translations={
   ja:{
     setDestination:"目的地を設定してください",
@@ -605,20 +600,7 @@ function updateAllTexts(){
   document.getElementById("loadingWait").textContent=t.loadingWait;
 }
 
-function togglePanel(){
-  const panel=document.getElementById("controlPanel");
-  if(panel.classList.contains("hidden")){
-    panel.classList.remove("hidden");
-    document.getElementById("searchBox").focus();
-  }else{
-    panel.classList.add("hidden");
-  }
-}
-
-function closeSearchPanel(){
-  const panel=document.getElementById("controlPanel");
-  panel.classList.add("hidden");
-}
+function togglePanel(){}
 
 function hideAllElements(){
   document.getElementById("resultsPanel").style.display="none";
@@ -1013,9 +995,7 @@ function showSearchPanel(){
   }
   const searchBox=document.getElementById("searchBox");
   if(searchBox){
-    setTimeout(()=>{
-      searchBox.focus();
-    },100);
+    searchBox.focus();
   }
 }
 
@@ -1053,7 +1033,7 @@ function voiceSearch(){
   recognition.start();
 }
 
-function executeSearch(){
+async function executeSearch(){
   const searchBox=document.getElementById("searchBox");
   if(!searchBox)return;
   
@@ -1062,68 +1042,56 @@ function executeSearch(){
     showError("検索ワードを入力してください");
     return;
   }
-  
   if(!currentLocation){
     showError("位置情報を取得中");
     return;
   }
   
-  closeSearchPanel();
+  const controlPanel=document.getElementById("controlPanel");
+  if(controlPanel){
+    controlPanel.classList.add("hidden");
+  }
+  
   hideResults();
   speak(`${q}を検索中`);
   showSuccess("検索中...");
   
-  try{
-    if(!map){
-      showError("地図が初期化されていません");
-      return;
-    }
-    
-    if(!google || !google.maps || !google.maps.places){
-      showError("Places APIが読み込まれていません");
-      return;
-    }
-    
-    const service=new google.maps.places.PlacesService(map);
-    
-    const request={
-      query:q,
-      location:currentLocation,
-      radius:5000,
-      language:"ja",
-      rankBy:google.maps.places.RankBy.DISTANCE
-    };
-    
-    service.textSearch(request,(results,status)=>{
-      if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results.length>0){
-        const places=results.map(p=>{
-          const lat=p.geometry.location.lat();
-          const lng=p.geometry.location.lng();
-          const distance=calculateDistance(currentLocation.lat,currentLocation.lng,lat,lng);
-          return{
-            displayName:{text:p.name||"Unknown"},
-            formattedAddress:p.formatted_address||"",
-            location:{latitude:lat,longitude:lng},
-            place_id:p.place_id,
-            distance
-          };
-        }).filter(p=>p.distance<=10).sort((a,b)=>a.distance-b.distance).slice(0,5);
-        
+  const service=new google.maps.places.PlacesService(map);
+  const request={
+    query:q,
+    location:currentLocation,
+    radius:5000,
+    language:'ja'
+  };
+  
+  service.textSearch(request,(results,status)=>{
+    if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results.length>0){
+      const places=results.map(p=>{
+        const lat=p.geometry.location.lat();
+        const lng=p.geometry.location.lng();
+        const distance=calculateDistance(currentLocation.lat,currentLocation.lng,lat,lng);
+        return{
+          displayName:{text:p.name},
+          formattedAddress:p.formatted_address,
+          location:{latitude:lat,longitude:lng},
+          place_id:p.place_id,
+          geometry:p.geometry,
+          distance:distance
+        };
+      }).filter(p=>p.distance<=10).sort((a,b)=>a.distance-b.distance).slice(0,5);
+      
+      if(places.length===0){
+        showError("10km以内に結果が見つかりませんでした");
+        speak("近くに結果が見つかりませんでした");
+      }else{
         speak(`${places.length}件の結果が見つかりました`);
         displayResults(places);
-      }else if(status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
-        showError("結果が見つかりませんでした");
-        speak("結果が見つかりませんでした");
-      }else{
-        showError("検索エラー: "+status);
-        console.error("Places textSearch error:",status,results);
       }
-    });
-    
-  }catch(err){
-    showError("検索処理で例外が発生しました");
-    console.error("executeSearch exception:",err);
-  }
+    }else{
+      showError("結果が見つかりませんでした");
+      speak("結果が見つかりませんでした");
+    }
+  });
 }
 
 function calculateDistance(lat1,lon1,lat2,lon2){
@@ -1543,7 +1511,15 @@ function speak(text){
     speechSynthesis.speak(u);
   }catch(e){}
 }
+
+window.addEventListener("load",initMap);
   </script>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places&callback=initMap" async defer></script>
+  <script>
+    const script=document.createElement('script');
+    script.src=`https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places`;
+    script.async=true;
+    script.defer=true;
+    document.body.appendChild(script);
+  </script>
 </body>
 </html>
