@@ -445,7 +445,7 @@ div[title*="付近"] {
         <input type="text" id="searchBox" placeholder="場所を検索..." />
       </div>
       <div class="panel-row">
-        <button class="panel-btn primary" onclick="searchPlace()">検索</button>
+        <button class="panel-btn primary" onclick="executeSearch()">検索</button>
         <button class="panel-btn" onclick="document.getElementById('controlPanel').classList.add('hidden')">閉じる</button>
       </div>
     </div>
@@ -1034,8 +1034,8 @@ function voiceSearch(){
     if(searchBox){
       searchBox.value=transcript;
     }
-    // 音声入力後、すぐに検索を実行
-    showRouteSelectModal("search");
+    // 音声入力後、自動で検索を実行
+    executeSearch();
   };
   
   recognition.onerror=(event)=>{
@@ -1051,10 +1051,11 @@ async function searchPlace(){
   if(!searchBox)return;
   
   const q=searchBox.value.trim();
-  if(!q)return showError("Please enter search term");
-  if(!currentLocation)return showError("Getting location");
+  if(!q)return showError("検索ワードを入力してください");
+  if(!currentLocation)return showError("位置情報を取得中");
   
-  showRouteSelectModal("search");
+  // 直接検索を実行
+  await executeSearch();
 }
 
 async function executeSearch(){
@@ -1062,10 +1063,24 @@ async function executeSearch(){
   if(!searchBox)return;
   
   const q=searchBox.value.trim();
-  if(!q)return showError("検索ワードを入力してください");
-  if(!currentLocation)return showError("位置情報を取得中");
+  if(!q){
+    showError("検索ワードを入力してください");
+    return;
+  }
+  if(!currentLocation){
+    showError("位置情報を取得中");
+    return;
+  }
+  
+  // 検索パネルを閉じる
+  const controlPanel=document.getElementById("controlPanel");
+  if(controlPanel){
+    controlPanel.classList.add("hidden");
+  }
   
   hideResults();
+  speak(`${q}を検索中`);
+  showSuccess("検索中...");
   
   try{
     const res=await fetch(PLACES_PROXY,{
@@ -1073,7 +1088,7 @@ async function executeSearch(){
       headers:{"Content-Type":"application/json","X-Goog-FieldMask":"places.id,places.displayName,places.formattedAddress,places.location"},
       body:JSON.stringify({
         textQuery:q,
-        locationBias:{circle:{center:{latitude:currentLocation.lat,longitude:currentLocation.lng},radius:5000}},
+        locationBias:{circle:{center:{latitude:currentLocation.lat(),longitude:currentLocation.lng()},radius:5000}},
         maxResultCount:5
       })
     });
@@ -1092,13 +1107,16 @@ async function executeSearch(){
     places=places.map(p=>{
       const lat=p.location?.latitude;
       const lng=p.location?.longitude;
-      const distance=calculateDistance(currentLocation.lat,currentLocation.lng,lat,lng);
+      const distance=calculateDistance(currentLocation.lat(),currentLocation.lng(),lat,lng);
       return{...p,distance};
     }).sort((a,b)=>a.distance-b.distance).slice(0,5);
     
+    speak(`${places.length}件の結果が見つかりました`);
     displayResults(places);
   }catch(e){
-    showError("検索エラー: "+e.message);
+    showError("検索エラー");
+    speak("検索エラーが発生しました");
+    console.error(e);
   }
 }
 
