@@ -1037,8 +1037,10 @@ function zoomToCurrentLocation(){
   map.panTo(currentLocation);
   map.setZoom(18);
   
-  // 情報パネル分だけ地図を下方向にオフセット
-  map.panBy(0, -175);
+  // 情報パネルの下の見える範囲に現在地を表示するため
+  // 画面高さの約30%分、地図を下方向に移動
+  const offset = window.innerHeight * 0.3;
+  map.panBy(0, -offset);
   
   speak("現在地を表示");
 }
