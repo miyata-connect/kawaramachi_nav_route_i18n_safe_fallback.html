@@ -160,67 +160,6 @@ input,select{
 .weather-temp{font-weight:700;font-size:13px}
 .weather-rain{color:var(--accent);font-size:11px;font-weight:700}
 
-.nav-buttons{
-  position:absolute;
-  right:10px;
-  top:200px;
-  z-index:450;
-  display:none;
-  flex-direction:column;
-  gap:10px;
-  pointer-events:none;
-}
-.nav-buttons.hidden{display:none}
-.nav-btn{
-  width:70px;
-  height:60px;
-  background:var(--glass-strong);
-  border:1px solid var(--stroke);
-  border-radius:10px;
-  color:#000;
-  font-size:11px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  cursor:pointer;
-  font-weight:700;
-  flex-direction:column;
-  gap:2px;
-  pointer-events:auto;
-}
-.nav-btn.primary{background:var(--primary);border:none}
-.nav-btn.ok{background:var(--ok);border:none}
-.nav-btn.danger{background:var(--danger);border:none;color:#fff}
-.nav-btn.accent{background:var(--accent);border:none}
-
-.left-buttons{
-  position:absolute;
-  left:10px;
-  top:200px;
-  z-index:450;
-  display:none !important;
-  flex-direction:column;
-  gap:10px;
-  pointer-events:none;
-}
-.left-buttons.hidden{display:none}
-
-.location-btn{
-  width:70px;
-  height:60px;
-  background:var(--accent);
-  border:none;
-  border-radius:10px;
-  color:#000;
-  font-size:20px;
-  cursor:pointer;
-  font-weight:700;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  pointer-events:auto;
-}
-
 .right-buttons{
   position:absolute;
   right:10px;
@@ -489,10 +428,6 @@ div[title*="付近"] {
       <div id="coordsDisplay" style="text-align:center;font-size:17px;color:var(--muted);margin-top:8px;font-weight:600;cursor:pointer;pointer-events:auto;" onclick="copyCoordinates(event)">📍 緯度: -- / 経度: --</div>
     </div>
     
-    <div id="currentLocationDisplay" style="display:none;position:absolute;bottom:80px;left:50%;transform:translateX(-50%);z-index:500;background:var(--glass-strong);border-radius:12px;padding:8px 16px;box-shadow:0 2px 8px rgba(0,0,0,0.3);max-width:90%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-      <div style="text-align:center;font-size:14px;color:var(--accent);font-weight:700;">現在地を取得中...</div>
-    </div>
-    
     <div id="mapControls" class="map-controls">
       <div class="map-control-row">
         <div class="map-control-btn" onclick="event.preventDefault();panUp()">↑</div>
@@ -625,21 +560,6 @@ const translations={
     currentTime:"現在時刻",
     arrivalTime:"到着予想時刻",
     loading:"読み込み中...",
-    btnFastest:"最短AI",
-    btnEasy:"楽チンAI",
-    btnWalk:"お散歩AI",
-    btnCurrent:"現在地",
-    btnDest:"目的地",
-    btnStop:"案内\n停止",
-    btnStopNav:"案内中止",
-    btnReroute:"リルート",
-    btnSearch:"検索",
-    btnVoice:"音声検索",
-    btnRelocate:"現在地",
-    btnSaveCurrent:"現在地を登録",
-    btnSaveMap:"地図上を登録",
-    btnShowSaved:"登録地点",
-    btnEditSaved:"登録地点編集",
     btnClosePanel:"操作パネルを閉じる",
     btnOpenPanel:"操作パネルを表示",
     btnCloseResults:"閉じる",
@@ -656,21 +576,6 @@ const translations={
     currentTime:"Current",
     arrivalTime:"Arrival",
     loading:"Loading...",
-    btnFastest:"Fastest",
-    btnEasy:"Easy",
-    btnWalk:"Scenic",
-    btnCurrent:"Current",
-    btnDest:"Dest",
-    btnStop:"Stop\nNav",
-    btnStopNav:"Stop Navigation",
-    btnReroute:"Reroute",
-    btnSearch:"Search",
-    btnVoice:"Voice",
-    btnRelocate:"Current",
-    btnSaveCurrent:"Save Current",
-    btnSaveMap:"Save Map",
-    btnShowSaved:"Saved",
-    btnEditSaved:"Edit Saved",
     btnClosePanel:"Close Panel",
     btnOpenPanel:"Show Panel",
     btnCloseResults:"Close",
@@ -684,23 +589,13 @@ const translations={
   }
 };
 
-function changeLanguage(){
-  currentLang=document.getElementById("langSelect").value;
-  updateAllTexts();
-  
-  const url=new URL(window.location);
-  url.searchParams.set('lang',currentLang);
-  window.location.href=url.href;
-}
-
 function updateAllTexts(){
   const t=translations[currentLang];
   document.getElementById("loadingText").textContent=t.loadingText;
   document.getElementById("loadingWait").textContent=t.loadingWait;
 }
 
-function togglePanel(){
-}
+function togglePanel(){}
 
 function hideAllElements(){
   document.getElementById("resultsPanel").style.display="none";
@@ -708,32 +603,7 @@ function hideAllElements(){
   document.getElementById("mapControls").classList.remove("show");
 }
 
-function showAllElements(){
-}
-
-function fastestRoute(){
-  if(!isNavigating){
-    showError("目的地を設定してください");
-    return;
-  }
-  speak("最短ルートを計算中");
-  reroute(!0);
-}
-
-function easyRoute(){
-  if(!isNavigating){
-    showError("目的地を設定してください");
-    return;
-  }
-  speak("楽チンルートを計算中");
-  reroute(!0);
-}
-
-function walkRoute(){
-  if(!isNavigating)return showError("Set destination first");
-  speak("Calculating scenic route");
-  reroute(!0);
-}
+function showAllElements(){}
 
 function toggleMapControls(){
   const controls=document.getElementById("mapControls");
@@ -794,7 +664,6 @@ function initMap(){
       disableDefaultUI: true
     });
     
-    
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
     
@@ -806,13 +675,9 @@ function initMap(){
     loadSavedPoints();
     
     setTimeout(()=>{
-      const navButtons=document.getElementById("navButtons");
-      const leftButtons=document.getElementById("leftButtons");
       const infoPanel=document.getElementById("infoPanel");
       const panelToggle=document.getElementById("panelToggle");
       
-      if(navButtons)navButtons.classList.remove("hidden");
-      if(leftButtons)leftButtons.classList.remove("hidden");
       if(infoPanel)infoPanel.classList.add("show");
       if(panelToggle)panelToggle.classList.add("show");
       
@@ -1164,7 +1029,7 @@ function selectPlace(place){
   showAllElements();
   
   setTimeout(()=>{
-    if(currentMarker&&destMarker)startNav();
+    if(currentLocation&&destMarker)startNav();
   },500);
 }
 
@@ -1210,11 +1075,6 @@ function startNav(){
     
     directionsRenderer.setDirections(res);
     isNavigating=!0;
-    
-    const stopNavRow=document.getElementById("stopNavRow");
-    if(stopNavRow){
-      stopNavRow.style.display="block";
-    }
     
     const stopNavBtn=document.getElementById("stopNavBtn");
     if(stopNavBtn){
@@ -1277,11 +1137,6 @@ function stopNav(){
   directionsRenderer=new google.maps.DirectionsRenderer({map});
   
   isNavigating=!1;
-  
-  const stopNavRow=document.getElementById("stopNavRow");
-  if(stopNavRow){
-    stopNavRow.style.display="none";
-  }
   
   const stopNavBtn=document.getElementById("stopNavBtn");
   if(stopNavBtn){
@@ -1412,7 +1267,6 @@ async function fetchLocationName(){
     
     let locationText="";
     
-    const state=data.address?.state||"";
     const county=data.address?.county||"";
     const city=data.address?.city||data.address?.town||data.address?.village||"";
     const suburb=data.address?.suburb||"";
@@ -1546,8 +1400,6 @@ function speak(text){
 window.addEventListener("load",initMap);
   </script>
   <script>
-    const urlParams=new URLSearchParams(window.location.search);
-    const lang=urlParams.get('lang')||'ja';
     const script=document.createElement('script');
     script.src=`https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places`;
     script.async=true;
