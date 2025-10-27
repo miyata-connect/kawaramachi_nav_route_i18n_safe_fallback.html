@@ -1,35 +1,68 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>WalkNav v5 (Fixed)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>WalkNav v5 (Google Places New)</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ccircle cx='8' cy='8' r='8' fill='%2364d2ff'/%3E%3C/svg%3E" />
   <style>
-:root{
-  --glass: rgba(20,28,44,.7);
-  --glass-strong: rgba(16,22,36,.85);
-  --stroke: rgba(255,255,255,.14);
-  --text: #eaf2ff;
-  --muted:#a7b8ce;
-  --primary:#5fb1ff;
-  --ok:#25d07a;
-  --danger:#ff6565;
-  --accent:#64d2ff;
-}
-html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
-*{box-sizing:border-box}
-.app{position:relative;height:100dvh;overflow:hidden}
-#map{position:absolute;inset:0;display:none}
-.results-panel{z-index:1001!important;}
+    :root{
+      --glass: rgba(20,28,44,.7);
+      --glass-strong: rgba(16,22,36,.85);
+      --stroke: rgba(255,255,255,.14);
+      --text: #eaf2ff;
+      --muted:#a7b8ce;
+      --primary:#5fb1ff;
+      --ok:#25d07a;
+      --danger:#ff6565;
+      --accent:#64d2ff;
+    }
+    html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
+    *{box-sizing:border-box}
+    .app{position:relative;height:100dvh;overflow:hidden}
+    #map{position:absolute;inset:0;display:none}
+
+    .control-panel{
+      position:absolute;left:10px;right:10px;bottom:0;z-index:500;
+      background:var(--glass);border:1px solid var(--stroke);border-radius:16px 16px 0 0;
+      backdrop-filter:blur(14px);padding:16px;transition:transform .3s;
+    }
+    .control-panel.hidden{transform:translateY(100%)}
+    .panel-row{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+    .panel-btn{
+      flex:1;min-width:120px;background:var(--glass-strong);
+      border:1px solid var(--stroke);border-radius:10px;padding:10px;color:#fff;
+      font-size:14px;text-align:center;cursor:pointer;font-weight:700;
+    }
+    .panel-btn.primary{background:var(--primary);border:none;color:#000}
+
+    .results-panel{
+      position:absolute;left:10px;right:10px;bottom:10px;max-height:60vh;overflow-y:auto;
+      background:var(--glass);border:1px solid var(--stroke);border-radius:12px;padding:10px;z-index:1001;display:none;
+    }
+    .result-item{padding:10px;border-bottom:1px solid var(--stroke);cursor:pointer}
+    .result-item:hover{background:rgba(95,177,255,.2)}
+    .result-close{text-align:center;padding:8px;color:var(--primary);cursor:pointer}
+
+    .loading-screen{
+      position:fixed;inset:0;background:#0e1a2d;display:flex;align-items:center;justify-content:center;z-index:1000;
+    }
+    .loading-screen.hide{opacity:0;pointer-events:none;transition:opacity .3s}
+
+    .error-banner,.success-banner{
+      position:absolute;left:10px;right:10px;bottom:10px;border-radius:10px;padding:10px;text-align:center;z-index:1100;font-weight:700;
+    }
+    .error-banner{background:var(--danger);color:#fff;display:none}
+    .success-banner{background:#7ed321;color:#000;display:none}
   </style>
 </head>
 <body>
   <div class="app">
     <div id="map"></div>
 
-    <div id="controlPanel" class="control-panel hidden">
+    <div id="controlPanel" class="control-panel">
       <div class="panel-row">
-        <input type="text" id="searchBox" placeholder="場所を検索..." />
+        <input type="text" id="searchBox" placeholder="場所を検索..." style="width:100%;background:var(--glass-strong);border:1px solid var(--stroke);color:var(--text);border-radius:10px;padding:10px;font-size:14px;" />
       </div>
       <div class="panel-row">
         <button class="panel-btn primary" onclick="executeSearch()">検索</button>
@@ -37,12 +70,15 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
       </div>
     </div>
 
-    <div id="resultsPanel" class="results-panel" style="position:absolute;left:10px;right:10px;bottom:10px;max-height:60vh;overflow-y:auto;background:var(--glass);border:1px solid var(--stroke);border-radius:12px;padding:10px;display:none;">
+    <div id="resultsPanel" class="results-panel">
       <div id="resultsList"></div>
-      <div class="result-close" onclick="hideResults()" style="text-align:center;padding:8px;color:var(--primary);cursor:pointer;">閉じる</div>
+      <div class="result-close" onclick="hideResults()">閉じる</div>
     </div>
 
-    <div id="loading" class="loading-screen" style="position:fixed;inset:0;background:#0e1a2d;display:flex;align-items:center;justify-content:center;z-index:1000;">
+    <div id="error" class="error-banner"></div>
+    <div id="success" class="success-banner"></div>
+
+    <div id="loading" class="loading-screen">
       <div style="text-align:center">
         <div style="font-size:18px;margin-bottom:10px" id="loadingText">現在地取得中...</div>
         <div style="font-size:14px;color:var(--muted)" id="loadingWait">もうしばらくお待ちください。</div>
@@ -51,97 +87,187 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
   </div>
 
   <script>
-"use strict";
-let map, currentLocation = null;
+    "use strict";
 
-function initMap(){
-  if(!navigator.geolocation){ alert("Geolocation not supported"); return; }
+    // === Config ===
+    const GOOGLE_API_KEY = "AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4"; // WalkNav key
+    const SEARCH_RADIUS_METERS = 50000;
 
-  navigator.geolocation.getCurrentPosition(pos=>{
-    currentLocation = {lat: pos.coords.latitude, lng: pos.coords.longitude};
+    // === State ===
+    let map;
+    let currentLocation = null;
+    let markers = [];
 
-    map = new google.maps.Map(document.getElementById("map"), {
-      center: currentLocation,
-      zoom: 17,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-      zoomControl: false
-    });
-
-    new google.maps.Marker({
-      position: currentLocation,
-      map: map,
-      title: "現在地"
-    });
-
-    document.getElementById("map").style.display = "block";
-    document.getElementById("loading").style.display = "none";
-  }, err=>{
-    alert("Location error: " + err.message);
-  });
-}
-
-function executeSearch(){
-  const q = document.getElementById("searchBox").value.trim();
-  if(!q){ showError("検索ワードを入力してください"); return; }
-  if(!currentLocation){ showError("位置情報を取得中"); return; }
-
-  const service = new google.maps.places.PlacesService(map);
-  const request = {
-    query: q,
-    location: currentLocation,
-    radius: 50000,
-    language: 'ja'
-  };
-
-  service.textSearch(request, (results, status) => {
-    if(status === google.maps.places.PlacesServiceStatus.OK && results && results.length > 0){
-      displayResults(results);
-      showSuccess("検索完了");
-    } else if(status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
-      showError("結果が見つかりませんでした");
-    } else {
-      showError("検索エラー: " + status);
+    // === Utils ===
+    function showError(msg){
+      const el = document.getElementById("error");
+      el.textContent = msg;
+      el.style.display = "block";
+      setTimeout(()=>{ el.style.display = "none"; }, 3000);
     }
-  });
-}
+    function showSuccess(msg){
+      const el = document.getElementById("success");
+      el.textContent = msg;
+      el.style.display = "block";
+      setTimeout(()=>{ el.style.display = "none"; }, 1500);
+    }
+    function hideResults(){
+      document.getElementById("resultsPanel").style.display = "none";
+    }
+    function clearMarkers(){
+      markers.forEach(m => m.map = null);
+      markers = [];
+    }
 
-function displayResults(places){
-  const list = document.getElementById("resultsList");
-  list.innerHTML = "";
-  places.slice(0,5).forEach(p=>{
-    const lat = p.geometry.location.lat();
-    const lng = p.geometry.location.lng();
-    const item = document.createElement("div");
-    item.style.padding = "10px";
-    item.style.borderBottom = "1px solid var(--stroke)";
-    item.style.cursor = "pointer";
-    item.innerHTML = `<div style="font-weight:700">${p.name}</div><div style="font-size:12px;color:var(--muted)">${p.formatted_address||""}</div>`;
-    item.onclick = ()=>{
-      new google.maps.Marker({position:{lat,lng}, map});
-      map.panTo({lat,lng});
-      map.setZoom(18);
+    // === Google Maps init ===
+    async function initMap(){
+      if(!navigator.geolocation){
+        showError("Geolocation not supported");
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(pos=>{
+        currentLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+
+        map = new google.maps.Map(document.getElementById("map"), {
+          center: currentLocation,
+          zoom: 16,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+          zoomControl: true,
+          clickableIcons: false
+        });
+
+        // Advanced marker for current location
+        const { AdvancedMarkerElement } = google.maps.marker;
+        const current = new AdvancedMarkerElement({
+          position: currentLocation,
+          map,
+          title: "現在地"
+        });
+        markers.push(current);
+
+        document.getElementById("map").style.display = "block";
+        document.getElementById("loading").classList.add("hide");
+      }, err=>{
+        showError("Location error: " + err.message);
+      });
+    }
+
+    // === Google Places API (New) - Text Search ===
+    async function executeSearch(){
+      const box = document.getElementById("searchBox");
+      const q = (box.value || "").trim();
+      if(!q){ showError("検索ワードを入力してください"); return; }
+      if(!currentLocation){ showError("位置情報を取得中"); return; }
+
+      try{
+        const url = "https://places.googleapis.com/v1/places:searchText";
+        const body = {
+          textQuery: q,
+          languageCode: "ja",
+          locationBias: {
+            circle: {
+              center: { latitude: currentLocation.lat, longitude: currentLocation.lng },
+              radius: SEARCH_RADIUS_METERS
+            }
+          }
+        };
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": GOOGLE_API_KEY,
+            // Return only the fields we need (faster & cheaper)
+            "X-Goog-FieldMask": [
+              "places.id",
+              "places.displayName",
+              "places.formattedAddress",
+              "places.location"
+            ].join(",")
+          },
+          body: JSON.stringify(body)
+        });
+
+        if(!res.ok){
+          const txt = await res.text();
+          throw new Error("Places API error: " + txt);
+        }
+
+        const data = await res.json();
+        const places = Array.isArray(data.places) ? data.places : [];
+
+        renderResults(places);
+        showSuccess("検索完了");
+      }catch(err){
+        console.error(err);
+        showError("検索エラー");
+      }
+    }
+
+    function renderResults(places){
+      const list = document.getElementById("resultsList");
+      list.innerHTML = "";
+
+      if(places.length === 0){
+        const empty = document.createElement("div");
+        empty.style.padding = "12px";
+        empty.style.color = "var(--muted)";
+        empty.textContent = "結果が見つかりませんでした";
+        list.appendChild(empty);
+      }else{
+        places.slice(0, 8).forEach(p=>{
+          const name = p.displayName?.text || "Unknown";
+          const addr = p.formattedAddress || "";
+          const lat = p.location?.latitude;
+          const lng = p.location?.longitude;
+
+          const item = document.createElement("div");
+          item.className = "result-item";
+          item.innerHTML = `
+            <div style="font-weight:700">${name}</div>
+            <div style="font-size:12px;color:var(--muted)">${addr}</div>
+          `;
+          item.onclick = ()=> focusPlace({name, lat, lng});
+          list.appendChild(item);
+        });
+      }
+
+      document.getElementById("resultsPanel").style.display = "block";
+    }
+
+    function focusPlace(place){
       hideResults();
+      if(typeof place.lat !== "number" || typeof place.lng !== "number"){
+        showError("位置情報が取得できませんでした");
+        return;
+      }
+      clearMarkers();
+
+      const { AdvancedMarkerElement } = google.maps.marker;
+      const m = new AdvancedMarkerElement({
+        position: { lat: place.lat, lng: place.lng },
+        map,
+        title: place.name
+      });
+      markers.push(m);
+
+      map.panTo({ lat: place.lat, lng: place.lng });
+      map.setZoom(18);
+    }
+
+    window.gm_authFailure = () => {
+      showError("Maps API Error");
     };
-    list.appendChild(item);
-  });
-  document.getElementById("resultsPanel").style.display = "block";
-}
-
-function hideResults(){
-  document.getElementById("resultsPanel").style.display = "none";
-}
-
-function showError(msg){
-  console.error(msg);
-  alert(msg);
-}
-function showSuccess(msg){
-  console.log(msg);
-}
   </script>
 
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places&callback=initMap" async defer></script>
+  <!-- Google Maps JavaScript API (with Advanced Markers) -->
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&libraries=marker&callback=initMap"
+    async
+    defer
+  ></script>
 </body>
 </html>
