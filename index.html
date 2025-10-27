@@ -160,7 +160,7 @@ input,select{
 .weather-temp{font-weight:700;font-size:13px}
 .weather-rain{color:var(--accent);font-size:11px;font-weight:700}
 
-/* 右側ボタン群 - 均等配置 */
+/* 右側ボタン群 - サイズ縮小して収まるように */
 .right-buttons{
   position:fixed;
   right:10px;
@@ -168,22 +168,22 @@ input,select{
   z-index:450;
   display:flex;
   flex-direction:column;
-  gap:8px;
+  gap:6px;
   pointer-events:none;
 }
 .right-btn{
-  width:70px;
-  height:70px;
-  border-radius:12px;
+  width:60px;
+  height:60px;
+  border-radius:10px;
   color:#fff;
-  font-size:11px;
+  font-size:10px;
   display:flex;
   flex-direction:column;
   align-items:center;
   justify-content:center;
   cursor:pointer;
   font-weight:700;
-  gap:2px;
+  gap:1px;
   pointer-events:auto;
   box-shadow:0 3px 10px rgba(0,0,0,.4);
   border:none;
@@ -198,7 +198,7 @@ input,select{
 
 .map-controls{
   position:fixed;
-  right:97px;
+  right:87px;
   bottom:25px;
   z-index:450;
   display:none;
@@ -214,8 +214,8 @@ input,select{
   gap:8px;
 }
 .map-control-btn{
-  width:65px;
-  height:65px;
+  width:60px;
+  height:60px;
   background:rgba(16,22,36,.85);
   border:1px solid var(--stroke);
   border-radius:10px;
@@ -488,55 +488,52 @@ div[title*="付近"] {
     <div id="error" class="error-banner hidden"></div>
     <div id="success" class="success-banner hidden"></div>
     
-    <!-- 右側ボタン群（現在地含む） -->
+    <!-- 右側ボタン群（元のアイコンに戻す） -->
     <div id="rightButtons" class="right-buttons">
       <button class="right-btn location" onclick="zoomToCurrentLocation()" title="現在地">
-        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="12" r="2" fill="currentColor"/>
-          <circle cx="12" cy="12" r="6" stroke="currentColor" stroke-width="2" fill="none"/>
-          <line x1="12" y1="0" x2="12" y2="4" stroke="currentColor" stroke-width="2"/>
-          <line x1="12" y1="20" x2="12" y2="24" stroke="currentColor" stroke-width="2"/>
-          <line x1="0" y1="12" x2="4" y2="12" stroke="currentColor" stroke-width="2"/>
-          <line x1="20" y1="12" x2="24" y2="12" stroke="currentColor" stroke-width="2"/>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="3" fill="currentColor"/>
+          <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 2V6M12 18V22M22 12H18M6 12H2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <span style="font-size:9px;margin-top:1px;">現在地</span>
+        <span style="font-size:8px;margin-top:1px;">現在地</span>
       </button>
       <button class="right-btn search" onclick="showSearchTypeModal()" title="検索">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="2"/>
           <path d="M20 20L15.5 15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
-        <span style="font-size:9px;margin-top:1px;">検索</span>
+        <span style="font-size:8px;margin-top:1px;">検索</span>
       </button>
       <button class="right-btn stop" id="stopNavBtn" onclick="stopNav()" title="案内停止" disabled>
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <rect x="6" y="5" width="4" height="14" fill="currentColor"/>
           <rect x="14" y="5" width="4" height="14" fill="currentColor"/>
         </svg>
-        <span style="font-size:9px;margin-top:1px;">案内停止</span>
+        <span style="font-size:8px;margin-top:1px;">案内停止</span>
       </button>
       <button class="right-btn destination" onclick="zoomToDestination()" title="目的地">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 2C12 2 5 8.134 5 12C5 17 7 19 12 22C17 19 19 17 19 12C19 8.134 12 2 12 2Z" stroke="currentColor" stroke-width="2" fill="none"/>
           <circle cx="12" cy="12" r="3" fill="currentColor"/>
         </svg>
-        <span style="font-size:9px;margin-top:1px;">目的地</span>
+        <span style="font-size:8px;margin-top:1px;">目的地</span>
       </button>
       <button class="right-btn reroute" onclick="showRouteSelectModal('reroute')" title="リルート">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M17 1L21 5L17 9" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           <path d="M3 11V9C3 6.79086 4.79086 5 7 5H21" stroke="currentColor" stroke-width="2"/>
           <path d="M7 23L3 19L7 15" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           <path d="M21 13V15C21 17.2091 19.2091 19 17 19H3" stroke="currentColor" stroke-width="2"/>
         </svg>
-        <span style="font-size:9px;margin-top:1px;">リルート</span>
+        <span style="font-size:8px;margin-top:1px;">リルート</span>
       </button>
       <button class="right-btn controls" onclick="toggleMapControls()" title="地図操作">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 2V8M12 16V22M2 12H8M16 12H22" stroke="currentColor" stroke-width="2"/>
           <circle cx="12" cy="12" r="3" fill="currentColor"/>
         </svg>
-        <span style="font-size:9px;margin-top:1px;">操作</span>
+        <span style="font-size:8px;margin-top:1px;">操作</span>
       </button>
     </div>
     
@@ -1099,61 +1096,6 @@ function selectPlace(place){
   },500);
 }
 
-function quickVoiceSearch(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR)return showError("Voice not supported");
-  
-  const btn=document.getElementById("quickVoiceBtn");
-  if(!btn)return;
-  
-  const rec=new SR;
-  rec.lang=currentLang==="ja"?"ja-JP":currentLang==="en"?"en-US":currentLang==="ko"?"ko-KR":currentLang==="zh"?"zh-CN":"en-US";
-  rec.continuous=false;
-  rec.interimResults=false;
-  rec.maxAlternatives=1;
-  
-  btn.style.background="var(--danger)";
-  btn.innerHTML="<span style='color:#fff'>●</span>";
-  
-  rec.onresult=e=>{
-    const query=e.results[0][0].transcript;
-    btn.style.background="";
-    btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
-    
-    const searchBox=document.getElementById("searchBox");
-    if(searchBox){
-      searchBox.value=query;
-    }
-    
-    const controlPanel=document.getElementById("controlPanel");
-    if(controlPanel){
-      controlPanel.classList.remove("hidden");
-    }
-    document.getElementById("panelToggle").classList.remove("show");
-    hideAllElements();
-    
-    setTimeout(()=>searchPlace(),100);
-  };
-  rec.onerror=err=>{
-    console.error("Voice error:",err);
-    showError("Voice failed: "+err.error);
-    btn.style.background="";
-    btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
-  };
-  rec.onend=()=>{
-    btn.style.background="";
-    btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
-  };
-  
-  try{
-    rec.start();
-  }catch(e){
-    showError("Voice start failed");
-    btn.style.background="";
-    btn.innerHTML="<span id='btnVoiceNav'>音声<br>案内</span>";
-  }
-}
-
 function zoomToCurrentLocation(){
   if(!currentLocation){
     speak("現在地が取得できていません");
@@ -1182,27 +1124,6 @@ function zoomToDestination(){
   speak("目的地を表示");
 }
 
-function relocalize(){
-  navigator.geolocation.getCurrentPosition(pos=>{
-    currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
-    map.panTo(currentLocation);
-    map.setZoom(18);
-  },()=>showError("Location failed"));
-}
-
-function goToCurrent(){
-  if(!currentMarker)return showError("No current location");
-  const pos=currentLocation;
-  map.panTo(pos);
-  map.setZoom(18);
-}
-
-function goToDestination(){
-  if(!destMarker)return showError("No destination");
-  map.panTo(destMarker.getPosition());
-  map.setZoom(18);
-}
-
 function startNav(){
   if(!currentLocation||!destMarker)return showError("Location or destination not set");
   
@@ -1217,11 +1138,6 @@ function startNav(){
     
     directionsRenderer.setDirections(res);
     isNavigating=!0;
-    
-    const stopNavRow=document.getElementById("stopNavRow");
-    if(stopNavRow){
-      stopNavRow.style.display="block";
-    }
     
     const stopNavBtn=document.getElementById("stopNavBtn");
     if(stopNavBtn){
@@ -1285,11 +1201,6 @@ function stopNav(){
   
   isNavigating=!1;
   
-  const stopNavRow=document.getElementById("stopNavRow");
-  if(stopNavRow){
-    stopNavRow.style.display="none";
-  }
-  
   const stopNavBtn=document.getElementById("stopNavBtn");
   if(stopNavBtn){
     stopNavBtn.disabled=true;
@@ -1319,20 +1230,6 @@ function stopNav(){
   if(currentLocation){
     map.panTo(currentLocation);
     map.setZoom(18);
-  }
-}
-
-function stopNavFromPanel(){
-  stopNav();
-  
-  const searchBox=document.getElementById("searchBox");
-  if(searchBox){
-    searchBox.value="";
-  }
-  
-  if(destMarker){
-    destMarker.setMap(null);
-    destMarker=null;
   }
 }
 
@@ -1406,43 +1303,6 @@ function updateCurrentTime(){
   }
 }
 
-function saveCurrentPoint(){
-  if(!currentLocation)return showError("Getting location");
-  const promptText=currentLang==="ja"?"現在地登録":"Register current location";
-  const name=prompt(promptText);
-  if(!name)return;
-  
-  savedPoints.push({name,lat:currentLocation.lat,lng:currentLocation.lng});
-  saveSavedPoints();
-  
-  const savedText=currentLang==="ja"?"登録しました":"Saved";
-  showSuccess(savedText);
-}
-
-function saveMapPoint(){
-  const tapText=currentLang==="ja"?"地図上の場所をタップしてください":"Tap map location";
-  showError(tapText);
-  selectingMapPoint=!0;
-  
-  const listener=map.addListener("click",e=>{
-    const promptText=currentLang==="ja"?"現在地登録":"Register location";
-    const name=prompt(promptText);
-    if(name){
-      savedPoints.push({name,lat:e.latLng.lat(),lng:e.latLng.lng()});
-      saveSavedPoints();
-      
-      const savedText=currentLang==="ja"?"登録しました":"Saved";
-      showSuccess(savedText);
-    }
-    selectingMapPoint=!1;
-    google.maps.event.removeListener(listener);
-  });
-}
-
-function saveSavedPoints(){
-  document.cookie=`walkNavSavedPoints=${encodeURIComponent(JSON.stringify(savedPoints))};max-age=31536000;path=/`;
-}
-
 function loadSavedPoints(){
   const cookies=document.cookie.split(';');
   for(let cookie of cookies){
@@ -1454,128 +1314,6 @@ function loadSavedPoints(){
       break;
     }
   }
-}
-
-function showSavedPoints(){
-  if(savedPoints.length===0){
-    const noPointsText=currentLang==="ja"?"保存された地点がありません":"No saved points";
-    showError(noPointsText);
-    return;
-  }
-  
-  const panel=document.getElementById("savedPointsPanel");
-  const list=document.getElementById("savedPointsList");
-  list.innerHTML="";
-  
-  savedPoints.forEach((p,i)=>{
-    const item=document.createElement("div");
-    item.className="saved-point-item";
-    item.innerHTML=`<div class="saved-point-name">${i+1}. ${p.name}</div>`;
-    item.onclick=()=>{
-      destMarker&&destMarker.setMap(null);
-      destMarker=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},map});
-      map.panTo({lat:p.lat,lng:p.lng});
-      map.setZoom(18);
-      hideSavedPoints();
-      
-      const controlPanel=document.getElementById("controlPanel");
-      if(controlPanel){
-        controlPanel.classList.add("hidden");
-      }
-      document.getElementById("panelToggle").classList.add("show");
-      showAllElements();
-      
-      setTimeout(()=>{
-        if(currentMarker&&destMarker)startNav();
-      },500);
-    };
-    list.appendChild(item);
-  });
-  
-  document.getElementById("btnCloseSaved").textContent=translations[currentLang].btnCloseSaved;
-  
-  panel.style.display="block";
-  
-  hideAllElements();
-}
-
-function editSavedPoints(){
-  if(savedPoints.length===0){
-    showError(translations[currentLang].edit==="Edit"?"No saved points":"保存された地点がありません");
-    return;
-  }
-  
-  const panel=document.getElementById("savedPointsPanel");
-  const list=document.getElementById("savedPointsList");
-  list.innerHTML="";
-  
-  savedPoints.forEach((p,i)=>{
-    const item=document.createElement("div");
-    item.className="saved-point-item";
-    
-    const nameDiv=document.createElement("div");
-    nameDiv.className="saved-point-name";
-    nameDiv.textContent=`${i+1}. ${p.name}`;
-    
-    const actionsDiv=document.createElement("div");
-    actionsDiv.className="saved-point-actions";
-    
-    const editBtn=document.createElement("div");
-    editBtn.className="saved-point-btn";
-    editBtn.textContent=translations[currentLang].edit;
-    editBtn.onclick=(e)=>{
-      e.stopPropagation();
-      editPointName(i);
-    };
-    
-    const deleteBtn=document.createElement("div");
-    deleteBtn.className="saved-point-btn delete";
-    deleteBtn.textContent=translations[currentLang].delete;
-    deleteBtn.onclick=(e)=>{
-      e.stopPropagation();
-      deletePoint(i);
-    };
-    
-    actionsDiv.appendChild(editBtn);
-    actionsDiv.appendChild(deleteBtn);
-    item.appendChild(nameDiv);
-    item.appendChild(actionsDiv);
-    list.appendChild(item);
-  });
-  
-  document.getElementById("btnCloseSaved").textContent=translations[currentLang].btnCloseSaved;
-  
-  panel.style.display="block";
-  
-  hideAllElements();
-}
-
-function editPointName(index){
-  const promptText=currentLang==="ja"?"新しい名前を入力":"Enter new name";
-  const newName=prompt(promptText,savedPoints[index].name);
-  if(newName){
-    savedPoints[index].name=newName;
-    saveSavedPoints();
-    editSavedPoints();
-  }
-}
-
-function deletePoint(index){
-  const confirmText=currentLang==="ja"?"この地点を削除しますか？":"Delete this point?";
-  if(confirm(confirmText)){
-    savedPoints.splice(index,1);
-    saveSavedPoints();
-    if(savedPoints.length>0){
-      editSavedPoints();
-    }else{
-      hideSavedPoints();
-    }
-  }
-}
-
-function hideSavedPoints(){
-  document.getElementById("savedPointsPanel").style.display="none";
-  showAllElements();
 }
 
 async function fetchLocationName(){
