@@ -1072,6 +1072,9 @@ async function executeSearch(){
     return;
   }
   
+  console.log("検索開始:", q);
+  console.log("現在地:", currentLocation.lat(), currentLocation.lng());
+  
   // 検索パネルを閉じる
   const controlPanel=document.getElementById("controlPanel");
   if(controlPanel){
@@ -1090,8 +1093,13 @@ async function executeSearch(){
     radius:5000
   };
   
+  console.log("検索リクエスト:", request);
+  
   service.textSearch(request,(results,status)=>{
-    if(status===google.maps.places.PlacesServiceStatus.OK&&results){
+    console.log("検索ステータス:", status);
+    console.log("検索結果:", results);
+    
+    if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results.length>0){
       // 距離を計算してソート
       const places=results.map(p=>{
         const lat=p.geometry.location.lat();
@@ -1106,17 +1114,18 @@ async function executeSearch(){
         };
       }).sort((a,b)=>a.distance-b.distance).slice(0,5);
       
-      if(places.length===0){
-        showError("結果が見つかりません");
-        speak("結果が見つかりません");
-        return;
-      }
+      console.log("整形後の結果:", places);
       
       speak(`${places.length}件の結果が見つかりました`);
       displayResults(places);
+    }else if(status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
+      showError("結果が見つかりません");
+      speak("結果が見つかりません");
+      console.log("検索結果0件");
     }else{
-      showError("検索結果が見つかりません");
-      speak("検索結果が見つかりません");
+      showError(`検索エラー: ${status}`);
+      speak("検索エラーが発生しました");
+      console.error("Places API エラー:", status);
     }
   });
 }
