@@ -43,7 +43,7 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
 .weather-temp{font-weight:700;font-size:13px}
 .weather-rain{color:var(--accent);font-size:11px;font-weight:700}
 
-/* Right side buttons (restored) */
+/* Right side buttons (pictograms) */
 .right-buttons{
   position:absolute;right:10px;top:359px;z-index:470;display:flex;flex-direction:column;gap:10px;pointer-events:none;
 }
@@ -61,7 +61,18 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
 .right-btn.accent{background:rgba(100,210,255,.6);border:1px solid rgba(255,255,255,.4);color:#000}
 .right-btn.warning{background:rgba(255,165,0,.6);border:1px solid rgba(255,255,255,.4);color:#000}
 
-/* Search panel (opens from button) */
+/* pictogram box */
+.ic{width:24px;height:24px;background-repeat:no-repeat;background-position:center;background-size:24px;margin-bottom:2px}
+
+/* monochrome SVGs (stroke=currentColor) */
+.ico-target .ic{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4"/></svg>');}
+.ico-search .ic{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="6"/><path d="M20 20l-3.5-3.5"/></svg>');}
+.ico-stop .ic{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14"/><rect x="14" y="5" width="4" height="14"/></svg>');}
+.ico-pin .ic{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 0 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="3"/></svg>');}
+.ico-reroute .ic{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15-6"/><path d="M18 3v6h-6"/><path d="M21 12a9 9 0 0 1-15 6"/><path d="M6 21v-6h6"/></svg>');}
+.ico-move .ic{background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3 3-3 3-3-3 3-3zM12 16l3 3-3 3-3-3 3-3zM2 12l3-3 3 3-3 3-3-3zM22 12l-3-3-3 3 3 3 3-3z"/></svg>');}
+
+/* Search panel */
 .control-panel{
   position:absolute;left:10px;right:10px;bottom:0;z-index:500;background:var(--glass);
   border:1px solid var(--stroke);border-radius:16px 16px 0 0;backdrop-filter:blur(14px);
@@ -104,10 +115,8 @@ input{width:100%;background:var(--glass-strong);border:1px solid var(--stroke);c
 .gm-control-active.gm-fullscreen-control{display:none!important}
 .gm-svpc,.gm-style .gm-style-cc{display:none!important}
 
-/* Marquee */
+/* Misc */
 @keyframes marquee{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
-
-/* Approved: permanently hide panel toggle */
 .panel-toggle{display:none!important}
   </style>
 </head>
@@ -115,7 +124,7 @@ input{width:100%;background:var(--glass-strong);border:1px solid var(--stroke);c
   <div class="app">
     <div id="map"></div>
 
-    <!-- Top info panel -->
+    <!-- Info panel -->
     <div id="infoPanel" class="info-panel">
       <div class="route-main">
         <div id="routeText">目的地を設定してください</div>
@@ -144,25 +153,25 @@ input{width:100%;background:var(--glass-strong);border:1px solid var(--stroke);c
       <div id="coordsDisplay" style="text-align:center;font-size:17px;color:var(--muted);margin-top:8px;font-weight:600;cursor:pointer;pointer-events:auto;" onclick="copyCoordinates(event)">📍 緯度: -- / 経度: --</div>
     </div>
 
-    <!-- Restored right button stack -->
+    <!-- Right buttons (pictograms restored) -->
     <div class="right-buttons" id="rightButtons">
-      <button class="right-btn" onclick="zoomToCurrentLocation()">
-        <div style="font-size:20px">◎</div><div>現在地</div>
+      <button class="right-btn ico-target" onclick="zoomToCurrentLocation()">
+        <span class="ic"></span><div>現在地</div>
       </button>
-      <button class="right-btn accent" onclick="showSearchPanel()">
-        <div style="font-size:20px">🔎</div><div>検索</div>
+      <button class="right-btn accent ico-search" onclick="showSearchPanel()">
+        <span class="ic"></span><div>検索</div>
       </button>
-      <button class="right-btn danger" id="stopNavBtn" onclick="stopNav()" disabled>
-        <div style="font-size:20px">▮▮</div><div>案内停止</div>
+      <button class="right-btn danger ico-stop" id="stopNavBtn" onclick="stopNav()" disabled>
+        <span class="ic"></span><div>案内停止</div>
       </button>
-      <button class="right-btn warning" onclick="showSearchPanel()">
-        <div style="font-size:20px">📍</div><div>目的地</div>
+      <button class="right-btn warning ico-pin" onclick="showSearchPanel()">
+        <span class="ic"></span><div>目的地</div>
       </button>
-      <button class="right-btn ok" onclick="reroute(true)">
-        <div style="font-size:20px">↻</div><div>リルート</div>
+      <button class="right-btn ok ico-reroute" onclick="reroute(true)">
+        <span class="ic"></span><div>リルート</div>
       </button>
-      <button class="right-btn primary" onclick="toggleMapControls()">
-        <div style="font-size:20px">↕︎</div><div>操作</div>
+      <button class="right-btn primary ico-move" onclick="toggleMapControls()">
+        <span class="ic"></span><div>操作</div>
       </button>
     </div>
 
@@ -178,7 +187,7 @@ input{width:100%;background:var(--glass-strong);border:1px solid var(--stroke);c
       <div class="map-control-row"><div class="map-control-btn" onclick="event.preventDefault();panDown()">↓</div></div>
     </div>
 
-    <!-- Search panel (opens from buttons) -->
+    <!-- Search panel -->
     <div id="controlPanel" class="control-panel hidden">
       <div class="panel-row"><input type="text" id="searchBox" placeholder="場所を検索..." /></div>
       <div class="panel-row">
@@ -220,12 +229,10 @@ function initMap(){
     currentMarker=new google.maps.Marker({position:currentLocation,map,icon:{path:google.maps.SymbolPath.CIRCLE,scale:6,fillColor:"#ff6565",fillOpacity:1,strokeColor:"#fff",strokeWeight:2}});
     document.getElementById("map").style.display="block";
 
-    // Info panel basics
     document.getElementById("infoPanel").classList.add("show");
     document.getElementById("currentTime").textContent=formatTime(new Date());
     setInterval(()=>{document.getElementById("currentTime").textContent=formatTime(new Date())},60000);
 
-    // Watch location
     if(watchId) navigator.geolocation.clearWatch(watchId);
     watchId=navigator.geolocation.watchPosition(p=>{
       currentLocation={lat:p.coords.latitude,lng:p.coords.longitude};
@@ -310,7 +317,7 @@ function reroute(manual=true){
 }
   </script>
 
-  <!-- Using the approved browser key -->
+  <!-- Embedded approved browser key -->
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places&callback=initMap" async defer></script>
 </body>
 </html>
