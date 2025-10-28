@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>WalkNav v5</title>
   <style>
 :root{
@@ -36,8 +36,7 @@ html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:
 .weather-row{display:flex;align-items:center;justify-content:center;gap:10px}
 .weather-items{display:flex;gap:4px;flex:1;justify-content:center;align-items:center}
 .weather-arrow{color:var(--muted);font-size:18px;font-weight:900}
-.weather-item{ text-align:center;font-size:11px;color:var(--text);padding:8px 6px;
-  background:rgba(16,22,36,.25);border-radius:8px;min-width:60px}
+.weather-item{text-align:center;font-size:11px;color:var(--text);padding:8px 6px;background:rgba(16,22,36,.25);border-radius:8px;min-width:60px}
 .weather-time{font-size:12px;color:var(--muted);font-weight:700;margin-bottom:2px}
 .weather-icon{font-size:20px;margin:2px 0}
 .weather-temp{font-weight:700;font-size:13px}
@@ -116,7 +115,6 @@ input{width:100%;background:var(--glass-strong);border:1px solid var(--stroke);c
 .gm-svpc,.gm-style .gm-style-cc{display:none!important}
 
 /* Misc */
-@keyframes marquee{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
 .panel-toggle{display:none!important}
   </style>
 </head>
@@ -139,21 +137,10 @@ input{width:100%;background:var(--glass-strong);border:1px solid var(--stroke);c
         <span><span style="display:inline-block;line-height:1.2;">所要<br>時間</span> <span id="durationTime" style="font-size:20px;">--:--</span></span>
       </div>
       <div class="location-name" id="locationName">読み込み中...</div>
-      <div class="weather-row">
-        <div class="weather-items">
-          <div class="weather-item"><div class="weather-time">3H</div><div class="weather-icon" id="w3h">☁️</div><div class="weather-temp" id="t3h">--°</div><div class="weather-rain" id="r3h">--%</div></div>
-          <div class="weather-arrow">→</div>
-          <div class="weather-item"><div class="weather-time">6H</div><div class="weather-icon" id="w6h">☁️</div><div class="weather-temp" id="t6h">--°</div><div class="weather-rain" id="r6h">--%</div></div>
-          <div class="weather-arrow">→</div>
-          <div class="weather-item"><div class="weather-time">9H</div><div class="weather-icon" id="w9h">☁️</div><div class="weather-temp" id="t9h">--°</div><div class="weather-rain" id="r9h">--%</div></div>
-          <div class="weather-arrow">→</div>
-          <div class="weather-item"><div class="weather-time">12H</div><div class="weather-icon" id="w12h">☁️</div><div class="weather-temp" id="t12h">--°</div><div class="weather-rain" id="r12h">--%</div></div>
-        </div>
-      </div>
-      <div id="coordsDisplay" style="text-align:center;font-size:17px;color:var(--muted);margin-top:8px;font-weight:600;cursor:pointer;pointer-events:auto;" onclick="copyCoordinates(event)">📍 緯度: -- / 経度: --</div>
+      <div id="coordsDisplay" style="text-align:center;font-size:17px;color:var(--muted);margin-top:8px;font-weight:600;">📍 緯度: -- / 経度: --</div>
     </div>
 
-    <!-- Right buttons (pictograms restored) -->
+    <!-- Right buttons -->
     <div class="right-buttons" id="rightButtons">
       <button class="right-btn ico-target" onclick="zoomToCurrentLocation()">
         <span class="ic"></span><div>現在地</div>
@@ -211,7 +198,7 @@ input{width:100%;background:var(--glass-strong);border:1px solid var(--stroke);c
 let map,directionsService,directionsRenderer,currentMarker=null,destMarker=null,watchId=null,isNavigating=false,currentLocation=null;
 
 function showError(m){const e=document.getElementById("error");e.textContent=m;e.classList.remove("hidden");setTimeout(()=>e.classList.add("hidden"),3000)}
-function showSuccess(m){const e=document.getElementById("success");e.textContent=m;e.classList.remove("hidden");setTimeout(()=>e.classList.add("hidden"),3000)}
+function showSuccess(m){const e=document.getElementById("success");e.textContent=m;e.classList.remove("hidden");setTimeout(()=>e.classList.add("hidden"),1500)}
 function toggleMapControls(){document.getElementById("mapControls").classList.toggle("show")}
 function showSearchPanel(){const p=document.getElementById("controlPanel");p.classList.remove("hidden");document.getElementById("searchBox").focus()}
 function hideResults(){document.getElementById("resultsPanel").style.display="none"}
@@ -220,13 +207,16 @@ function initMap(){
   if(!navigator.geolocation){showError("Geolocation not supported");return;}
   navigator.geolocation.getCurrentPosition(pos=>{
     currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
+
     map=new google.maps.Map(document.getElementById("map"),{
       center:currentLocation,zoom:17,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,zoomControl:false,rotateControl:false,scaleControl:false,gestureHandling:"greedy",clickableIcons:false,disableDefaultUI:true
     });
+
     directionsService=new google.maps.DirectionsService();
     directionsRenderer=new google.maps.DirectionsRenderer({map});
 
-    currentMarker=new google.maps.Marker({position:currentLocation,map,icon:{path:google.maps.SymbolPath.CIRCLE,scale:6,fillColor:"#ff6565",fillOpacity:1,strokeColor:"#fff",strokeWeight:2}});
+    // current location marker = default red pin (no custom icon)
+    currentMarker=new google.maps.Marker({position:currentLocation,map});
     document.getElementById("map").style.display="block";
 
     document.getElementById("infoPanel").classList.add("show");
@@ -239,7 +229,17 @@ function initMap(){
       if(currentMarker) currentMarker.setPosition(currentLocation);
     });
 
+    // coords display (kept)
+    updateCoordsText();
+    map.addListener("center_changed",()=>updateCoordsText());
+
   },err=>showError("Location error: "+err.message));
+}
+
+function updateCoordsText(){
+  if(!currentLocation) return;
+  const el=document.getElementById("coordsDisplay");
+  el.textContent=`📍 緯度: ${currentLocation.lat.toFixed(6)} / 経度: ${currentLocation.lng.toFixed(6)}`;
 }
 
 function formatTime(d){const h=d.getHours();const m=String(d.getMinutes()).padStart(2,"0");return `${h}:${m}`}
@@ -252,30 +252,32 @@ function executeSearch(){
   document.getElementById("controlPanel").classList.add("hidden");
   showSuccess("検索中...");
 
-  if(!google.maps.places){showError("Places APIが読み込まれていません");return;}
+  if(!google.maps.places){showError("Places API が読み込まれていません");return;}
   const svc=new google.maps.places.PlacesService(map);
-  const req={query:q,location:currentLocation,radius:50000,language:"ja"};
+  const req={query:q,location:new google.maps.LatLng(currentLocation.lat,currentLocation.lng),radius:50000,language:"ja"};
+
   svc.textSearch(req,(results,status)=>{
-    if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results.length){
+    if(status===google.maps.places.PlacesServiceStatus.OK && Array.isArray(results) && results.length){
       const list=document.getElementById("resultsList");list.innerHTML="";
       results.slice(0,5).forEach(r=>{
-        const div=document.createElement("div");div.className="result-item";
         const lat=r.geometry.location.lat(),lng=r.geometry.location.lng();
-        div.innerHTML=`<div style="font-weight:700">${r.name||"Unknown"}</div>
-                       <div style="font-size:12px;color:var(--muted)">${r.formatted_address||""}</div>`;
-        div.onclick=()=>{
+        const el=document.createElement("div");
+        el.className="result-item";
+        el.innerHTML=`<div style="font-weight:700">${r.name||""}</div><div style="font-size:12px;color:var(--muted)">${r.formatted_address||""}</div>`;
+        el.onclick=()=>{
           if(destMarker) destMarker.setMap(null);
           destMarker=new google.maps.Marker({position:{lat,lng},map});
           map.panTo({lat,lng}); map.setZoom(18);
           startNav();
           hideResults();
         };
-        list.appendChild(div);
+        list.appendChild(el);
       });
       document.getElementById("resultsPanel").style.display="block";
     }else if(status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
       showError("結果が見つかりませんでした");
     }else{
+      // keep UI silent; show compact error
       showError("検索エラー: "+status);
     }
   });
@@ -307,7 +309,7 @@ function stopNav(){
   document.getElementById("arrivalTime").textContent="--:--";
   document.getElementById("durationTime").textContent="--:--";
 }
-function reroute(manual=true){
+function reroute(){
   if(!isNavigating) {showError("Not navigating");return;}
   directionsService.route({origin:currentLocation,destination:destMarker.getPosition(),travelMode:google.maps.TravelMode.WALKING},(res,status)=>{
     if(status!=="OK"){showError("Reroute failed");return;}
@@ -317,7 +319,7 @@ function reroute(manual=true){
 }
   </script>
 
-  <!-- Embedded approved browser key -->
+  <!-- Maps JS + Places (New). Using approved browser key. -->
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places&callback=initMap" async defer></script>
 </body>
 </html>
