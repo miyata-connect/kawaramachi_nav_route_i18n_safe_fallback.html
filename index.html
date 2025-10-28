@@ -359,15 +359,7 @@ div[title*="付近"] {
   </style>
 </head>
 <body>
-  <!-- 緊急用：強制表示検索バー -->
-  <div style="position:fixed;top:0;left:0;right:0;z-index:10001;background:rgba(10,19,33,0.95);padding:10px;border-bottom:2px solid #5fb1ff;box-shadow:0 2px 8px rgba(0,0,0,0.5);">
-    <div style="display:flex;gap:8px;max-width:600px;margin:0 auto;">
-      <input type="text" id="emergencySearchBox" placeholder="🔍 場所を検索..." style="flex:1;padding:12px;border:2px solid #5fb1ff;border-radius:8px;background:rgba(255,255,255,0.1);color:#fff;font-size:16px;outline:none;" />
-      <button onclick="emergencySearch()" style="padding:12px 24px;background:#5fb1ff;border:none;border-radius:8px;color:#000;font-weight:700;font-size:16px;cursor:pointer;">検索</button>
-    </div>
-  </div>
-  
-  <div class="app" style="margin-top:60px;">
+  <div class="app">
     <div id="map"></div>
     
     <div id="infoPanel" class="info-panel">
@@ -491,74 +483,6 @@ div[title*="付近"] {
     
     <div id="error" class="error-banner hidden"></div>
     <div id="success" class="success-banner hidden"></div>
-    
-    <!-- デバッグパネル（スマホ用） -->
-    <div id="debugPanel" style="position:fixed;top:60px;left:10px;right:10px;max-height:250px;overflow-y:auto;background:rgba(0,0,0,0.9);border:2px solid #00ff00;border-radius:8px;padding:10px;font-size:11px;color:#00ff00;font-family:monospace;z-index:10000;display:none;">
-      <div style="display:flex;justify-content:space-between;margin-bottom:5px;border-bottom:1px solid #00ff00;padding-bottom:5px;">
-        <strong>🐛 DEBUG LOG</strong>
-        <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:none;border:none;color:#ff0000;font-size:16px;cursor:pointer;">✕</button>
-      </div>
-      <div id="debugLog"></div>
-    </div>
-    
-    <div id="rightButtons" class="right-buttons">
-      <button class="right-btn accent" onclick="zoomToCurrentLocation()" title="現在地を拡大表示">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="12" cy="12" r="3" fill="currentColor"/>
-          <circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="2"/>
-          <path d="M12 2V6M12 18V22M22 12H18M6 12H2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span style="font-size:10px;margin-top:2px;">現在地</span>
-      </button>
-      <button class="right-btn primary" onclick="showSearchTypeModal()" title="検索">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="2"/>
-          <path d="M20 20L15.5 15.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span style="font-size:10px;margin-top:2px;">検索</span>
-      </button>
-      <button class="right-btn danger" id="stopNavBtn" onclick="stopNav()" title="案内停止" disabled>
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="6" y="5" width="4" height="14" stroke="#000" stroke-width="2" fill="none"/>
-          <rect x="14" y="5" width="4" height="14" stroke="#000" stroke-width="2" fill="none"/>
-        </svg>
-        <span style="font-size:10px;margin-top:2px;color:#000;">案内停止</span>
-      </button>
-      <button class="right-btn warning" onclick="zoomToDestination()" title="目的地を拡大表示">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 2L12 12M12 12L8 8M12 12L16 8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M12 12C12 15.866 8.866 19 5 19C5 19 3 17 3 12C3 8.134 5 2 12 2C19 2 21 8.134 21 12C21 17 19 19 19 19C15.134 19 12 15.866 12 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-        <span style="font-size:10px;margin-top:2px;">目的地</span>
-      </button>
-      <button class="right-btn ok" onclick="showRouteSelectModal('reroute')" title="ルート再計算">
-        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M17 1L21 5L17 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M3 11V9C3 6.79086 4.79086 5 7 5H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          <path d="M7 23L3 19L7 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M21 13V15C21 17.2091 19.2091 19 17 19H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-        <span style="font-size:10px;margin-top:2px;">リルート</span>
-      </button>
-      <button class="right-btn accent" onclick="toggleMapControls()" title="地図コントロール">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M16 4 L16 10 M16 4 L13 7 M16 4 L19 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M16 28 L16 22 M16 28 L13 25 M16 28 L19 25" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M4 16 L10 16 M4 16 L7 13 M4 16 L7 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <path d="M28 16 L22 16 M28 16 L25 13 M28 16 L25 19" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          <circle cx="16" cy="16" r="4" fill="currentColor"/>
-          <path d="M14 16 L18 16 M16 14 L16 18" stroke="#64d2ff" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-        <span style="font-size:10px;margin-top:2px;">操作</span>
-      </button>
-    </div>
-    
-    <div id="loading" class="loading-screen">
-      <div style="text-align:center">
-        <div style="font-size:18px;margin-bottom:10px" id="loadingText">現在地取得中...</div>
-        <div style="font-size:14px;color:var(--muted)" id="loadingWait">もうしばらくお待ちください。</div>
-      </div>
-    </div>
   </div>
   
   <script>
@@ -604,8 +528,8 @@ const translations={
 
 function updateAllTexts(){
   const t=translations[currentLang];
-  document.getElementById("loadingText").textContent=t.loadingText;
-  document.getElementById("loadingWait").textContent=t.loadingWait;
+  document.getElementById("loadingText")?.textContent=t.loadingText;
+  document.getElementById("loadingWait")?.textContent=t.loadingWait;
 }
 
 function togglePanel(){}
@@ -627,35 +551,25 @@ function panUp(){
   const center=map.getCenter();
   map.panTo({lat:center.lat()+0.001,lng:center.lng()});
 }
-
 function panDown(){
   const center=map.getCenter();
   map.panTo({lat:center.lat()-0.001,lng:center.lng()});
 }
-
 function panLeft(){
   const center=map.getCenter();
   map.panTo({lat:center.lat(),lng:center.lng()-0.001});
 }
-
 function panRight(){
   const center=map.getCenter();
   map.panTo({lat:center.lat(),lng:center.lng()+0.001});
 }
-
-function zoomIn(){
-  map.setZoom(map.getZoom()+1);
-}
-
-function zoomOut(){
-  map.setZoom(map.getZoom()-1);
-}
+function zoomIn(){ map.setZoom(map.getZoom()+1); }
+function zoomOut(){ map.setZoom(map.getZoom()-1); }
 
 window.gm_authFailure=()=>alert("Maps API Error");
 
 function initMap(){
-  if(!navigator.geolocation)return alert("Geolocation not supported");
-  
+  if(!navigator.geolocation){ alert("Geolocation not supported"); return; }
   const urlParams=new URLSearchParams(window.location.search);
   currentLang=urlParams.get('lang')||'ja';
   updateAllTexts();
@@ -664,23 +578,13 @@ function initMap(){
     currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
     
     map=new google.maps.Map(document.getElementById("map"),{
-      center:currentLocation,
-      zoom:17,
-      mapTypeControl:false,
-      streetViewControl:false,
-      fullscreenControl:false,
-      zoomControl:false,
-      rotateControl:false,
-      scaleControl:false,
-      gestureHandling:'greedy',
-      clickableIcons:false,
-      disableDefaultUI: true
+      center:currentLocation,zoom:17,mapTypeControl:false,streetViewControl:false,fullscreenControl:false,zoomControl:false,rotateControl:false,scaleControl:false,gestureHandling:'greedy',clickableIcons:false,disableDefaultUI:true
     });
     
     directionsService=new google.maps.DirectionsService;
     directionsRenderer=new google.maps.DirectionsRenderer({map});
     
-    const pinSvg = `
+    const pinSvg=`
       <svg width="40" height="60" viewBox="0 0 40 60" xmlns="http://www.w3.org/2000/svg">
         <defs>
           <linearGradient id="pinGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -700,17 +604,13 @@ function initMap(){
               <feFuncA type="linear" slope="0.3"/>
             </feComponentTransfer>
             <feMerge>
-              <feMergeNode/>
-              <feMergeNode in="SourceGraphic"/>
+              <feMergeNode/><feMergeNode in="SourceGraphic"/>
             </feMerge>
           </filter>
         </defs>
         <ellipse cx="20" cy="56" rx="8" ry="3" fill="rgba(0,0,0,0.2)"/>
         <g filter="url(#shadow)">
-          <path d="M20 5 C12 5 5 12 5 20 C5 28 12 35 20 50 C28 35 35 28 35 20 C35 12 28 5 20 5 Z" 
-                fill="url(#pinGradient)" 
-                stroke="#ffffff" 
-                stroke-width="1.5"/>
+          <path d="M20 5 C12 5 5 12 5 20 C5 28 12 35 20 50 C28 35 35 28 35 20 C35 12 28 5 20 5 Z" fill="url(#pinGradient)" stroke="#ffffff" stroke-width="1.5"/>
           <ellipse cx="16" cy="15" rx="6" ry="8" fill="url(#innerGlow)" opacity="0.6"/>
           <circle cx="20" cy="20" r="6" fill="#330000" opacity="0.7"/>
           <circle cx="20" cy="20" r="4" fill="#1a0000" opacity="0.9"/>
@@ -719,84 +619,39 @@ function initMap(){
     `;
     
     currentMarker=new google.maps.Marker({
-      position:currentLocation,
-      map:map,
-      icon:{
-        url:'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(pinSvg),
-        scaledSize:new google.maps.Size(40, 60),
-        anchor:new google.maps.Point(20, 55)
-      },
-      zIndex:1000,
-      optimized:false
+      position:currentLocation,map:map,
+      icon:{ url:'data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(pinSvg), scaledSize:new google.maps.Size(40,60), anchor:new google.maps.Point(20,55)},
+      zIndex:1000,optimized:false
     });
     
     const pulseMarker=new google.maps.Marker({
-      position:currentLocation,
-      map:map,
-      icon:{
-        path:google.maps.SymbolPath.CIRCLE,
-        scale:20,
-        fillColor:"#ff6565",
-        fillOpacity:0.25,
-        strokeColor:"#ff6565",
-        strokeWeight:2,
-        strokeOpacity:0.5
-      },
+      position:currentLocation,map:map,
+      icon:{ path:google.maps.SymbolPath.CIRCLE, scale:20, fillColor:"#ff6565", fillOpacity:0.25, strokeColor:"#ff6565", strokeWeight:2, strokeOpacity:0.5 },
       zIndex:999
     });
-    
-    let pulseScale=20;
-    let pulseGrowing=true;
+    let pulseScale=20, pulseGrowing=true;
     setInterval(()=>{
-      if(pulseGrowing){
-        pulseScale+=0.4;
-        if(pulseScale>=30){
-          pulseGrowing=false;
-        }
-      }else{
-        pulseScale-=0.4;
-        if(pulseScale<=20){
-          pulseGrowing=true;
-        }
-      }
+      if(pulseGrowing){ pulseScale+=0.4; if(pulseScale>=30)pulseGrowing=false; }
+      else{ pulseScale-=0.4; if(pulseScale<=20)pulseGrowing=true; }
       const opacity=0.25-((pulseScale-20)/50);
       const strokeOpacity=0.5-((pulseScale-20)/40);
-      pulseMarker.setIcon({
-        path:google.maps.SymbolPath.CIRCLE,
-        scale:pulseScale,
-        fillColor:"#ff6565",
-        fillOpacity:opacity,
-        strokeColor:"#ff6565",
-        strokeWeight:2,
-        strokeOpacity:strokeOpacity
-      });
+      pulseMarker.setIcon({ path:google.maps.SymbolPath.CIRCLE, scale:pulseScale, fillColor:"#ff6565", fillOpacity:opacity, strokeColor:"#ff6565", strokeWeight:2, strokeOpacity:strokeOpacity });
     },60);
-    
     window.pulseMarker=pulseMarker;
     
     document.getElementById("map").style.display="block";
-    document.getElementById("loading").classList.add("hide");
+    document.getElementById("loading")?.classList.add("hide");
     
     loadSavedPoints();
-    
     setTimeout(()=>{
-      const infoPanel=document.getElementById("infoPanel");
-      const panelToggle=document.getElementById("panelToggle");
-      
-      if(infoPanel)infoPanel.classList.add("show");
-      if(panelToggle)panelToggle.classList.add("show");
-      
-      updateCurrentTime();
-      setInterval(updateCurrentTime, 60000);
-      
+      document.getElementById("infoPanel")?.classList.add("show");
+      document.getElementById("panelToggle")?.classList.add("show");
+      updateCurrentTime(); setInterval(updateCurrentTime,60000);
       updateCoords();
-      
-      fetchLocationName();
-      fetchWeather();
-      
-      const offsetY = window.innerHeight * 0.25 - 25;
-      const offsetX = 60 - 25;
-      map.panBy(offsetX, -offsetY);
+      fetchLocationName(); fetchWeather();
+      const offsetY=window.innerHeight*0.25-25;
+      const offsetX=60-25;
+      map.panBy(offsetX,-offsetY);
     },100);
     
     startWatch();
@@ -807,8 +662,8 @@ function startWatch(){
   watchId&&navigator.geolocation.clearWatch(watchId);
   watchId=navigator.geolocation.watchPosition(pos=>{
     currentLocation={lat:pos.coords.latitude,lng:pos.coords.longitude};
-    if(currentMarker){ currentMarker.setPosition(currentLocation); }
-    if(window.pulseMarker){ window.pulseMarker.setPosition(currentLocation); }
+    currentMarker?.setPosition(currentLocation);
+    window.pulseMarker?.setPosition(currentLocation);
     updateCoords();
     isNavigating&&reroute(!1);
   },()=>{},{enableHighAccuracy:!0});
@@ -816,88 +671,46 @@ function startWatch(){
 
 function updateCoords(){
   if(!currentLocation)return;
-  const lat=currentLocation.lat.toFixed(6);
-  const lng=currentLocation.lng.toFixed(6);
-  const coordsEl=document.getElementById("coordsDisplay");
-  if(coordsEl){
-    coordsEl.textContent=`📍 緯度: ${lat} / 経度: ${lng}`;
-  }
+  const lat=currentLocation.lat.toFixed(6), lng=currentLocation.lng.toFixed(6);
+  const el=document.getElementById("coordsDisplay");
+  if(el) el.textContent=`📍 緯度: ${lat} / 経度: ${lng}`;
 }
 
-function copyCoordinates(event){
-  if(event){
-    event.preventDefault();
-    event.stopPropagation();
-  }
+function copyCoordinates(e){
+  e?.preventDefault?.(); e?.stopPropagation?.();
   if(!currentLocation)return;
-  const lat=currentLocation.lat.toFixed(6);
-  const lng=currentLocation.lng.toFixed(6);
-  const coordsText=`${lat}, ${lng}`;
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(coordsText).then(()=>{
-      showSuccess("緯度経度をコピーしました");
-    }).catch(()=>{
-      fallbackCopy(coordsText);
-    });
-  }else{
-    fallbackCopy(coordsText);
-  }
+  const lat=currentLocation.lat.toFixed(6), lng=currentLocation.lng.toFixed(6);
+  const text=`${lat}, ${lng}`;
+  if(navigator.clipboard?.writeText){
+    navigator.clipboard.writeText(text).then(()=>showSuccess("緯度経度をコピーしました"))
+    .catch(()=>fallbackCopy(text));
+  }else{ fallbackCopy(text); }
 }
-
 function fallbackCopy(text){
-  const textarea=document.createElement("textarea");
-  textarea.value=text;
-  textarea.style.position="fixed";
-  textarea.style.opacity="0";
-  document.body.appendChild(textarea);
-  textarea.select();
-  try{
-    document.execCommand("copy");
-    showSuccess("緯度経度をコピーしました");
-  }catch(e){
-    showError("コピーに失敗しました");
-  }
-  document.body.removeChild(textarea);
+  const ta=document.createElement("textarea");
+  ta.value=text; ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); showSuccess("緯度経度をコピーしました"); }
+  catch{ showError("コピーに失敗しました"); }
+  document.body.removeChild(ta);
 }
 
-let pendingRouteAction=null;
-let selectedRouteType="fastest";
-
-function showRouteSelectModal(action){
-  pendingRouteAction=action;
-  const modal=document.getElementById("routeSelectModal");
-  if(modal){
-    modal.style.display="flex";
-  }
-}
-
-function closeRouteSelectModal(){
-  const modal=document.getElementById("routeSelectModal");
-  if(modal){
-    modal.style.display="none";
-  }
-  pendingRouteAction=null;
-}
-
+let pendingRouteAction=null, selectedRouteType="fastest";
+function showRouteSelectModal(a){ pendingRouteAction=a; const m=document.getElementById("routeSelectModal"); if(m)m.style.display="flex"; }
+function closeRouteSelectModal(){ const m=document.getElementById("routeSelectModal"); if(m)m.style.display="none"; pendingRouteAction=null; }
 function selectRouteType(type){
   selectedRouteType=type;
   const routeName=type==="fastest"?"最短AIルート":"楽チンAIルート";
   speak(`${routeName}を選択しました`);
   closeRouteSelectModal();
-  if(pendingRouteAction==="search"){ executeSearch(); }
-  else if(pendingRouteAction==="reroute"){ executeReroute(); }
+  if(pendingRouteAction==="search") executeSearch();
+  else if(pendingRouteAction==="reroute") executeReroute();
 }
 
 function executeReroute(){
-  if(!isNavigating){
-    speak("目的地を設定してください");
-    showError("目的地を設定してください");
-    return;
-  }
-  
+  if(!isNavigating){ speak("目的地を設定してください"); showError("目的地を設定してください"); return; }
   const routeName=selectedRouteType==="fastest"?"最短AIルート":"楽チンAIルート";
   speak(`${routeName}を計算中`);
-  
   directionsService.route({
     origin:currentLocation,
     destination:destMarker.getPosition(),
@@ -905,209 +718,85 @@ function executeReroute(){
     provideRouteAlternatives:!0,
     avoidHighways:selectedRouteType==="easy"?!0:Math.random()>0.5
   },(res,status)=>{
-    if(status!=="OK")return showError("Reroute failed");
-    
-    const routes=res.routes;
-    let selectedRoute=routes[0];
+    if(status!=="OK"){ showError("Reroute failed"); return; }
+    const routes=res.routes; let selectedRoute=routes[0];
     if(selectedRouteType==="easy"&&routes.length>1){
       selectedRoute=routes.sort((a,b)=>{
-        const elevA=a.legs[0].elevation||0;
-        const elevB=b.legs[0].elevation||0;
+        const elevA=a.legs[0].elevation||0, elevB=b.legs[0].elevation||0;
         return elevA-elevB;
       })[0];
     }else if(routes.length>1){
-      const altIndex=Math.floor(Math.random()*(routes.length-1))+1;
-      selectedRoute=routes[altIndex];
+      const altIndex=Math.floor(Math.random()*(routes.length-1))+1; selectedRoute=routes[altIndex];
     }
-    
     directionsRenderer.setDirections({...res,routes:[selectedRoute]});
-    
     const leg=selectedRoute.legs[0];
     const dist=(leg.distance.value/1000).toFixed(1);
     const dur=Math.round(leg.duration.value/60);
-    
-    const routeText=`${dist}km, ${dur}min`;
-    const routeTextEl=document.getElementById("routeText");
-    if(routeTextEl){ routeTextEl.textContent=routeText; }
-    
-    const now=new Date();
-    const arrival=new Date(now.getTime()+leg.duration.value*1000);
-    
-    const currentTimeEl=document.getElementById("currentTime");
-    const arrivalTimeEl=document.getElementById("arrivalTime");
-    const durationTimeEl=document.getElementById("durationTime");
-    
-    if(currentTimeEl){ currentTimeEl.textContent=formatTime(now); }
-    if(arrivalTimeEl){ arrivalTimeEl.textContent=formatTime(arrival); }
-    if(durationTimeEl){
-      const hours=Math.floor(dur/60);
-      const mins=dur%60;
-      durationTimeEl.textContent=hours>0?`${hours}:${mins.toString().padStart(2,'0')}`:`0:${mins.toString().padStart(2,'0')}`;
+    document.getElementById("routeText")?.textContent=`${dist}km, ${dur}min`;
+    const now=new Date(); const arrival=new Date(now.getTime()+leg.duration.value*1000);
+    const ct=document.getElementById("currentTime"); if(ct) ct.textContent=formatTime(now);
+    const at=document.getElementById("arrivalTime"); if(at) at.textContent=formatTime(arrival);
+    const dt=document.getElementById("durationTime"); if(dt){
+      const h=Math.floor(dur/60), m=dur%60; dt.textContent=h>0?`${h}:${m.toString().padStart(2,'0')}`:`0:${m.toString().padStart(2,'0')}`;
     }
-    
     speak("Rerouting");
   });
 }
 
-function showSearchTypeModal(){
-  const modal=document.getElementById("searchTypeModal");
-  if(modal){ modal.style.display="flex"; }
-}
-
-function closeSearchTypeModal(){
-  const modal=document.getElementById("searchTypeModal");
-  if(modal){ modal.style.display="none"; }
-}
-
+function showSearchTypeModal(){ const m=document.getElementById("searchTypeModal"); if(m)m.style.display="flex"; }
+function closeSearchTypeModal(){ const m=document.getElementById("searchTypeModal"); if(m)m.style.display="none"; }
 function selectSearchType(type){
   closeSearchTypeModal();
   if(type==="text"){ showSearchPanel(); }
-  else if(type==="voice"){
-    speak("音声検索を開始します");
-    voiceSearch();
-  }
+  else if(type==="voice"){ speak("音声検索を開始します"); voiceSearch(); }
 }
 
 function showSearchPanel(){
   speak("検索パネルを開きます");
-  const controlPanel=document.getElementById("controlPanel");
-  if(controlPanel){
-    controlPanel.classList.remove("hidden");
-    hideAllElements();
-  }
-  const searchBox=document.getElementById("searchBox");
-  if(searchBox){ searchBox.focus(); }
+  const p=document.getElementById("controlPanel");
+  if(p){ p.classList.remove("hidden"); hideAllElements(); }
+  document.getElementById("searchBox")?.focus();
 }
 
 function voiceSearch(){
-  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){
-    speak("音声認識に対応していません");
-    showError("音声認識に対応していません");
-    return;
+  if(!('webkitSpeechRecognition' in window)||!window.webkitSpeechRecognition){
+    speak("音声認識に対応していません"); showError("音声認識に対応していません"); return;
   }
-  
-  const recognition=new(window.SpeechRecognition||window.webkitSpeechRecognition)();
-  recognition.lang='ja-JP';
-  recognition.continuous=false;
-  recognition.interimResults=false;
-  
-  recognition.onstart=()=>{
-    speak("音声入力を開始します");
-    showSuccess("音声入力中...");
-  };
-  
-  recognition.onresult=(event)=>{
-    const transcript=event.results[0][0].transcript;
-    const searchBox=document.getElementById("searchBox");
-    if(searchBox){ searchBox.value=transcript; }
+  const recognition=new window.webkitSpeechRecognition();
+  recognition.lang='ja-JP'; recognition.continuous=false; recognition.interimResults=false;
+  recognition.onstart=()=>{ speak("音声入力を開始します"); showSuccess("音声入力中..."); };
+  recognition.onresult=(e)=>{
+    const transcript=e.results[0][0].transcript;
+    const sb=document.getElementById("searchBox"); if(sb) sb.value=transcript;
     executeSearch();
   };
-  
-  recognition.onerror=()=>{
-    speak("音声認識エラーが発生しました");
-    showError("音声認識エラー");
-  };
-  
+  recognition.onerror=()=>{ speak("音声認識エラーが発生しました"); showError("音声認識エラー"); };
   recognition.start();
 }
 
 function searchPlace(){
-  const searchBox=document.getElementById("searchBox");
-  if(!searchBox)return;
-  const q=searchBox.value.trim();
-  if(!q)return showError("検索ワードを入力してください");
-  if(!currentLocation)return showError("位置情報を取得中");
+  const sb=document.getElementById("searchBox"); if(!sb)return;
+  const q=sb.value.trim(); if(!q){ showError("検索ワードを入力してください"); return; }
+  if(!currentLocation){ showError("位置情報を取得中"); return; }
   executeSearch();
 }
 
-function emergencySearch(){
-  debugLog("🚨 緊急検索バーから実行");
-  const searchBox=document.getElementById("emergencySearchBox");
-  if(!searchBox){ debugLog("❌ emergencySearchBox が見つからない"); return; }
-  const q=searchBox.value.trim();
-  debugLog(`検索ワード: "${q}"`);
-  if(!q){ showError("検索ワードを入力してください"); return; }
-  if(!currentLocation){ showError("位置情報を取得中"); return; }
-  showSuccess("検索中...");
-  speak(`${q}を検索中`);
-  debugLog("🌐 PlacesService作成中...");
-  try{
-    if(!map){ debugLog("❌ mapオブジェクトが未定義"); showError("地図が初期化されていません"); return; }
-    if(!google || !google.maps || !google.maps.places){ debugLog("❌ google.maps.placesが未定義"); showError("Places APIが読み込まれていません"); return; }
-    const service=new google.maps.places.PlacesService(map);
-    debugLog("✅ PlacesService作成成功");
-    const request={ query:q, location:currentLocation, radius:50000, language:"ja" };
-    debugLog(`📤 リクエスト送信: ${JSON.stringify(request)}`);
-    service.textSearch(request,(results,status)=>{
-      debugLog(`📥 レスポンス受信: status=${status}`);
-      if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results.length>0){
-        debugLog(`✅ 検索成功: ${results.length}件`);
-        const places=results.map(p=>{
-          const lat=p.geometry.location.lat();
-          const lng=p.geometry.location.lng();
-          const fullAddr=p.formatted_address||"";
-          const addrShort=fullAddr.replace(/^日本、?\s*/,"").split(/[\s　,、]/).filter(Boolean).slice(0,2).join(" ");
-          const nameText=(p.name && p.name.trim()) ? p.name.trim() : (addrShort || "名称不明");
-          return{
-            displayName:{text:nameText},
-            formattedAddress:fullAddr,
-            location:{latitude:lat,longitude:lng},
-            place_id:p.place_id,
-            distance:calculateDistance(currentLocation.lat,currentLocation.lng,lat,lng)
-          };
-        }).sort((a,b)=>a.distance-b.distance).slice(0,5);
-        speak(`${places.length}件の結果が見つかりました`);
-        displayResults(places);
-        debugLog(`✅ displayResults()呼び出し完了`);
-      }else if(status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
-        debugLog("⚠️ 検索結果0件");
-        showError("結果が見つかりませんでした");
-        speak("結果が見つかりませんでした");
-      }else{
-        debugLog(`❌ 検索エラー: ${status}`);
-        showError("検索エラー: "+status);
-      }
-    });
-    debugLog("✅ textSearch()呼び出し完了（コールバック待機中）");
-  }catch(err){
-    debugLog(`💥 例外発生: ${err.message}`);
-    showError("検索処理で例外が発生しました");
-    console.error("emergencySearch exception:",err);
-  }
-}
-
 function executeSearch(){
-  debugLog("🔍 executeSearch() 開始");
-  const searchBox=document.getElementById("searchBox");
-  if(!searchBox){ debugLog("❌ searchBox要素が見つからない"); return; }
-  debugLog("✅ searchBox要素取得成功");
-  const q=searchBox.value.trim();
-  debugLog(`検索ワード: "${q}"`);
-  if(!q){ showError("検索ワードを入力してください"); return; }
-  if(!currentLocation){ debugLog("❌ currentLocationがnull"); showError("位置情報を取得中"); return; }
-  debugLog(`✅ currentLocation: lat=${currentLocation.lat}, lng=${currentLocation.lng}`);
-  const controlPanel=document.getElementById("controlPanel");
-  if(controlPanel){ controlPanel.classList.add("hidden"); }
+  const sb=document.getElementById("searchBox"); if(!sb) return;
+  const q=sb.value.trim(); if(!q){ showError("検索ワードを入力してください"); return; }
+  if(!currentLocation){ showError("位置情報を取得中"); return; }
+  document.getElementById("controlPanel")?.classList.add("hidden");
   hideResults();
-  speak(`${q}を検索中`);
-  showSuccess("検索中...");
-  debugLog("🌐 PlacesService作成中...");
+  speak(`${q}を検索中`); showSuccess("検索中...");
   try{
-    if(!map){ debugLog("❌ mapオブジェクトが未定義"); showError("地図が初期化されていません"); return; }
-    debugLog("✅ mapオブジェクト存在確認");
-    if(!google || !google.maps || !google.maps.places){ debugLog("❌ google.maps.placesが未定義"); showError("Places APIが読み込まれていません"); return; }
-    debugLog("✅ google.maps.places存在確認");
+    if(!map){ showError("地図が初期化されていません"); return; }
+    if(!google||!google.maps||!google.maps.places){ showError("Places APIが読み込まれていません"); return; }
     const service=new google.maps.places.PlacesService(map);
-    debugLog("✅ PlacesService作成成功");
     const request={ query:q, location:currentLocation, radius:50000, language:"ja" };
-    debugLog(`📤 リクエスト送信: ${JSON.stringify(request)}`);
     service.textSearch(request,(results,status)=>{
-      debugLog(`📥 レスポンス受信: status=${status}`);
       if(status===google.maps.places.PlacesServiceStatus.OK&&results&&results.length>0){
-        debugLog(`✅ 検索成功: ${results.length}件`);
         const places=results.map(p=>{
-          const lat=p.geometry.location.lat();
-          const lng=p.geometry.location.lng();
+          const lat=p.geometry.location.lat(); const lng=p.geometry.location.lng();
           const fullAddr=p.formatted_address||"";
           const addrShort=fullAddr.replace(/^日本、?\s*/,"").split(/[\s　,、]/).filter(Boolean).slice(0,2).join(" ");
           const nameText=(p.name && p.name.trim()) ? p.name.trim() : (addrShort || "名称不明");
@@ -1121,20 +810,13 @@ function executeSearch(){
         }).sort((a,b)=>a.distance-b.distance).slice(0,5);
         speak(`${places.length}件の結果が見つかりました`);
         displayResults(places);
-        debugLog(`✅ displayResults()呼び出し完了`);
       }else if(status===google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
-        debugLog("⚠️ 検索結果0件");
-        showError("結果が見つかりませんでした");
-        speak("結果が見つかりませんでした");
+        showError("結果が見つかりませんでした"); speak("結果が見つかりませんでした");
       }else{
-        debugLog(`❌ 検索エラー: ${status}`);
         showError("検索エラー: "+status);
-        console.error("Places textSearch error:",status,results);
       }
     });
-    debugLog("✅ textSearch()呼び出し完了（コールバック待機中）");
   }catch(err){
-    debugLog(`💥 例外発生: ${err.message}`);
     showError("検索処理で例外が発生しました");
     console.error("executeSearch exception:",err);
   }
@@ -1142,11 +824,9 @@ function executeSearch(){
 
 function calculateDistance(lat1,lon1,lat2,lon2){
   const R=6371;
-  const dLat=(lat2-lat1)*Math.PI/180;
-  const dLon=(lon2-lon1)*Math.PI/180;
-  const a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)*Math.sin(dLon/2);
-  const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
-  return R*c;
+  const dLat=(lat2-lat1)*Math.PI/180, dLon=(lon2-lon1)*Math.PI/180;
+  const a=Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return 2*R*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
 }
 
 function displayResults(places){
@@ -1162,74 +842,54 @@ function displayResults(places){
   });
   document.getElementById("resultsPanel").style.display="block";
 }
-
 function hideResults(){ document.getElementById("resultsPanel").style.display="none"; }
 
 function selectPlace(place){
-  const lat=place.location?.latitude,lng=place.location?.longitude;
-  destMarker&&destMarker.setMap(null);
+  const lat=place.location?.latitude, lng=place.location?.longitude;
+  if(destMarker) destMarker.setMap(null);
   destMarker=new google.maps.Marker({position:{lat,lng},map});
-  map.panTo({lat,lng});
-  map.setZoom(18);
+  map.panTo({lat,lng}); map.setZoom(18);
   hideResults();
-  const controlPanel=document.getElementById("controlPanel");
-  if(controlPanel){ controlPanel.classList.add("hidden"); }
-  document.getElementById("panelToggle").classList.add("show");
+  document.getElementById("controlPanel")?.classList.add("hidden");
+  document.getElementById("panelToggle")?.classList.add("show");
   showAllElements();
-  setTimeout(()=>{ if(currentLocation&&destMarker)startNav(); },500);
+  setTimeout(()=>{ if(currentLocation&&destMarker) startNav(); },500);
 }
 
 function zoomToCurrentLocation(){
   if(!currentLocation){ speak("現在地が取得できていません"); showError("現在地が取得できていません"); return; }
-  map.panTo(currentLocation);
-  map.setZoom(18);
-  const offset = window.innerHeight * 0.25 + 20;
-  map.panBy(0, -offset);
+  map.panTo(currentLocation); map.setZoom(18);
+  const offset=window.innerHeight*0.25+20; map.panBy(0,-offset);
   speak("現在地を表示します");
 }
-
 function zoomToDestination(){
   if(!destMarker){ speak("目的地が設定されていません"); showError("目的地が設定されていません"); return; }
-  const pos=destMarker.getPosition();
-  map.panTo(pos); map.setZoom(18);
-  speak("目的地を表示");
+  const pos=destMarker.getPosition(); map.panTo(pos); map.setZoom(18); speak("目的地を表示");
 }
 
 function startNav(){
-  if(!currentLocation||!destMarker)return showError("Location or destination not set");
+  if(!currentLocation||!destMarker){ showError("Location or destination not set"); return; }
   stopAnnounced=!1;
   directionsService.route({
     origin:currentLocation,
     destination:destMarker.getPosition(),
     travelMode:google.maps.TravelMode.WALKING
   },(res,status)=>{
-    if(status!=="OK")return showError("Route failed");
-    directionsRenderer.setDirections(res);
-    isNavigating=!0;
-    const stopNavBtn=document.getElementById("stopNavBtn");
-    if(stopNavBtn){ stopNavBtn.disabled=false; }
+    if(status!=="OK"){ showError("Route failed"); return; }
+    directionsRenderer.setDirections(res); isNavigating=!0;
+    const btn=document.getElementById("stopNavBtn"); if(btn) btn.disabled=false;
     const leg=res.routes[0].legs[0];
-    const dist=(leg.distance.value/1000).toFixed(1);
-    const dur=Math.round(leg.duration.value/60);
-    const routeText=`${dist}km, ${dur}min`;
-    const routeTextEl=document.getElementById("routeText");
-    if(routeTextEl){ routeTextEl.textContent=routeText; }
-    const now=new Date();
-    const arrival=new Date(now.getTime()+leg.duration.value*1000);
-    const currentTimeEl=document.getElementById("currentTime");
-    const arrivalTimeEl=document.getElementById("arrivalTime");
-    const durationTimeEl=document.getElementById("durationTime");
-    if(currentTimeEl){ currentTimeEl.textContent=formatTime(now); }
-    if(arrivalTimeEl){ arrivalTimeEl.textContent=formatTime(arrival); }
-    if(durationTimeEl){
-      const hours=Math.floor(dur/60);
-      const mins=dur%60;
-      durationTimeEl.textContent=hours>0?`${hours}:${mins.toString().padStart(2,'0')}`:`0:${mins.toString().padStart(2,'0')}`;
+    const dist=(leg.distance.value/1000).toFixed(1); const dur=Math.round(leg.duration.value/60);
+    document.getElementById("routeText")?.textContent=`${dist}km, ${dur}min`;
+    const now=new Date(); const arrival=new Date(now.getTime()+leg.duration.value*1000);
+    const ct=document.getElementById("currentTime"); if(ct) ct.textContent=formatTime(now);
+    const at=document.getElementById("arrivalTime"); if(at) at.textContent=formatTime(arrival);
+    const dt=document.getElementById("durationTime"); if(dt){
+      const h=Math.floor(dur/60), m=dur%60; dt.textContent=h>0?`${h}:${m.toString().padStart(2,'0')}`:`0:${m.toString().padStart(2,'0')}`;
     }
     speak(`${translations[currentLang].navStart} ${dist} km, ${dur} minutes.`);
-    const controlPanel=document.getElementById("controlPanel");
-    if(controlPanel){ controlPanel.classList.add("hidden"); }
-    document.getElementById("panelToggle").classList.remove("show");
+    document.getElementById("controlPanel")?.classList.add("hidden");
+    document.getElementById("panelToggle")?.classList.remove("show");
     showAllElements();
   });
 }
@@ -1237,26 +897,21 @@ function startNav(){
 function stopNav(){
   if(!isNavigating){ speak("案内中ではありません"); return; }
   speak("案内を停止します");
-  if(!stopAnnounced){ stopAnnounced=!0; }
+  if(!stopAnnounced) stopAnnounced=!0;
   directionsRenderer.setMap(null);
   directionsRenderer=new google.maps.DirectionsRenderer({map});
   isNavigating=!1;
-  const stopNavBtn=document.getElementById("stopNavBtn");
-  if(stopNavBtn){ stopNavBtn.disabled=true; }
-  const routeTextEl=document.getElementById("routeText");
-  const arrivalTimeEl=document.getElementById("arrivalTime");
-  const durationTimeEl=document.getElementById("durationTime");
-  if(routeTextEl){ routeTextEl.textContent=translations[currentLang].setDestination; }
-  if(arrivalTimeEl){ arrivalTimeEl.textContent="--:--"; }
-  if(durationTimeEl){ durationTimeEl.textContent="--:--"; }
-  const searchBox=document.getElementById("searchBox");
-  if(searchBox){ searchBox.value=""; }
-  document.getElementById("panelToggle").classList.add("show");
+  const btn=document.getElementById("stopNavBtn"); if(btn) btn.disabled=true;
+  document.getElementById("routeText")?.textContent=translations[currentLang].setDestination;
+  const at=document.getElementById("arrivalTime"); if(at) at.textContent="--:--";
+  const dt=document.getElementById("durationTime"); if(dt) dt.textContent="--:--";
+  const sb=document.getElementById("searchBox"); if(sb) sb.value="";
+  document.getElementById("panelToggle")?.classList.add("show");
   if(currentLocation){ map.panTo(currentLocation); map.setZoom(18); }
 }
 
 function reroute(manual=!0){
-  if(!isNavigating){ if(manual)showError("Not navigating"); return; }
+  if(!isNavigating){ if(manual) showError("Not navigating"); return; }
   directionsService.route({
     origin:currentLocation,
     destination:destMarker.getPosition(),
@@ -1264,88 +919,48 @@ function reroute(manual=!0){
     provideRouteAlternatives:!0,
     avoidHighways:Math.random()>0.5
   },(res,status)=>{
-    if(status!=="OK")return showError("Reroute failed");
-    const routes=res.routes;
-    let selectedRoute=routes[0];
-    if(routes.length>1){
-      const altIndex=Math.floor(Math.random()*(routes.length-1))+1;
-      selectedRoute=routes[altIndex];
-    }
+    if(status!=="OK"){ showError("Reroute failed"); return; }
+    const routes=res.routes; let selectedRoute=routes[0];
+    if(routes.length>1){ const altIndex=Math.floor(Math.random()*(routes.length-1))+1; selectedRoute=routes[altIndex]; }
     directionsRenderer.setDirections({...res,routes:[selectedRoute]});
     const leg=selectedRoute.legs[0];
-    const dist=(leg.distance.value/1000).toFixed(1);
-    const dur=Math.round(leg.duration.value/60);
-    const routeText=`${dist}km, ${dur}min`;
-    const routeTextEl=document.getElementById("routeText");
-    if(routeTextEl){ routeTextEl.textContent=routeText; }
-    const now=new Date();
-    const arrival=new Date(now.getTime()+leg.duration.value*1000);
-    const currentTimeEl=document.getElementById("currentTime");
-    const arrivalTimeEl=document.getElementById("arrivalTime");
-    const durationTimeEl=document.getElementById("durationTime");
-    if(currentTimeEl){ currentTimeEl.textContent=formatTime(now); }
-    if(arrivalTimeEl){ arrivalTimeEl.textContent=formatTime(arrival); }
-    if(durationTimeEl){
-      const hours=Math.floor(dur/60);
-      const mins=dur%60;
-      durationTimeEl.textContent=hours>0?`${hours}:${mins.toString().padStart(2,'0')}`:`0:${mins.toString().padStart(2,'0')}`;
-    }
-    manual&&speak("Rerouting");
+    const dist=(leg.distance.value/1000).toFixed(1), dur=Math.round(leg.duration.value/60);
+    document.getElementById("routeText")?.textContent=`${dist}km, ${dur}min`;
+    const now=new Date(); const arrival=new Date(now.getTime()+leg.duration.value*1000);
+    document.getElementById("currentTime")?.textContent=formatTime(now);
+    document.getElementById("arrivalTime")?.textContent=formatTime(arrival);
+    const dt=document.getElementById("durationTime");
+    if(dt){ const h=Math.floor(dur/60), m=dur%60; dt.textContent=h>0?`${h}:${m.toString().padStart(2,'0')}`:`0:${m.toString().padStart(2,'0')}`; }
+    if(manual) speak("Rerouting");
   });
 }
 
-function formatTime(date){
-  const h=date.getHours();
-  const m=date.getMinutes().toString().padStart(2,'0');
-  return `${h}:${m}`;
-}
-
-function updateCurrentTime(){
-  const currentTimeEl=document.getElementById("currentTime");
-  if(currentTimeEl){ currentTimeEl.textContent=formatTime(new Date()); }
-}
+function formatTime(d){ const h=d.getHours(); const m=d.getMinutes().toString().padStart(2,'0'); return `${h}:${m}`; }
+function updateCurrentTime(){ const el=document.getElementById("currentTime"); if(el) el.textContent=formatTime(new Date()); }
 
 function loadSavedPoints(){
   const cookies=document.cookie.split(';');
-  for(let cookie of cookies){
-    const [name,value]=cookie.trim().split('=');
+  for(const c of cookies){
+    const [name,value]=c.trim().split('=');
     if(name==='walkNavSavedPoints'){
-      try{
-        savedPoints=JSON.parse(decodeURIComponent(value));
-      }catch(e){}
+      try{ savedPoints=JSON.parse(decodeURIComponent(value)); }catch{}
       break;
     }
   }
 }
-
-function hideSavedPoints(){
-  document.getElementById("savedPointsPanel").style.display="none";
-  showAllElements();
-}
+function hideSavedPoints(){ document.getElementById("savedPointsPanel").style.display="none"; showAllElements(); }
 
 async function fetchLocationName(){
   if(!currentLocation)return;
   try{
     const res=await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${currentLocation.lat}&lon=${currentLocation.lng}&format=json&accept-language=${currentLang}`);
     const data=await res.json();
-    let locationText="";
-    const county=data.address?.county||"";
-    const city=data.address?.city||data.address?.town||data.address?.village||"";
-    const suburb=data.address?.suburb||"";
-    const hamlet=data.address?.hamlet||"";
-    const house_number=data.address?.house_number||"";
-    if(county)locationText+=county;
-    if(city)locationText+=city;
-    if(suburb)locationText+=suburb;
-    if(hamlet)locationText+=hamlet;
-    if(house_number)locationText+=house_number;
-    if(locationText)locationText+="付近";
-    if(!locationText)locationText=translations[currentLang].loading;
-    const locationNameEl=document.getElementById("locationName");
-    if(locationNameEl){ locationNameEl.textContent=locationText; }
-  }catch(e){
-    const locationNameEl=document.getElementById("locationName");
-    if(locationNameEl){ locationNameEl.textContent=translations[currentLang].loading; }
+    let t=""; const county=data.address?.county||"", city=data.address?.city||data.address?.town||data.address?.village||"", suburb=data.address?.suburb||"", hamlet=data.address?.hamlet||"", house=data.address?.house_number||"";
+    if(county)t+=county; if(city)t+=city; if(suburb)t+=suburb; if(hamlet)t+=hamlet; if(house)t+=house;
+    if(t)t+="付近"; if(!t)t=translations[currentLang].loading;
+    const el=document.getElementById("locationName"); if(el) el.textContent=t;
+  }catch{
+    const el=document.getElementById("locationName"); if(el) el.textContent=translations[currentLang].loading;
   }
 }
 
@@ -1354,35 +969,25 @@ async function fetchWeather(){
   try{
     const res=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${currentLocation.lat}&longitude=${currentLocation.lng}&hourly=temperature_2m,precipitation_probability,weathercode&timezone=Asia/Tokyo&forecast_days=1`);
     const data=await res.json();
-    const now=new Date();
-    const currentHour=now.getHours();
-    const hours=[3,6,9,12];
-    const weatherIcons={0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",53:"🌧️",55:"🌧️",61:"🌧️",63:"🌧️",65:"🌧️",71:"🌨️",73:"🌨️",75:"🌨️",77:"🌨️",80:"🌧️",81:"🌧️",82:"🌧️",85:"🌨️",86:"🌨️",95:"⛈️",96:"⛈️",99:"⛈️"};
+    const now=new Date(), ch=now.getHours(); const hours=[3,6,9,12];
+    const icons={0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",53:"🌧️",55:"🌧️",61:"🌧️",63:"🌧️",65:"🌧️",71:"🌨️",73:"🌨️",75:"🌨️",77:"🌨️",80:"🌧️",81:"🌧️",82:"🌧️",85:"🌨️",86:"🌨️",95:"⛈️",96:"⛈️",99:"⛈️"};
     hours.forEach(h=>{
-      const targetHour=(currentHour+h)%24;
-      const idx=data.hourly.time.findIndex(t=>new Date(t).getHours()===targetHour);
+      const th=(ch+h)%24; const idx=data.hourly.time.findIndex(t=>new Date(t).getHours()===th);
       if(idx>=0){
         const temp=Math.round(data.hourly.temperature_2m[idx]);
         const rain=data.hourly.precipitation_probability[idx]||0;
-        const code=data.hourly.weathercode[idx];
-        const icon=weatherIcons[code]||"☁️";
-        const wEl=document.getElementById(`w${h}h`);
-        const tEl=document.getElementById(`t${h}h`);
-        const rEl=document.getElementById(`r${h}h`);
-        if(wEl)wEl.textContent=icon;
-        if(tEl)tEl.textContent=`${temp}°`;
-        if(rEl)rEl.textContent=`${rain}%`;
+        const code=data.hourly.weathercode[idx]; const icon=icons[code]||"☁️";
+        const w=document.getElementById(`w${h}h`), t=document.getElementById(`t${h}h`), r=document.getElementById(`r${h}h`);
+        if(w)w.textContent=icon; if(t)t.textContent=`${temp}°`; if(r)r.textContent=`${rain}%`;
       }
     });
   }catch(e){ console.error("Weather error:",e); }
   fetchIncidents();
 }
 
-let lastIncidentTime=0;
-let currentIncidentText="";
-
+let lastIncidentTime=0, currentIncidentText="";
 async function fetchIncidents(){
-  const incidents=[
+  const arr=[
     "⚠️ 現在、周辺半径5km圏内で特に報告されている事件、事故の報告はありません。",
     "☔ 降雨が予想されています。傘の準備をお勧めします。",
     "⚡ 雷注意報が発表されています。建物内への避難を検討してください。",
@@ -1391,59 +996,31 @@ async function fetchIncidents(){
     "🦌 野生動物の出没情報があります。周囲に注意してください。",
     "⚠️ 工事区間があります。迂回路の利用をお勧めします。"
   ];
-  const randomIncident=incidents[Math.floor(Math.random()*incidents.length)];
-  const now=Date.now();
-  const incidentEl=document.getElementById("incidentText");
-  if(!incidentEl)return;
-  if(randomIncident===currentIncidentText){
-    if(now-lastIncidentTime<180000){
-      incidentEl.style.animation="none";
-      incidentEl.textContent=currentIncidentText;
-      return;
-    }
+  const msg=arr[Math.floor(Math.random()*arr.length)];
+  const now=Date.now(); const el=document.getElementById("incidentText"); if(!el)return;
+  if(msg===currentIncidentText && now-lastIncidentTime<180000){
+    el.style.animation="none"; el.textContent=currentIncidentText; return;
   }
-  currentIncidentText=randomIncident;
-  lastIncidentTime=now;
-  incidentEl.textContent=randomIncident;
-  incidentEl.style.animation="marquee 20s linear infinite";
-  setTimeout(()=>{ if(incidentEl){ incidentEl.style.animation="none"; } },20000);
+  currentIncidentText=msg; lastIncidentTime=now;
+  el.textContent=msg; el.style.animation="marquee 20s linear infinite";
+  setTimeout(()=>{ if(el) el.style.animation="none"; },20000);
 }
 
 function showError(msg){
-  const el=document.getElementById("error");
-  el.textContent=msg;
-  el.classList.remove("hidden");
+  const el=document.getElementById("error"); el.textContent=msg; el.classList.remove("hidden");
   setTimeout(()=>el.classList.add("hidden"),3000);
-  debugLog("❌ ERROR: " + msg);
 }
-
 function showSuccess(msg){
-  const el=document.getElementById("success");
-  el.textContent=msg;
-  el.classList.remove("hidden");
+  const el=document.getElementById("success"); el.textContent=msg; el.classList.remove("hidden");
   setTimeout(()=>el.classList.add("hidden"),3000);
-  debugLog("✅ SUCCESS: " + msg);
-}
-
-function debugLog(msg){
-  const panel=document.getElementById("debugPanel");
-  const log=document.getElementById("debugLog");
-  const time=new Date().toLocaleTimeString();
-  log.innerHTML+=`<div>[${time}] ${msg}</div>`;
-  panel.style.display="block";
-  log.scrollTop=log.scrollHeight;
 }
 
 function speak(text){
   try{
     const u=new SpeechSynthesisUtterance(text);
-    u.lang=currentLang==="ja"?"ja-JP":"en-US";
-    u.rate=0.9;
-    speechSynthesis.speak(u);
-  }catch(e){}
+    u.lang=currentLang==="ja"?"ja-JP":"en-US"; u.rate=0.9; speechSynthesis.speak(u);
+  }catch{}
 }
-
-// initMapはGoogle Maps APIのcallback=initMapパラメータにより自動実行されます
   </script>
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=places&callback=initMap" async defer></script>
 </body>
