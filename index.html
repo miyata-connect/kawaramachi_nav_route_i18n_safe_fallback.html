@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>WalkNav B (geolocate-no-marker)</title>
+  <title>WalkNav C (watchPosition + legacy Marker)</title>
   <style>
     html,body{height:100%;margin:0;background:#0a1321}
     .app{position:relative;height:100dvh;overflow:hidden}
@@ -12,22 +12,96 @@
 </head>
 <body>
   <div class="app"><div id="map"></div></div>
+
   <script>
-    async function wait(){const s=performance.now();while(performance.now()-s<15000){if(window.google&&google.maps&&google.maps.importLibrary)return;await new Promise(r=>setTimeout(r,50));}throw new Error("gmaps timeout");}
-    let map;
+    // --- wait loader ready ---
+    async function wait(){
+      const s=performance.now();
+      while(performance.now()-s<15000){
+        if(window.google && google.maps && google.maps.importLibrary) return;
+        await new Promise(r=>setTimeout(r,50));
+      }
+      throw new Error("gmaps timeout");
+    }
+
+    let map, marker, watchId=null, gotFirstFix=false, lastFixTime=0;
+
+    // 位置が取れたら地図とマーカー更新
+    function onFix(lat,lng){
+      const p={lat,lng};
+      lastFixTime=Date.now();
+      if(!gotFirstFix){
+        map.setCenter(p);
+        gotFirstFix=true;
+      }else{
+        map.panTo(p);
+      }
+      if(!marker){
+        marker = new google.maps.Marker({map, position:p});
+      }else{
+        marker.setPosition(p);
+      }
+      // デバッグログ（画面表示はしない）
+      console.log("[geolocate] fix", p);
+    }
+
     async function init(){
       await wait();
       const [{Map}] = await Promise.all([google.maps.importLibrary('maps')]);
-      map=new Map(document.getElementById('map'),{center:{lat:35.681236,lng:139.767125},zoom:16,disableDefaultUI:true});
-      if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition(p=>{
-          const c={lat:p.coords.latitude,lng:p.coords.longitude};
-          map.setCenter(c); // ← パンのみ
-        },e=>console.warn(e),{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+
+      map = new Map(document.getElementById('map'), {
+        center:{lat:35.681236,lng:139.767125}, // 東京駅フォールバック
+        zoom:16,
+        disableDefaultUI:true,
+        clickableIcons:true,
+        heading:0, tilt:0
+      });
+
+      if(!navigator.geolocation){
+        console.warn("Geolocation not available");
+        return;
+      }
+
+      // まず単発で1回だけ取りに行く（早く掴める端末向け）
+      navigator.geolocation.getCurrentPosition(
+        p=>onFix(p.coords.latitude, p.coords.longitude),
+        e=>console.warn("[getCurrentPosition] error", e),
+        {enableHighAccuracy:true, timeout:10000, maximumAge:0}
+      );
+
+      // 継続追尾（端末が動いた/精度更新で都度通知）
+      watchId = navigator.geolocation.watchPosition(
+        p=>onFix(p.coords.latitude, p.coords.longitude),
+        e=>console.warn("[watchPosition] error", e),
+        {enableHighAccuracy:true, timeout:20000, maximumAge:0}
+      );
+
+      // もし一定時間Fixが来なければ自動再試行（権限OKでも端末実装で沈黙することがあるため）
+      setInterval(()=>{
+        const stale = Date.now() - lastFixTime > 15000; // 15秒沈黙なら単発再トライ
+        if(stale){
+          navigator.geolocation.getCurrentPosition(
+            p=>onFix(p.coords.latitude, p.coords.longitude),
+            e=>console.warn("[retry getCurrentPosition] error", e),
+            {enableHighAccuracy:true, timeout:8000, maximumAge:0}
+          );
+        }
+      }, 5000);
+
+      // 権限状態をログ（画面は汚さない）
+      if(navigator.permissions && navigator.permissions.query){
+        try{
+          const perm = await navigator.permissions.query({name:"geolocation"});
+          console.log("[permissions] geolocation:", perm.state);
+          perm.onchange = ()=>console.log("[permissions] changed:", perm.state);
+        }catch(_){}
       }
     }
+
     init();
   </script>
+
+  <!-- async loader: no libraries=, no callback, legacy Marker only -->
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAC8S1q0X9qaUz08kZiGFxkcwmdTi-_hlo&v=weekly&language=ja&region=JP&loading=async"></script>
 </body>
 </html>
