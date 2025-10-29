@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>WalkNav A (map only)</title>
+  <title>WalkNav B (geolocate-no-marker)</title>
   <style>
     html,body{height:100%;margin:0;background:#0a1321}
     .app{position:relative;height:100dvh;overflow:hidden}
@@ -14,12 +14,17 @@
   <div class="app"><div id="map"></div></div>
   <script>
     async function wait(){const s=performance.now();while(performance.now()-s<15000){if(window.google&&google.maps&&google.maps.importLibrary)return;await new Promise(r=>setTimeout(r,50));}throw new Error("gmaps timeout");}
+    let map;
     async function init(){
       await wait();
       const [{Map}] = await Promise.all([google.maps.importLibrary('maps')]);
-      new Map(document.getElementById('map'),{
-        center:{lat:35.681236,lng:139.767125},zoom:16,disableDefaultUI:true,clickableIcons:true
-      });
+      map=new Map(document.getElementById('map'),{center:{lat:35.681236,lng:139.767125},zoom:16,disableDefaultUI:true});
+      if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(p=>{
+          const c={lat:p.coords.latitude,lng:p.coords.longitude};
+          map.setCenter(c); // ← パンのみ
+        },e=>console.warn(e),{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+      }
     }
     init();
   </script>
