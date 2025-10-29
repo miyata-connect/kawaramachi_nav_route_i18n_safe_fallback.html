@@ -1,209 +1,48 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>WalkNav v5</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WalkNav - API Test</title>
   <style>
-    :root{
-      --glass: rgba(20,28,44,.7);
-      --glass-strong: rgba(16,22,36,.85);
-      --stroke: rgba(255,255,255,.14);
-      --text: #eaf2ff;
-      --muted:#a7b8ce;
-      --primary:#5fb1ff;
-      --ok:#25d07a;
-      --danger:#ff6565;
-      --accent:#64d2ff;
+    html,body{height:100%;margin:0;padding:0;}
+    #map{height:100%;width:100%;}
+    .status{
+      position:absolute;top:10px;left:10px;
+      background:rgba(0,0,0,0.6);
+      color:#fff;padding:6px 10px;
+      font-family:system-ui,sans-serif;
+      border-radius:6px;font-size:14px;
+      z-index:9999;
     }
-    html,body{height:100%;margin:0;background:#0a1321;color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
-    *{box-sizing:border-box}
-    .app{position:relative;height:100dvh;overflow:hidden}
-    #map{position:absolute;inset:0}
-
-    /* Top info panel (kept as-is) */
-    .info-panel{
-      position:absolute;left:12px;right:12px;top:12px;
-      background:var(--glass-strong);border:1px solid var(--stroke);
-      border-radius:18px;padding:16px 18px 14px;backdrop-filter:blur(10px);
-      box-shadow:0 10px 30px rgba(0,0,0,.25)
-    }
-    .info-title{font-size:28px;font-weight:800;letter-spacing:.02em;margin:0 0 6px}
-    .info-sub{color:var(--muted);font-size:14px;margin:0 0 10px}
-    .warn{display:inline-block;background:#e85d5d; color:#fff;font-weight:700;border-radius:12px;padding:6px 12px;margin:4px 0}
-    .row{display:flex;gap:18px;align-items:baseline;margin-top:6px}
-    .kv{min-width:88px}
-    .kv .k{font-size:13px;color:var(--muted)}
-    .kv .v{font-size:20px;font-weight:700}
-    .coords{margin-top:10px;font-weight:600}
-
-    /* Right buttons (kept as-is) */
-    .fab-stack{position:absolute;right:12px;bottom:84px;display:flex;flex-direction:column;gap:14px}
-    .fab{
-      width:92px;height:92px;border-radius:22px;
-      display:flex;align-items:center;justify-content:center;flex-direction:column;
-      background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-      border:1px solid var(--stroke);box-shadow:0 8px 24px rgba(0,0,0,.28);
-      backdrop-filter:blur(10px);user-select:none;-webkit-tap-highlight-color:transparent
-    }
-    .fab span{margin-top:8px;font-size:14px;font-weight:700}
-    .fab:active{transform:translateY(1px)}
-    .fab[data-type="current"]{background:linear-gradient(180deg, rgba(95,177,255,.25), rgba(95,177,255,.08))}
-    .fab[data-type="search"]{background:linear-gradient(180deg, rgba(100,210,255,.25), rgba(100,210,255,.08))}
-    .fab[data-type="stop"]{background:linear-gradient(180deg, rgba(255,101,101,.25), rgba(255,101,101,.08))}
-    .fab[data-type="dest"]{background:linear-gradient(180deg, rgba(255,193,79,.25), rgba(255,193,79,.08))}
-    .fab[data-type="reroute"]{background:linear-gradient(180deg, rgba(37,208,122,.25), rgba(37,208,122,.08))}
-    .fab[data-type="ops"]{background:linear-gradient(180deg, rgba(151,202,255,.25), rgba(151,202,255,.08))}
-
-    /* Loading overlay */
-    .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0a1321;z-index:1000;transition:opacity .25s ease}
-    .loading.hide{opacity:0;pointer-events:none}
-    .loading-msg{color:#d7e6ff;text-align:center;line-height:1.8}
-    .loading-msg .big{display:block;font-size:26px;font-weight:800;margin-bottom:6px}
-
-    /* Toast */
-    .toast{
-      position:absolute;left:16px;right:16px;bottom:14px;background:#ff6b6b;color:#fff;
-      border-radius:14px;padding:12px 16px;text-align:center;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.28);
-      opacity:0;transform:translateY(8px);transition:opacity .25s, transform .25s
-    }
-    .toast.show{opacity:1;transform:translateY(0)}
   </style>
 </head>
 <body>
-  <div class="app">
-    <div id="map" aria-label="map"></div>
-
-    <section class="info-panel" id="infoPanel" aria-live="polite">
-      <h1 class="info-title">目的地を設定してください</h1>
-      <p class="info-sub">半径5km圏内の情報を表示しています。</p>
-      <div class="warn" id="headlineWarn" style="display:none;"></div>
-      <div class="row">
-        <div class="kv"><div class="k">現在時刻</div><div class="v" id="nowTime">--:--</div></div>
-        <div class="kv"><div class="k">到着予想</div><div class="v" id="eta">--:--</div></div>
-        <div class="kv"><div class="k">所要時間</div><div class="v" id="ttime">--:--</div></div>
-      </div>
-      <h2 id="areaTitle" style="margin:12px 0 6px;font-size:24px;">-</h2>
-      <div class="coords" id="coordLabel">📍 緯度: -- / 経度: --</div>
-    </section>
-
-    <nav class="fab-stack" aria-label="actions">
-      <button class="fab" id="btnCurrent" data-type="current" aria-label="現在地"><div>📍</div><span>現在地</span></button>
-      <button class="fab" id="btnSearch"  data-type="search"  aria-label="検索"><div>🔍</div><span>検索</span></button>
-      <button class="fab" id="btnStop"    data-type="stop"    aria-label="案内停止"><div>⏸️</div><span>案内停止</span></button>
-      <button class="fab" id="btnDest"    data-type="dest"    aria-label="目的地"><div>📌</div><span>目的地</span></button>
-      <button class="fab" id="btnReroute" data-type="reroute" aria-label="リルート"><div>🔄</div><span>リルート</span></button>
-      <button class="fab" id="btnOps"     data-type="ops"     aria-label="操作"><div>🔧</div><span>操作</span></button>
-    </nav>
-
-    <div class="loading" id="loading">
-      <div class="loading-msg">
-        <span class="big">現在地取得中…</span>
-        もうしばらくお待ちください。
-      </div>
-    </div>
-
-    <div class="toast" id="toast">初期化エラー</div>
-  </div>
+  <div id="map"></div>
+  <div class="status" id="status">Loading map...</div>
 
   <script>
-    // Toast helper
-    const toastEl = document.getElementById('toast');
-    function showToast(msg, ms=2400){
-      toastEl.textContent = msg;
-      toastEl.classList.add('show');
-      clearTimeout(showToast._t);
-      showToast._t = setTimeout(()=>toastEl.classList.remove('show'), ms);
-    }
-
-    // Clock
-    const nowTime = document.getElementById('nowTime');
-    function tickClock(){
-      const d = new Date();
-      const hh = String(d.getHours()).padStart(2,'0');
-      const mm = String(d.getMinutes()).padStart(2,'0');
-      nowTime.textContent = `${hh}:${mm}`;
-    }
-    setInterval(tickClock, 1000); tickClock();
-
-    // Loading
-    const loading = document.getElementById('loading');
-    function hideLoading(){ loading.classList.add('hide'); }
-
-    // Wait for new async loader to be ready
-    async function waitForGoogleMaps(timeoutMs=15000){
-      const t0 = performance.now();
-      while (performance.now() - t0 < timeoutMs){
-        if (window.google && google.maps && google.maps.importLibrary) return true;
-        await new Promise(r=>setTimeout(r, 50));
-      }
-      throw new Error('Google Maps failed to load (timeout).');
-    }
-
-    let map, currentMarker;
-    const coordLabel = document.getElementById('coordLabel');
-    const areaTitle  = document.getElementById('areaTitle');
-
-    async function initApp(){
-      try{
-        await waitForGoogleMaps();
-        const [{Map}, {AdvancedMarkerElement}] = await Promise.all([
-          google.maps.importLibrary('maps'),
-          google.maps.importLibrary('marker')
-        ]);
-
-        map = new Map(document.getElementById('map'), {
-          center:{lat:35.681236,lng:139.767125}, // fallback
-          zoom:16, disableDefaultUI:true, clickableIcons:true, heading:0, tilt:0
-        });
-
-        // Geolocation: success/fail both clear loading
-        if (navigator.geolocation){
-          navigator.geolocation.getCurrentPosition(pos=>{
-            const p = {lat:pos.coords.latitude, lng:pos.coords.longitude};
-            map.setCenter(p);
-            if (currentMarker) currentMarker.map = null;
-            currentMarker = new AdvancedMarkerElement({map, position:p});
-            coordLabel.textContent = `📍 緯度: ${p.lat.toFixed(6)} / 経度: ${p.lng.toFixed(6)}`;
-            areaTitle.textContent = '付近';
-            hideLoading();
-          }, err=>{
-            showToast(`位置エラー: ${err.message}`);
-            hideLoading();
-          }, {enableHighAccuracy:true, timeout:15000, maximumAge:0});
-        }else{
-          showToast('この端末では位置情報が利用できません');
-          hideLoading();
-        }
-
-        // Buttons (behavior minimal; UI unchanged)
-        document.getElementById('btnCurrent').onclick = ()=>{
-          if (!navigator.geolocation){ showToast('位置情報が無効です'); return; }
-          navigator.geolocation.getCurrentPosition(pos=>{
-            const p={lat:pos.coords.latitude,lng:pos.coords.longitude};
-            map.panTo(p);
-            if (currentMarker) currentMarker.position = p;
-            coordLabel.textContent = `📍 緯度: ${p.lat.toFixed(6)} / 経度: ${p.lng.toFixed(6)}`;
-          }, err=> showToast(`位置エラー: ${err.message}`));
-        };
-        document.getElementById('btnSearch').onclick = ()=> showToast('検索は準備中（UI不変）');
-        document.getElementById('btnStop').onclick   = ()=> showToast('案内停止');
-        document.getElementById('btnDest').onclick   = ()=> showToast('目的地');
-        document.getElementById('btnReroute').onclick= ()=> showToast('リルート');
-        document.getElementById('btnOps').onclick    = ()=> showToast('操作');
-
-      }catch(e){
-        console.error(e);
-        showToast('初期化エラー');
-        hideLoading();
-      }
-    }
-
-    // Start
-    initApp();
+  const statusBox=document.getElementById("status");
+  function initMap(){
+    const map=new google.maps.Map(document.getElementById("map"),{
+      center:{lat:35.681236,lng:139.767125},
+      zoom:15,
+      mapId:"DEMO_MAP_ID"
+    });
+    new google.maps.Marker({
+      position:{lat:35.681236,lng:139.767125},
+      map:map,
+      title:"Tokyo Station"
+    });
+    statusBox.textContent="✅ Google Maps loaded successfully.";
+  }
+  window.gm_authFailure=function(){
+    statusBox.textContent="❌ API key authentication failed.";
+  };
   </script>
 
-  <!-- Google Maps JS API: new async loader (no callback, no libraries=) -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAC8S1q0X9qaUz08kZiGFxkcwmdTi-_hlo&v=weekly&language=ja&region=JP&loading=async"></script>
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAC8S1q0X9qaUz08kZiGFxkcwmdTi-_hlo&callback=initMap&libraries=places">
+  </script>
 </body>
 </html>
