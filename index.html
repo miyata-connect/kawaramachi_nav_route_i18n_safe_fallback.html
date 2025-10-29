@@ -21,7 +21,7 @@
     .app{position:relative;height:100dvh;overflow:hidden}
     #map{position:absolute;inset:0}
 
-    /* Top info panel (unchanged layout) */
+    /* Top info panel (kept as-is) */
     .info-panel{
       position:absolute;left:12px;right:12px;top:12px;
       background:var(--glass-strong);border:1px solid var(--stroke);
@@ -30,25 +30,21 @@
     }
     .info-title{font-size:28px;font-weight:800;letter-spacing:.02em;margin:0 0 6px}
     .info-sub{color:var(--muted);font-size:14px;margin:0 0 10px}
-    .warn{display:inline-block;background:#e85d5d; color:#fff;font-weight:700;
-      border-radius:12px;padding:6px 12px;margin:4px 0}
+    .warn{display:inline-block;background:#e85d5d; color:#fff;font-weight:700;border-radius:12px;padding:6px 12px;margin:4px 0}
     .row{display:flex;gap:18px;align-items:baseline;margin-top:6px}
     .kv{min-width:88px}
     .kv .k{font-size:13px;color:var(--muted)}
     .kv .v{font-size:20px;font-weight:700}
-
     .coords{margin-top:10px;font-weight:600}
 
-    /* Right button stack (unchanged layout & ids) */
-    .fab-stack{
-      position:absolute;right:12px;bottom:84px;display:flex;flex-direction:column;gap:14px;
-    }
+    /* Right buttons (kept as-is) */
+    .fab-stack{position:absolute;right:12px;bottom:84px;display:flex;flex-direction:column;gap:14px}
     .fab{
       width:92px;height:92px;border-radius:22px;
       display:flex;align-items:center;justify-content:center;flex-direction:column;
       background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
       border:1px solid var(--stroke);box-shadow:0 8px 24px rgba(0,0,0,.28);
-      backdrop-filter:blur(10px); user-select:none; -webkit-tap-highlight-color: transparent;
+      backdrop-filter:blur(10px);user-select:none;-webkit-tap-highlight-color:transparent
     }
     .fab span{margin-top:8px;font-size:14px;font-weight:700}
     .fab:active{transform:translateY(1px)}
@@ -59,14 +55,13 @@
     .fab[data-type="reroute"]{background:linear-gradient(180deg, rgba(37,208,122,.25), rgba(37,208,122,.08))}
     .fab[data-type="ops"]{background:linear-gradient(180deg, rgba(151,202,255,.25), rgba(151,202,255,.08))}
 
-    /* Loading overlay (unchanged text) */
-    .loading{
-      position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-      background:#0a1321;z-index:1000;transition:opacity .25s ease;
-    }
+    /* Loading overlay */
+    .loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0a1321;z-index:1000;transition:opacity .25s ease}
     .loading.hide{opacity:0;pointer-events:none}
     .loading-msg{color:#d7e6ff;text-align:center;line-height:1.8}
     .loading-msg .big{display:block;font-size:26px;font-weight:800;margin-bottom:6px}
+
+    /* Toast */
     .toast{
       position:absolute;left:16px;right:16px;bottom:14px;background:#ff6b6b;color:#fff;
       border-radius:14px;padding:12px 16px;text-align:center;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.28);
@@ -93,24 +88,12 @@
     </section>
 
     <nav class="fab-stack" aria-label="actions">
-      <button class="fab" id="btnCurrent" data-type="current" aria-label="現在地">
-        <div>📍</div><span>現在地</span>
-      </button>
-      <button class="fab" id="btnSearch" data-type="search" aria-label="検索">
-        <div>🔍</div><span>検索</span>
-      </button>
-      <button class="fab" id="btnStop" data-type="stop" aria-label="案内停止">
-        <div>⏸️</div><span>案内停止</span>
-      </button>
-      <button class="fab" id="btnDest" data-type="dest" aria-label="目的地">
-        <div>📌</div><span>目的地</span>
-      </button>
-      <button class="fab" id="btnReroute" data-type="reroute" aria-label="リルート">
-        <div>🔄</div><span>リルート</span>
-      </button>
-      <button class="fab" id="btnOps" data-type="ops" aria-label="操作">
-        <div>🔧</div><span>操作</span>
-      </button>
+      <button class="fab" id="btnCurrent" data-type="current" aria-label="現在地"><div>📍</div><span>現在地</span></button>
+      <button class="fab" id="btnSearch"  data-type="search"  aria-label="検索"><div>🔍</div><span>検索</span></button>
+      <button class="fab" id="btnStop"    data-type="stop"    aria-label="案内停止"><div>⏸️</div><span>案内停止</span></button>
+      <button class="fab" id="btnDest"    data-type="dest"    aria-label="目的地"><div>📌</div><span>目的地</span></button>
+      <button class="fab" id="btnReroute" data-type="reroute" aria-label="リルート"><div>🔄</div><span>リルート</span></button>
+      <button class="fab" id="btnOps"     data-type="ops"     aria-label="操作"><div>🔧</div><span>操作</span></button>
     </nav>
 
     <div class="loading" id="loading">
@@ -124,7 +107,7 @@
   </div>
 
   <script>
-    // --- Helper: show/hide toast ---
+    // Toast helper
     const toastEl = document.getElementById('toast');
     function showToast(msg, ms=2400){
       toastEl.textContent = msg;
@@ -133,108 +116,94 @@
       showToast._t = setTimeout(()=>toastEl.classList.remove('show'), ms);
     }
 
-    // --- Strict: wait for new async loader to be ready ---
-    async function waitForGoogleMaps(timeoutMs = 15000){
-      const start = performance.now();
-      while (performance.now() - start < timeoutMs){
-        if (window.google && google.maps && google.maps.importLibrary){
-          return true;
-        }
-        await new Promise(r=>setTimeout(r, 50));
-      }
-      throw new Error("Google Maps failed to load (timeout).");
-    }
-
-    // --- App State ---
-    let map, currentMarker;
-    const coordLabel = document.getElementById('coordLabel');
-    const areaTitle = document.getElementById('areaTitle');
+    // Clock
     const nowTime = document.getElementById('nowTime');
-    const loading = document.getElementById('loading');
-
     function tickClock(){
-      const d=new Date();
-      const hh=String(d.getHours()).padStart(2,'0');
-      const mm=String(d.getMinutes()).padStart(2,'0');
+      const d = new Date();
+      const hh = String(d.getHours()).padStart(2,'0');
+      const mm = String(d.getMinutes()).padStart(2,'0');
       nowTime.textContent = `${hh}:${mm}`;
     }
     setInterval(tickClock, 1000); tickClock();
 
+    // Loading
+    const loading = document.getElementById('loading');
     function hideLoading(){ loading.classList.add('hide'); }
 
-    // --- Initialize after loader is ready ---
+    // Wait for new async loader to be ready
+    async function waitForGoogleMaps(timeoutMs=15000){
+      const t0 = performance.now();
+      while (performance.now() - t0 < timeoutMs){
+        if (window.google && google.maps && google.maps.importLibrary) return true;
+        await new Promise(r=>setTimeout(r, 50));
+      }
+      throw new Error('Google Maps failed to load (timeout).');
+    }
+
+    let map, currentMarker;
+    const coordLabel = document.getElementById('coordLabel');
+    const areaTitle  = document.getElementById('areaTitle');
+
     async function initApp(){
       try{
-        await waitForGoogleMaps(); // ensure loader ready
-
+        await waitForGoogleMaps();
         const [{Map}, {AdvancedMarkerElement}] = await Promise.all([
           google.maps.importLibrary('maps'),
           google.maps.importLibrary('marker')
         ]);
 
-        map = new Map(document.getElementById('map'),{
-          center:{lat:35.681236,lng:139.767125}, // fallback: Tokyo
-          zoom:16, mapId: undefined, // keep as-is (no design change)
-          disableDefaultUI:true, clickableIcons:true,
-          heading:0, tilt:0
+        map = new Map(document.getElementById('map'), {
+          center:{lat:35.681236,lng:139.767125}, // fallback
+          zoom:16, disableDefaultUI:true, clickableIcons:true, heading:0, tilt:0
         });
 
-        // Geolocation: success/fail both end loading (no freeze)
+        // Geolocation: success/fail both clear loading
         if (navigator.geolocation){
-          navigator.geolocation.getCurrentPosition(async pos=>{
-            const lat = pos.coords.latitude;
-            const lng = pos.coords.longitude;
-            map.setCenter({lat,lng});
-
-            // Advanced Marker (no UI change in our styling)
-            if (currentMarker){ currentMarker.map = null; }
-            currentMarker = new AdvancedMarkerElement({
-              map, position:{lat,lng}
-            });
-
-            coordLabel.textContent = `📍 緯度: ${lat.toFixed(6)} / 経度: ${lng.toFixed(6)}`;
+          navigator.geolocation.getCurrentPosition(pos=>{
+            const p = {lat:pos.coords.latitude, lng:pos.coords.longitude};
+            map.setCenter(p);
+            if (currentMarker) currentMarker.map = null;
+            currentMarker = new AdvancedMarkerElement({map, position:p});
+            coordLabel.textContent = `📍 緯度: ${p.lat.toFixed(6)} / 経度: ${p.lng.toFixed(6)}`;
             areaTitle.textContent = '付近';
             hideLoading();
           }, err=>{
             showToast(`位置エラー: ${err.message}`);
-            hideLoading(); // important: do not freeze
+            hideLoading();
           }, {enableHighAccuracy:true, timeout:15000, maximumAge:0});
         }else{
-          showToast("この端末では位置情報が利用できません");
+          showToast('この端末では位置情報が利用できません');
           hideLoading();
         }
 
-        // Wire buttons (no behavior change beyond safety)
+        // Buttons (behavior minimal; UI unchanged)
         document.getElementById('btnCurrent').onclick = ()=>{
-          if (!navigator.geolocation){ showToast("位置情報が無効です"); return; }
+          if (!navigator.geolocation){ showToast('位置情報が無効です'); return; }
           navigator.geolocation.getCurrentPosition(pos=>{
             const p={lat:pos.coords.latitude,lng:pos.coords.longitude};
             map.panTo(p);
-            if (currentMarker){ currentMarker.position = p; }
+            if (currentMarker) currentMarker.position = p;
             coordLabel.textContent = `📍 緯度: ${p.lat.toFixed(6)} / 経度: ${p.lng.toFixed(6)}`;
           }, err=> showToast(`位置エラー: ${err.message}`));
         };
-        document.getElementById('btnSearch').onclick = ()=>{ showToast("検索は内部のみ準備済（UI不変）"); };
-        document.getElementById('btnStop').onclick = ()=>{ showToast("案内停止"); };
-        document.getElementById('btnDest').onclick = ()=>{ showToast("目的地"); };
-        document.getElementById('btnReroute').onclick = ()=>{ showToast("リルート"); };
-        document.getElementById('btnOps').onclick = ()=>{ showToast("操作"); };
+        document.getElementById('btnSearch').onclick = ()=> showToast('検索は準備中（UI不変）');
+        document.getElementById('btnStop').onclick   = ()=> showToast('案内停止');
+        document.getElementById('btnDest').onclick   = ()=> showToast('目的地');
+        document.getElementById('btnReroute').onclick= ()=> showToast('リルート');
+        document.getElementById('btnOps').onclick    = ()=> showToast('操作');
 
       }catch(e){
         console.error(e);
-        showToast("初期化エラー");
+        showToast('初期化エラー');
         hideLoading();
       }
     }
 
-    // Kick after script tag (async loader) starts fetching
-    // We do NOT use callback=initMap; we rely on importLibrary + loader=async.
+    // Start
     initApp();
   </script>
 
-  <!-- New async loader: single include, no libraries=, no callback -->
-  <script async
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBL0GqXFRLHu9DY-0zWGuGBYJrUHhIGZcs&v=weekly&language=ja&region=JP&loading=async">
-  </script>
+  <!-- Google Maps JS API: new async loader (no callback, no libraries=) -->
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAC8S1q0X9qaUz08kZiGFxkcwmdTi-_hlo&v=weekly&language=ja&region=JP&loading=async"></script>
 </body>
 </html>
