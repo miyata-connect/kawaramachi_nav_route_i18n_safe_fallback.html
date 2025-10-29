@@ -9,49 +9,14 @@
     *{box-sizing:border-box}
     .app{position:relative;height:100dvh;overflow:hidden}
     #map{position:absolute;inset:0}
-
-    .loading{
-      position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-      background:#0a1321;z-index:1000;transition:opacity .25s ease;
-    }
-    .loading.hide{opacity:0;pointer-events:none}
-    .loading-msg{color:#d7e6ff;text-align:center;line-height:1.8}
-    .loading-msg .big{display:block;font-size:26px;font-weight:800;margin-bottom:6px}
-
-    .toast{
-      position:absolute;left:16px;right:16px;bottom:14px;background:#ff6b6b;color:#fff;
-      border-radius:14px;padding:12px 16px;text-align:center;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.28);
-      opacity:0;transform:translateY(8px);transition:opacity .25s, transform .25s
-    }
-    .toast.show{opacity:1;transform:translateY(0)}
   </style>
 </head>
 <body>
   <div class="app">
     <div id="map" aria-label="map"></div>
-
-    <div class="loading" id="loading">
-      <div class="loading-msg">
-        <span class="big">現在地取得中…</span>
-        もうしばらくお待ちください。
-      </div>
-    </div>
-
-    <div class="toast" id="toast">初期化エラー</div>
   </div>
 
   <script>
-    const toastEl = document.getElementById('toast');
-    function showToast(msg, ms=2400){
-      toastEl.textContent = msg;
-      toastEl.classList.add('show');
-      clearTimeout(showToast._t);
-      showToast._t = setTimeout(()=>toastEl.classList.remove('show'), ms);
-    }
-
-    const loading=document.getElementById('loading');
-    function hideLoading(){ loading.classList.add('hide'); }
-
     async function waitForGoogleMaps(timeoutMs=15000){
       const start=performance.now();
       while(performance.now()-start<timeoutMs){
@@ -72,7 +37,9 @@
 
         map=new Map(document.getElementById('map'),{
           center:{lat:35.681236,lng:139.767125},
-          zoom:16,disableDefaultUI:true,clickableIcons:true
+          zoom:16,
+          disableDefaultUI:true,
+          clickableIcons:true
         });
 
         if(navigator.geolocation){
@@ -80,20 +47,14 @@
             const p={lat:pos.coords.latitude,lng:pos.coords.longitude};
             map.setCenter(p);
             new AdvancedMarkerElement({map,position:p});
-            hideLoading();
           },err=>{
-            showToast(`位置エラー: ${err.message}`);
-            hideLoading();
-          });
+            console.warn("Geolocation error:", err);
+          },{enableHighAccuracy:true,timeout:15000,maximumAge:0});
         }else{
-          showToast("この端末では位置情報が利用できません");
-          hideLoading();
+          console.warn("Geolocation unavailable on this device.");
         }
-
       }catch(e){
         console.error(e);
-        showToast("初期化エラー");
-        hideLoading();
       }
     }
     initApp();
