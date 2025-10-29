@@ -210,7 +210,7 @@
           navigator.geolocation.getCurrentPosition(pos=>{
             const p={lat:pos.coords.latitude,lng:pos.coords.longitude};
             map.panTo(p);
-            if (currentMarker){ currentMarker.position = p; } 
+            if (currentMarker){ currentMarker.position = p; }
             coordLabel.textContent = `📍 緯度: ${p.lat.toFixed(6)} / 経度: ${p.lng.toFixed(6)}`;
           }, err=> showToast(`位置エラー: ${err.message}`));
         };
@@ -234,7 +234,7 @@
 
   <!-- New async loader: single include, no libraries=, no callback -->
   <script async
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=ja&region=JP&loading=async">
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBL0GqXFRLHu9DY-0zWGuGBYJrUHhIGZcs&v=weekly&language=ja&region=JP&loading=async">
   </script>
 </body>
 </html>
