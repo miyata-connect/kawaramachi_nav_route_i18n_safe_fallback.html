@@ -3,65 +3,26 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>WalkNav Minimal</title>
+  <title>WalkNav A (map only)</title>
   <style>
-    html,body{height:100%;margin:0;background:#0a1321;color:#eaf2ff;font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
-    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:#0a1321}
     .app{position:relative;height:100dvh;overflow:hidden}
     #map{position:absolute;inset:0}
   </style>
 </head>
 <body>
-  <div class="app">
-    <div id="map" aria-label="map"></div>
-  </div>
-
+  <div class="app"><div id="map"></div></div>
   <script>
-    async function waitForGoogleMaps(timeoutMs=15000){
-      const start=performance.now();
-      while(performance.now()-start<timeoutMs){
-        if(window.google&&google.maps&&google.maps.importLibrary) return true;
-        await new Promise(r=>setTimeout(r,50));
-      }
-      throw new Error("Google Maps failed to load (timeout).");
+    async function wait(){const s=performance.now();while(performance.now()-s<15000){if(window.google&&google.maps&&google.maps.importLibrary)return;await new Promise(r=>setTimeout(r,50));}throw new Error("gmaps timeout");}
+    async function init(){
+      await wait();
+      const [{Map}] = await Promise.all([google.maps.importLibrary('maps')]);
+      new Map(document.getElementById('map'),{
+        center:{lat:35.681236,lng:139.767125},zoom:16,disableDefaultUI:true,clickableIcons:true
+      });
     }
-
-    let map;
-    async function initApp(){
-      try{
-        await waitForGoogleMaps();
-        const [{Map},{AdvancedMarkerElement}] = await Promise.all([
-          google.maps.importLibrary('maps'),
-          google.maps.importLibrary('marker')
-        ]);
-
-        map=new Map(document.getElementById('map'),{
-          center:{lat:35.681236,lng:139.767125},
-          zoom:16,
-          disableDefaultUI:true,
-          clickableIcons:true
-        });
-
-        if(navigator.geolocation){
-          navigator.geolocation.getCurrentPosition(pos=>{
-            const p={lat:pos.coords.latitude,lng:pos.coords.longitude};
-            map.setCenter(p);
-            new AdvancedMarkerElement({map,position:p});
-          },err=>{
-            console.warn("Geolocation error:", err);
-          },{enableHighAccuracy:true,timeout:15000,maximumAge:0});
-        }else{
-          console.warn("Geolocation unavailable on this device.");
-        }
-      }catch(e){
-        console.error(e);
-      }
-    }
-    initApp();
+    init();
   </script>
-
-  <script async
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAC8S1q0X9qaUz08kZiGFxkcwmdTi-_hlo&v=weekly&language=ja&region=JP&loading=async">
-  </script>
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAC8S1q0X9qaUz08kZiGFxkcwmdTi-_hlo&v=weekly&language=ja&region=JP&loading=async"></script>
 </body>
 </html>
