@@ -6,21 +6,20 @@
   <title>WalkNav</title>
   <style>
     :root{
-      --bg:#0a1321;
-      --text:#eaf2ff;
-      --muted:#a7b8ce;
-      --accent:#5fb1ff;
-      --glass: rgba(20,28,44,.78);
-      --stroke: rgba(255,255,255,.12);
-      --ok:#25d07a;
-      --danger:#ff6565;
+      --bg:#0a1321; --text:#eaf2ff; --muted:#a7b8ce; --accent:#5fb1ff;
+      --glass: rgba(20,28,44,.78); --stroke: rgba(255,255,255,.12);
+      --ok:#25d07a; --danger:#ff6565;
+      --right-pad:128px; /* keep clear space for right-side buttons */
     }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     *{box-sizing:border-box}
     .app{position:relative;height:100dvh;overflow:hidden}
     #map{position:absolute;inset:0}
+
+    /* Top overlay: shifted left to avoid right buttons */
     .overlay{
-      position:absolute;left:12px;right:12px;top:12px;
+      position:absolute;left:12px;right:var(--right-pad);top:12px;
       padding:12px 14px;border-radius:16px;background:var(--glass);
       border:1px solid var(--stroke);backdrop-filter:blur(6px);z-index:5
     }
@@ -28,40 +27,52 @@
     .small{color:var(--muted);font-size:12px}
     .inputs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
     .inputs input[type="text"]{
-      flex:1 1 280px;height:40px;border-radius:10px;border:1px solid var(--stroke);
+      flex:1 1 260px;height:40px;border-radius:10px;border:1px solid var(--stroke);
       background:rgba(0,0,0,.25);color:var(--text);padding:0 12px;outline:none
     }
     .inputs select,.inputs label.btnlike{
       height:40px;border-radius:10px;border:1px solid var(--stroke);background:rgba(0,0,0,.25);
-      color:var(--text);padding:0 10px;display:flex;align-items:center;gap:6px
+      color:var(--text);padding:0 10px;display:flex;align-items:center;gap:6px;user-select:none
     }
     .inputs button{
       height:40px;border-radius:10px;border:1px solid var(--stroke);
       background:var(--accent);color:#08121f;font-weight:700;padding:0 14px;cursor:pointer
     }
+    .inputs button#clearList{background:#cbd5e1;color:#0b1220}
+
+    /* Results list keeps clear from right buttons and bottom buttons area */
+    .list{
+      position:absolute;left:12px;right:var(--right-pad);top:120px;max-height:45vh;overflow:auto;
+      background:rgba(0,0,0,.4);backdrop-filter:blur(6px);border:1px solid var(--stroke);
+      border-radius:14px;display:none;z-index:4
+    }
+    .item{padding:14px 16px;border-bottom:1px solid var(--stroke);cursor:pointer}
+    .item:hover{background:rgba(255,255,255,.06)}
+    .title{font-weight:700}
+    .meta{font-size:12px;color:var(--muted);margin-top:4px}
+
+    /* Right buttons: smaller and spaced, no overlap with overlays */
     .pill{
-      position:fixed;right:12px;display:flex;flex-direction:column;gap:14px;
+      position:fixed;right:12px;display:flex;flex-direction:column;gap:10px;
       bottom:18px;z-index:4
     }
     .btn{
-      width:96px;height:96px;border-radius:24px;background:rgba(255,255,255,.08);
+      width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,.08);
       display:flex;align-items:center;justify-content:center;text-align:center;
-      border:1px solid var(--stroke);
-      /* ★ 視認性：黒寄りの文字色、影なし */
-      color:#111;
-      font-weight:700;
+      border:1px solid var(--stroke);color:#111;font-weight:700;line-height:1.1;
+      padding:6px;user-select:none
     }
+
+    .routeBox{
+      position:absolute;left:12px;right:var(--right-pad);bottom:12px;
+      background:rgba(0,0,0,.45);border:1px solid var(--stroke);border-radius:12px;
+      padding:10px 12px;z-index:4;display:none
+    }
+
     .toast{
       position:fixed;left:16px;right:16px;bottom:16px;padding:14px 16px;
       border-radius:12px;background:#ff6b6b;color:white;border:0;display:none;z-index:6
     }
-    .list{
-      position:absolute;left:12px;right:12px;top:120px;max-height:45vh;overflow:auto;
-      background:rgba(0,0,0,.4);backdrop-filter:blur(6px);border:1px solid var(--stroke);
-      border-radius:14px;display:none;z-index:4
-    }
-    .item{padding:16px;border-bottom:1px solid var(--stroke);cursor:pointer}
-    .item:hover{background:rgba(255,255,255,.06)}
     .hidden{display:none !important}
   </style>
 </head>
@@ -69,7 +80,6 @@
   <div class="app">
     <div id="map" aria-label="map"></div>
 
-    <!-- Top overlay: status + search controls -->
     <div id="panel" class="overlay">
       <div class="row">
         <strong id="panel-title">Search nearby</strong>
@@ -85,15 +95,15 @@
         <label class="btnlike"><input id="openNow" type="checkbox" style="accent-color:#25d07a" /> Open now</label>
         <label class="btnlike"><input id="sortRating" type="checkbox" style="accent-color:#25d07a" /> Sort by rating</label>
         <button id="doSearch">Search</button>
-        <button id="clearList" style="background:#cbd5e1">Clear</button>
+        <button id="clearList">Clear</button>
       </div>
-      <div class="small" id="hint">半径とオプションを選んで検索してください（最大5件）</div>
+      <div class="small" id="hint">半径とオプションを選んで検索（最大5件）</div>
     </div>
 
-    <!-- Search results -->
     <div id="results" class="list" role="listbox" aria-label="search results"></div>
 
-    <!-- Right button stack -->
+    <div class="routeBox" id="routeBox"></div>
+
     <div class="pill">
       <button id="btn-current" class="btn" title="Current">Current</button>
       <button id="btn-stop" class="btn" title="Stop">Stop</button>
@@ -105,13 +115,12 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <!-- Google Maps JavaScript API -->
+  <!-- Google Maps JS API -->
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=ja&region=JP&loading=async"></script>
 
-  <!-- App -->
   <script type="module">
     // ==== Config ====
-    const ORS_BASE = "https://ors-proxy-dev.miyata-connect-jp.workers.dev"; // dev proxy
+    const ORS_BASE = "https://ors-proxy-dev.miyata-connect-jp.workers.dev";
 
     // ==== Toast ====
     const toast = (msg, ok=false) => {
@@ -120,10 +129,9 @@
       el.textContent = msg;
       el.style.display = "block";
       clearTimeout(el._t);
-      el._t = setTimeout(()=>{ el.style.display="none"; }, 3000);
+      el._t = setTimeout(()=>{ el.style.display="none"; }, 2500);
     };
 
-    // ==== GMaps ready ====
     async function waitForGoogleMaps(timeout = 15000) {
       const start = performance.now();
       while (performance.now() - start < timeout) {
@@ -133,19 +141,30 @@
       throw new Error("Google Maps failed to load within timeout.");
     }
 
-    // ==== Haversine distance (m) ====
+    // Polyline decoder (Google Encoded Polyline Algorithm)
+    function decodePolyline(str){
+      let index = 0, lat = 0, lng = 0, points = [];
+      while (index < str.length) {
+        let b, shift = 0, result = 0;
+        do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        const dlat = (result & 1) ? ~(result >> 1) : (result >> 1); lat += dlat;
+        shift = 0; result = 0;
+        do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+        const dlng = (result & 1) ? ~(result >> 1) : (result >> 1); lng += dlng;
+        points.push({lat: lat / 1e5, lng: lng / 1e5});
+      }
+      return points;
+    }
+
     function haversine(a, b) {
-      const toRad = x => x * Math.PI / 180;
-      const R = 6371e3;
-      const dLat = toRad(b.lat - a.lat);
-      const dLng = toRad(b.lng - a.lng);
+      const toRad = x => x * Math.PI / 180, R = 6371e3;
+      const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
       const la1 = toRad(a.lat), la2 = toRad(b.lat);
       const s = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
       return 2 * R * Math.asin(Math.sqrt(s));
     }
 
-    // ==== Main ====
-    let map, marker;
+    let map, marker, routePolyline = null, routeMarkers = [];
     let currentPos = { lat: 35.681236, lng: 139.767125 }; // fallback Tokyo
 
     try {
@@ -168,7 +187,6 @@
       };
       setCoord(currentPos);
 
-      // Geolocation
       const getLocation = () => new Promise((resolve,reject)=>{
         if(!navigator.geolocation) return reject(new Error("Geolocation unsupported"));
         navigator.geolocation.getCurrentPosition(
@@ -178,30 +196,30 @@
         );
       });
 
-      try {
-        currentPos = await getLocation();
-        map.setCenter(currentPos);
-        marker.position = currentPos;
-        setCoord(currentPos);
-        toast("Location updated", true);
-      } catch(e) {
-        toast(`Location error: ${e.message}`);
-      }
-
-      // Buttons
-      document.getElementById("btn-current").addEventListener("click", async ()=>{
+      async function centerToCurrent(){
         try{
           const p = await getLocation();
           currentPos = p;
           map.setCenter(p);
           marker.position = p;
           setCoord(p);
-          toast("Centered to current position", true);
+          toast("Current position updated", true);
         }catch(e){ toast(`Location error: ${e.message}`); }
-      });
+      }
+
+      // initial try
+      centerToCurrent().catch(()=>{});
+
+      // Buttons
+      document.getElementById("btn-current").addEventListener("click", centerToCurrent);
+      document.getElementById("btn-stop").addEventListener("click", clearRoute);
+      document.getElementById("btn-dest").addEventListener("click", ()=>toast("Set destination from search results"));
+      document.getElementById("btn-reroute").addEventListener("click", ()=>toast("Search & tap a result to route"));
+      document.getElementById("btn-ops").addEventListener("click", ()=>toast("Ops panel coming soon"));
 
       // Search
       const resultsEl = document.getElementById("results");
+      const routeBox = document.getElementById("routeBox");
 
       function renderList(items){
         if(!items?.length){ resultsEl.style.display="none"; resultsEl.innerHTML=""; return; }
@@ -210,28 +228,71 @@
           const addr = it.formattedAddress ?? "";
           const name = it.displayName?.text ?? "Unknown";
           return `
-            <div class="item" role="option" data-lat="${it.location?.latitude}" data-lng="${it.location?.longitude}">
-              <div style="font-weight:700">${name}</div>
-              <div class="small">${km} km ・ ${addr}</div>
+            <div class="item" data-lat="${it.location?.latitude}" data-lng="${it.location?.longitude}">
+              <div class="title">${name}</div>
+              <div class="meta">${km} km ・ ${addr}</div>
             </div>`;
         }).join("");
         resultsEl.style.display="block";
+
         Array.from(resultsEl.querySelectorAll(".item")).forEach(div=>{
-          div.addEventListener("click", ()=>{
+          div.addEventListener("click", async ()=>{
             const lat = parseFloat(div.dataset.lat), lng = parseFloat(div.dataset.lng);
             if(Number.isFinite(lat) && Number.isFinite(lng)){
-              const pos = {lat,lng};
-              map.setCenter(pos);
-              marker.position = pos;
-              toast("Destination previewed", true);
+              const dest = {lat,lng};
+              await drawRoute(currentPos, dest);
+              resultsEl.style.display = "none";
             }
           });
         });
       }
 
+      function clearRoute(){
+        if(routePolyline){ routePolyline.setMap(null); routePolyline = null; }
+        routeMarkers.forEach(m=>m.setMap && m.setMap(null));
+        routeMarkers = [];
+        routeBox.style.display = "none";
+        toast("Route cleared", true);
+      }
+
+      async function drawRoute(origin, destination){
+        clearRoute();
+        const url = new URL(`${ORS_BASE}/directions`);
+        url.searchParams.set("origin", `${origin.lat},${origin.lng}`);
+        url.searchParams.set("destination", `${destination.lat},${destination.lng}`);
+        url.searchParams.set("mode","walking");
+        url.searchParams.set("language","ja");
+        url.searchParams.set("region","JP");
+        const res = await fetch(url.toString(), { headers: { "Origin": location.origin } });
+        if(!res.ok){ toast(`Directions error: ${res.status}`); return; }
+        const data = await res.json();
+        const route = data?.routes?.[0];
+        if(!route){ toast("No route found"); return; }
+
+        const path = decodePolyline(route.overview_polyline.points);
+        routePolyline = new google.maps.Polyline({
+          path, map, strokeColor:"#5fb1ff", strokeOpacity:0.9, strokeWeight:6
+        });
+
+        const bounds = new google.maps.LatLngBounds();
+        path.forEach(p=>bounds.extend(p));
+        map.fitBounds(bounds, { top:120, right:150, bottom:160, left:20 });
+
+        const leg = route.legs?.[0];
+        const dist = leg?.distance?.text ?? "";
+        const dur  = leg?.duration?.text ?? "";
+        routeBox.textContent = `徒歩 ${dist} ・ 約 ${dur}`;
+        routeBox.style.display = "block";
+
+        // destination marker
+        const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+        const m = new AdvancedMarkerElement({ map, position: destination });
+        routeMarkers.push(m);
+      }
+
       async function doSearch(){
         const q = document.getElementById("q").value.trim();
-        if(!q){ toast("検索ワードを入力してください"); return; }
+        if(!q){ toast("検索ワードを入力"); return; }
         const radius = parseInt(document.getElementById("radius").value,10) || 10000;
         const openNow = document.getElementById("openNow").checked;
         const sortRating = document.getElementById("sortRating").checked;
@@ -240,30 +301,25 @@
           textQuery: q,
           languageCode: "ja",
           regionCode: "JP",
-          pageSize: 10, // 余裕を取り後で5件に絞る
+          pageSize: 10,
           openNow,
-          // 半径制限：locationBias (円)
           locationBias: {
             circle: {
               center: { latitude: currentPos.lat, longitude: currentPos.lng },
               radius
             }
           }
-          // rankPreference: "POPULARITY" //（必要なら有効化）
         };
 
         try{
           const res = await fetch(`${ORS_BASE}/places:searchText`,{
-            method:"POST",
-            headers:{ "Content-Type":"application/json" },
+            method:"POST", headers:{ "Content-Type":"application/json" },
             body: JSON.stringify(body)
           });
           if(!res.ok){ throw new Error(`HTTP ${res.status}`); }
           const data = await res.json();
-
           let items = Array.isArray(data.places) ? data.places : [];
 
-          // 距離を付与してフィルタ（半径内）
           items.forEach(p=>{
             const loc = p.location;
             const pos = loc ? {lat:loc.latitude, lng:loc.longitude} : null;
@@ -271,16 +327,13 @@
           });
           items = items.filter(p => p._distance <= radius);
 
-          // ソート：rating desc -> distance asc
           items.sort((a,b)=>{
             const ra = a.rating ?? 0, rb = b.rating ?? 0;
             if(sortRating && rb !== ra) return rb - ra;
             return (a._distance||0) - (b._distance||0);
           });
 
-          // 最大5件
           items = items.slice(0,5);
-
           renderList(items);
           document.getElementById("hint").textContent =
             `半径 ${(radius/1000)|0} km / ${items.length} results`;
@@ -292,12 +345,8 @@
       }
 
       document.getElementById("doSearch").addEventListener("click", doSearch);
-      document.getElementById("q").addEventListener("keydown", (ev)=>{
-        if(ev.key === "Enter") doSearch();
-      });
-      document.getElementById("clearList").addEventListener("click", ()=>{
-        renderList([]);
-      });
+      document.getElementById("q").addEventListener("keydown", (ev)=>{ if(ev.key==="Enter") doSearch(); });
+      document.getElementById("clearList").addEventListener("click", ()=>{ resultsEl.style.display="none"; resultsEl.innerHTML=""; });
 
     } catch (e) {
       console.error(e);
