@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
@@ -7,42 +7,34 @@
   <style>
     :root{
       --bg:#0a1321; --text:#eaf2ff; --muted:#a7b8ce; --accent:#5fb1ff;
-      --glass: rgba(20,28,44,.78); --stroke: rgba(255,255,255,.12);
-      --ok:#25d07a; --danger:#ff6565;
+      --glass: rgba(20,28,44,.78); --glass-strong: rgba(16,22,36,.88);
+      --stroke: rgba(255,255,255,.12); --ok:#25d07a; --danger:#ff6565;
     }
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     *{box-sizing:border-box}
     .app{position:relative;height:100dvh;overflow:hidden}
     #map{position:absolute;inset:0;z-index:0}
     .overlay{
-      position:absolute;left:12px;right:12px;top:12px;
-      padding:16px 18px;border-radius:16px;background:var(--glass);
-      border:1px solid var(--stroke);backdrop-filter:blur(6px);
-      z-index:10; pointer-events:auto;
+      position:absolute;left:12px;right:12px;top:12px;padding:16px 18px;border-radius:16px;
+      background:var(--glass);border:1px solid var(--stroke);backdrop-filter:blur(6px);
+      z-index:10;pointer-events:auto
     }
     .row{display:flex;gap:10px;align-items:center;justify-content:space-between}
-    .pill{
-      position:fixed;right:12px;bottom:18px;display:flex;flex-direction:column;gap:14px;
-      z-index:9999; pointer-events:none;
-    }
+    .pill{position:fixed;right:12px;bottom:18px;display:flex;flex-direction:column;gap:14px;z-index:9999;pointer-events:none}
     .btn{
-      width:96px;height:96px;border-radius:24px;display:flex;align-items:center;justify-content:center;
-      border:1px solid rgba(255,255,255,.28); color:#fff; text-decoration:none; cursor:pointer;
-      box-shadow:0 10px 30px rgba(0,0,0,.45); background:rgba(0,0,0,.42);
-      font-weight:600; letter-spacing:.2px; pointer-events:auto; user-select:none;
+      width:96px;height:96px;border-radius:24px;background:rgba(255,255,255,.08);
+      display:flex;align-items:center;justify-content:center;border:1px solid var(--stroke);
+      color:var(--text);text-decoration:none;box-shadow:0 10px 30px rgba(0,0,0,.25);pointer-events:auto
     }
-    .toast{
-      position:fixed;left:16px;right:16px;bottom:16px;padding:14px 16px;border-radius:12px;
-      background:#ff6b6b;color:white;border:0;display:none;z-index:10000
+    .toast{position:fixed;left:16px;right:16px;bottom:16px;padding:14px 16px;border-radius:12px;background:#ff6b6b;color:#fff;border:0;display:none;z-index:10000}
+    .result-panel{
+      position:absolute;left:0;right:0;bottom:0;background:var(--glass-strong);
+      backdrop-filter:blur(10px);border-top:1px solid var(--stroke);
+      padding:10px 16px;max-height:50%;overflow-y:auto;display:none;z-index:20
     }
-    /* 結果パネル */
-    #results{ position:fixed; left:12px; right:12px; bottom:120px; top:auto;
-      max-height:40vh; overflow:auto; z-index:9998; display:none; }
-    #results h4{ margin:0 0 10px; font-size:14px; color:var(--muted) }
-    .item{ padding:10px 8px; border-radius:12px; border:1px solid var(--stroke);
-      background:rgba(255,255,255,.04); margin-bottom:8px; cursor:pointer }
-    .item b{ display:block; font-size:15px; color:var(--text) }
-    .item small{ display:block; color:var(--muted) }
+    .result-item{border:1px solid var(--stroke);border-radius:12px;padding:10px 14px;margin:8px 0;background:rgba(255,255,255,.06)}
+    .result-title{font-weight:bold;font-size:1.1em}
+    .result-address{font-size:.9em;color:var(--muted)}
   </style>
 </head>
 <body>
@@ -56,12 +48,6 @@
       </div>
     </div>
 
-    <!-- 検索結果パネル -->
-    <div id="results" class="overlay">
-      <h4>Search results</h4>
-      <div id="list"></div>
-    </div>
-
     <div class="pill">
       <button id="btn-current" class="btn" title="Current">Current</button>
       <button id="btn-search" class="btn" title="Search">Search</button>
@@ -71,178 +57,119 @@
       <button id="btn-ops" class="btn" title="Ops">Ops</button>
     </div>
 
+    <div id="results" class="result-panel"></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <!-- Google Maps JS API（ブラウザキー） -->
+  <!-- Use user's browser Maps key (per policy) -->
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=ja&region=JP&loading=async"></script>
 
   <script type="module">
-    const toast = (msg, ok=false) => {
-      const el = document.getElementById('toast');
-      el.style.background = ok ? "var(--ok)" : "var(--danger)";
-      el.textContent = msg;
-      el.style.display = "block";
-      clearTimeout(el._t);
-      el._t = setTimeout(()=>{ el.style.display="none"; }, 2500);
-    };
+    // Toast
+    const toast=(m,ok=false)=>{const el=document.getElementById("toast");el.style.background=ok?"#25d07a":"#ff6b6b";el.textContent=m;el.style.display="block";clearTimeout(el._t);el._t=setTimeout(()=>el.style.display="none",3000)};
 
-    async function waitForGoogleMaps(timeout = 15000) {
-      const t0 = performance.now();
-      while (performance.now() - t0 < timeout) {
-        if (globalThis.google?.maps?.importLibrary) return;
-        await new Promise(r => setTimeout(r, 50));
-      }
-      throw new Error("Google Maps failed to load within timeout");
-    }
+    // Wait Maps
+    async function waitForMaps(t=15000){const s=performance.now();while(performance.now()-s<t){if(window.google&&google.maps&&google.maps.importLibrary)return true;await new Promise(r=>setTimeout(r,50))}throw new Error("Google Maps failed to load")}
 
-    const PROXY_BASE = "https://ors-proxy.miyata-connect-jp.workers.dev";
-    const cfPlacesSearchText = async (payload) => {
-      const r = await fetch(`${PROXY_BASE}/places:searchText`, {
+    // Proxy call
+    async function cfPlacesSearchText(body){
+      const r=await fetch("https://ors-proxy.miyata-connect-jp.workers.dev/places:searchText",{
         method:"POST",
-        headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify(payload),
+        headers:{ "Origin":"https://miyata-connect.github.io","Content-Type":"application/json" },
+        body:JSON.stringify(body)
       });
-      const text = await r.text();
-      if (!r.ok) throw new Error(`places ${r.status}: ${text.slice(0,120)}`);
-      try { return JSON.parse(text); } catch { return { raw:text }; }
-    };
-    const cfDirections = async (params) => {
-      const q = new URLSearchParams(params);
-      const r = await fetch(`${PROXY_BASE}/directions?${q}`);
-      const text = await r.text();
-      if (!r.ok) throw new Error(`directions ${r.status}: ${text.slice(0,120)}`);
-      try { return JSON.parse(text); } catch { return { raw:text }; }
-    };
-
-    let map, currentMarker, destMarker, routePolyline;
-    let currentPos = { lat: 35.681236, lng: 139.767125 };
-    let destination = null;
-
-    const setCoord = (p)=>{
-      const c = document.getElementById('coord');
-      c.textContent = `Lat: ${p.lat.toFixed(6)} / Lng: ${p.lng.toFixed(6)}`;
-    };
-    const getLocation = ()=>new Promise((resolve,reject)=>{
-      if(!navigator.geolocation) return reject(new Error("Geolocation unsupported"));
-      navigator.geolocation.getCurrentPosition(
-        pos=>resolve({lat:pos.coords.latitude,lng:pos.coords.longitude}),
-        err=>reject(new Error(err.message||"Location error")),
-        {enableHighAccuracy:true,timeout:10000,maximumAge:0}
-      );
-    });
-    const clearRoute = ()=>{ if(routePolyline){ routePolyline.setMap(null); routePolyline=null; } };
-
-    // 結果パネル制御
-    const resultsBox = document.getElementById('results');
-    const listBox = document.getElementById('list');
-    const showResults = (items)=>{ resultsBox.style.display = "block"; listBox.innerHTML = ""; items.forEach(addItem); };
-    const hideResults = ()=>{ resultsBox.style.display = "none"; listBox.innerHTML = ""; };
-    const addItem = (p)=>{
-      const el = document.createElement('div');
-      el.className = 'item';
-      el.innerHTML = `<b>${p.displayName?.text ?? "Unnamed place"}</b><small>${p.formattedAddress ?? ""}</small>`;
-      el.onclick = ()=>{
-        destination = { lat:p.location.latitude, lng:p.location.longitude };
-        if(!destMarker){ destMarker = new google.maps.marker.AdvancedMarkerElement({ map, position: destination }); }
-        else { destMarker.position = destination; }
-        map.panTo(destination);
-        hideResults();
-        toast("Destination set", true);
-      };
-      listBox.appendChild(el);
-    };
-
-    function decodePolyline(str){
-      if(!str) return [];
-      let index=0,lat=0,lng=0,coords=[];
-      while(index<str.length){
-        let b,shift=0,result=0;
-        do{ b=str.charCodeAt(index++)-63; result|=(b&0x1f)<<shift; shift+=5; }while(b>=0x20);
-        const dlat=(result&1)?~(result>>1):(result>>1); lat+=dlat;
-        shift=0; result=0;
-        do{ b=str.charCodeAt(index++)-63; result|=(b&0x1f)<<shift; shift+=5; }while(b>=0x20);
-        const dlng=(result&1)?~(result>>1):(result>>1); lng+=dlng;
-        coords.push({lat:lat/1e5,lng:lng/1e5});
-      }
-      return coords;
+      if(!r.ok) throw new Error(`Places API error (${r.status})`);
+      return r.json();
     }
+
+    // Main
+    let map, marker, currentPos={lat:35.681236,lng:139.767125};
 
     try{
-      await waitForGoogleMaps();
-      const { Map } = await google.maps.importLibrary("maps");
-      const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+      await waitForMaps();
+      const {Map}=await google.maps.importLibrary("maps");
+      const {AdvancedMarkerElement}=await google.maps.importLibrary("marker");
 
-      map = new Map(document.getElementById("map"), {
-        center: currentPos, zoom: 16, mapId: "WALKNAV_MAP", disableDefaultUI: true
+      map=new Map(document.getElementById("map"),{center:currentPos,zoom:15,mapId:"DEMO_MAP",disableDefaultUI:true});
+      marker=new AdvancedMarkerElement({map,position:currentPos});
+      const setCoord=p=>{document.getElementById("coord").textContent=`Lat: ${p.lat.toFixed(6)} / Lng: ${p.lng.toFixed(6)}`}; setCoord(currentPos);
+
+      const getLocation=()=>new Promise((res,rej)=>{
+        if(!navigator.geolocation) return rej(new Error("Geolocation unsupported"));
+        navigator.geolocation.getCurrentPosition(
+          pos=>res({lat:pos.coords.latitude,lng:pos.coords.longitude}),
+          err=>rej(new Error(err.message||"Location error")),
+          {enableHighAccuracy:true,timeout:10000,maximumAge:0}
+        );
       });
-      currentMarker = new AdvancedMarkerElement({ map, position: currentPos });
-      setCoord(currentPos);
 
-      try{
-        currentPos = await getLocation();
-        map.setCenter(currentPos);
-        currentMarker.position = currentPos;
-        setCoord(currentPos);
-      }catch(e){ /* 位置取れなくても続行 */ }
+      try{ currentPos=await getLocation(); map.setCenter(currentPos); marker.position=currentPos; setCoord(currentPos); toast("Location updated",true); }
+      catch(e){ toast(`Location error: ${e.message}`); }
 
       document.getElementById("btn-current").addEventListener("click", async ()=>{
-        try{
-          const p = await getLocation();
-          currentPos = p; map.setCenter(p); currentMarker.position = p; setCoord(p);
-          toast("Centered", true);
-        }catch(e){ toast(e.message); }
+        try{ const p=await getLocation(); currentPos=p; map.setCenter(p); marker.position=p; setCoord(p); toast("Centered",true); }
+        catch(e){ toast(`Location error: ${e.message}`); }
       });
 
+      // SEARCH: strictly within 10km, max 5, nearest first
       document.getElementById("btn-search").addEventListener("click", async ()=>{
-        const q = window.prompt("Search text (e.g., Ramen Tokushima):","ラーメン 徳島市");
-        if(!q){ hideResults(); return; }
+        const q=prompt("Search text (e.g., Ramen):");
+        if(!q) return;
+        toast("Searching...", true);
+
         try{
-          toast("Searching…");
-          const res = await cfPlacesSearchText({
-            textQuery: q, languageCode: "ja", regionCode: "JP", pageSize: 5
-          });
-          const items = res?.places || [];
-          if (!items.length){ hideResults(); toast("0件でした"); return; }
-          showResults(items);
-          toast(`${items.length}件ヒット`, true);
+          const body={
+            textQuery:q,
+            languageCode:"ja",
+            regionCode:"JP",
+            pageSize:5,
+            rankPreference:"DISTANCE",
+            locationRestriction:{            // strict filter (not bias)
+              circle:{
+                center:{ latitude: currentPos.lat, longitude: currentPos.lng },
+                radius:10000                 // meters (10km)
+              }
+            },
+            // Optional: uncomment to improve relevance for POI
+            // includedType: "establishment",
+          };
+
+          const res=await cfPlacesSearchText(body);
+
+          const panel=document.getElementById("results");
+          panel.innerHTML="";
+          const items=(res.places||[]).slice(0,5);
+          if(items.length===0){ panel.style.display="none"; toast("No results within 10km"); return; }
+
+          // render
+          for(const p of items){
+            const div=document.createElement("div");
+            div.className="result-item";
+            div.innerHTML=`
+              <div class="result-title">${p.displayName?.text||"Unknown"}</div>
+              <div class="result-address">${p.formattedAddress||""}</div>
+            `;
+            // center map on tap
+            div.addEventListener("click", ()=>{
+              if(p.location){ const pos={lat:p.location.latitude,lng:p.location.longitude}; map.setCenter(pos); marker.position=pos; setCoord(pos); }
+              toast("Pinned", true);
+            });
+            panel.appendChild(div);
+          }
+          panel.style.display="block";
+          toast(`${items.length} results (<=10km)`, true);
+
         }catch(e){
-          hideResults();
-          toast(`Search error: ${e.message}`);
+          console.error(e);
+          toast("Search error: "+e.message);
         }
       });
 
-      document.getElementById("btn-dest").addEventListener("click", ()=>{
-        if(!destination){ toast("Destination not set"); return; }
-        map.panTo(destination); toast("Destination centered", true);
+      ["btn-stop","btn-dest","btn-reroute","btn-ops"].forEach(id=>{
+        document.getElementById(id).addEventListener("click",()=>toast(`${id} tapped`));
       });
 
-      document.getElementById("btn-reroute").addEventListener("click", async ()=>{
-        if(!destination){ toast("Destination not set"); return; }
-        clearRoute();
-        try{
-          const dir = await cfDirections({
-            origin:`${currentPos.lat},${currentPos.lng}`,
-            destination:`${destination.lat},${destination.lng}`,
-            mode:"walking", language:"ja", region:"JP"
-          });
-          const poly = dir?.routes?.[0]?.overview_polyline?.points || "";
-          const pts = decodePolyline(poly);
-          routePolyline = new google.maps.Polyline({ path: pts, map, strokeOpacity:1.0 });
-          toast("Route updated", true);
-        }catch(e){ toast(`Directions error: ${e.message}`); }
-      });
-
-      document.getElementById("btn-stop").addEventListener("click", ()=>{
-        clearRoute(); toast("Route cleared", true);
-      });
-
-      // 結果パネル外をタップで閉じられるように
-      document.getElementById('map').addEventListener('click', hideResults);
-    }catch(e){
-      console.error(e);
-      toast("Init error: "+e.message);
-    }
+    }catch(e){ console.error(e); toast("Map init error: "+e.message); }
   </script>
 </body>
 </html>
