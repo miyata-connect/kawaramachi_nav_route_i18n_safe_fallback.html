@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
@@ -11,281 +11,351 @@
       --muted:#a7b8ce;
       --accent:#5fb1ff;
       --glass: rgba(20,28,44,.78);
-      --stroke: rgba(255,255,255,.12);
+      --glass-strong: rgba(16,22,36,.90);
+      --stroke: rgba(255,255,255,.14);
       --ok:#25d07a;
       --danger:#ff6565;
+      --btn-bg:#f5f7fa;        /* brighter button bg */
+      --btn-fg:#111;           /* near black text */
     }
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     *{box-sizing:border-box}
     .app{position:relative;height:100dvh;overflow:hidden}
     #map{position:absolute;inset:0}
+
+    /* top overlay */
     .overlay{
       position:absolute;left:12px;right:12px;top:12px;
-      padding:16px 18px;border-radius:16px;background:var(--glass);
+      padding:14px 16px;border-radius:16px;background:var(--glass);
       border:1px solid var(--stroke);backdrop-filter:blur(6px);z-index:3
     }
     .row{display:flex;gap:10px;align-items:center;justify-content:space-between}
-    .row input{
-      flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid var(--stroke);
-      color:var(--text);padding:10px 12px;border-radius:10px;outline:none
-    }
-    .row button{
-      background:rgba(255,255,255,.08);border:1px solid var(--stroke);
-      color:var(--text);padding:10px 14px;border-radius:10px;cursor:pointer
-    }
+    .row .small{color:var(--muted);font-variant-numeric:tabular-nums}
+
+    /* pill buttons (right) */
     .pill{
-      position:fixed;right:12px;display:flex;flex-direction:column;gap:14px;
+      position:absolute;right:12px;display:flex;flex-direction:column;gap:14px;
       bottom:18px;z-index:3
     }
     .btn{
-      width:96px;height:96px;border-radius:24px;background:rgba(255,255,255,.08);
+      width:96px;height:96px;border-radius:24px;background:var(--btn-bg);
       display:flex;align-items:center;justify-content:center;
-      border:1px solid var(--stroke);color:var(--text);text-decoration:none;
-      box-shadow:0 10px 30px rgba(0,0,0,.25)
+      border:1px solid var(--stroke);color:var(--btn-fg);text-decoration:none;
+      box-shadow:0 10px 30px rgba(0,0,0,.25);
+      font-weight:600;
+      user-select:none;
     }
-    .results{
-      position:absolute;left:12px;right:12px;top:86px;
-      max-height:45vh;overflow:auto;padding:8px;border-radius:12px;
-      background:var(--glass);border:1px solid var(--stroke);backdrop-filter:blur(6px);
-      z-index:3;display:none
-    }
-    .item{
-      display:flex;gap:10px;align-items:flex-start;justify-content:space-between;
-      padding:10px 8px;border-bottom:1px solid var(--stroke)
-    }
-    .item:last-child{border-bottom:none}
-    .item .meta{font-size:.9rem;color:var(--muted)}
+    .btn:active{transform:translateY(1px);}
+
+    /* toast */
     .toast{
-      position:fixed;left:16px;right:16px;bottom:16px;padding:14px 16px;
-      border-radius:12px;background:#ff6b6b;color:white;border:0;display:none;z-index:5
+      position:absolute;left:16px;right:16px;bottom:16px;padding:12px 14px;
+      border-radius:12px;background:#ff6b6b;color:#fff;border:0;display:none;z-index:5
     }
+
+    /* search panel */
+    .search-panel{
+      position:absolute;left:12px;right:12px;top:70px;
+      padding:10px;border-radius:14px;background:var(--glass-strong);
+      border:1px solid var(--stroke);backdrop-filter:blur(6px);z-index:3
+    }
+    .search-bar{display:flex;gap:8px;align-items:center}
+    .search-input{
+      flex:1; height:40px; padding:0 12px; border-radius:10px; border:1px solid var(--stroke);
+      background:rgba(255,255,255,.08); color:var(--text); outline:none;
+    }
+    .search-btn, .gear-btn{
+      height:40px; padding:0 14px; border-radius:10px; border:1px solid var(--stroke);
+      background:var(--accent); color:#001428; font-weight:700; cursor:pointer;
+    }
+    .gear-btn{ background:rgba(255,255,255,.14); color:var(--text); }
+
+    /* options */
+    .options{margin-top:10px; display:none; gap:10px; flex-wrap:wrap; align-items:center}
+    .options.on{display:flex}
+    .opt-chip{
+      display:flex; align-items:center; gap:6px; padding:8px 10px; border-radius:999px;
+      border:1px solid var(--stroke); background:rgba(255,255,255,.06); color:var(--text); font-size:14px;
+    }
+    .opt-chip input{accent-color:#5fb1ff}
+
+    /* results list */
+    .results{
+      position:absolute; left:12px; right:12px; bottom:130px; max-height:45dvh; overflow:auto;
+      padding:8px; border-radius:14px; background:rgba(10,19,33,.88); border:1px solid var(--stroke); z-index:4;
+      display:none;
+    }
+    .result{padding:14px 10px; border-radius:12px; border:1px solid var(--stroke); background:rgba(255,255,255,.04); margin:6px 0}
+    .result strong{display:block; font-size:16px; margin-bottom:4px}
+    .result .meta{color:var(--muted); font-size:13px}
+    .result .thumb{width:56px; height:56px; object-fit:cover; border-radius:10px; margin-right:10px; border:1px solid var(--stroke)}
+    .result-row{display:flex;align-items:center}
+
     .hidden{display:none !important}
   </style>
 </head>
 <body>
-  <div class="app">
-    <div id="map" aria-label="map"></div>
+<div class="app">
+  <div id="map" aria-label="map"></div>
 
-    <div id="panel" class="overlay">
-      <div class="row" style="margin-bottom:10px">
-        <strong id="panel-title">Search nearby (10 km / 5 results)</strong>
-        <span id="coord" style="font-variant-numeric:tabular-nums;color:var(--muted)">Lat: -- / Lng: --</span>
-      </div>
-      <div class="row">
-        <input id="q" type="search" placeholder="e.g., ラーメン / コンビニ / カフェ" />
-        <button id="btn-search">Search</button>
-      </div>
+  <div class="overlay">
+    <div class="row">
+      <strong>Set your destination</strong>
+      <span id="coord" class="small">Lat: -- / Lng: --</span>
     </div>
-
-    <div id="results" class="results" aria-live="polite"></div>
-
-    <div class="pill">
-      <button id="btn-current" class="btn" title="Current">Current</button>
-      <button id="btn-stop" class="btn" title="Stop">Stop</button>
-      <button id="btn-dest" class="btn" title="Destination">Dest</button>
-      <button id="btn-reroute" class="btn" title="Reroute">Reroute</button>
-      <button id="btn-ops" class="btn" title="Ops">Ops</button>
-    </div>
-
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <!-- Google Maps JS API loader (use the user's required browser key) -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=ja&region=JP&loading=async"></script>
+  <!-- search UI -->
+  <div class="search-panel" id="searchPanel">
+    <div class="search-bar">
+      <input id="q" class="search-input" type="text" inputmode="search" placeholder="住所 / 電話番号 / 座標 / 店名 で検索" />
+      <button id="gear" class="gear-btn" title="Options">⚙</button>
+      <button id="search" class="search-btn">Search</button>
+    </div>
+    <div id="opts" class="options">
+      <label class="opt-chip"><input id="optOpen" type="checkbox" /> 営業時間中のみ</label>
 
-  <!-- App code -->
-  <script type="module">
-    // --- constants ---
-    const PROXY = "https://ors-proxy.miyata-connect-jp.workers.dev";
-    const MAX_RADIUS_M = 10000; // 10km
-    const MAX_RESULTS = 5;
+      <label class="opt-chip">
+        半径
+        <select id="optRadius" style="background:transparent;color:var(--text);border:1px solid var(--stroke);border-radius:8px;padding:4px 8px">
+          <option value="10000">10 km</option>
+          <option value="20000">20 km</option>
+          <option value="30000">30 km</option>
+        </select>
+      </label>
 
-    // --- toast helper ---
-    const toast = (msg, ok=false) => {
-      const el = document.getElementById('toast');
-      el.style.background = ok ? "#25d07a" : "#ff6b6b";
-      el.textContent = msg;
-      el.style.display = "block";
-      clearTimeout(el._t);
-      el._t = setTimeout(()=>{ el.style.display="none"; }, 3000);
+      <label class="opt-chip"><input id="optRating" type="checkbox" /> 高レビュー順</label>
+      <label class="opt-chip"><input id="optPhoto" type="checkbox" /> 画像あり優先</label>
+    </div>
+  </div>
+
+  <!-- results -->
+  <div id="results" class="results" role="listbox" aria-label="Search results"></div>
+
+  <!-- right buttons -->
+  <div class="pill">
+    <button id="btn-current" class="btn" title="Current">Current</button>
+    <button id="btn-search"  class="btn" title="Search">Search</button>
+    <button id="btn-stop"    class="btn" title="Stop">Stop</button>
+    <button id="btn-dest"    class="btn" title="Destination">Dest</button>
+    <button id="btn-reroute" class="btn" title="Reroute">Reroute</button>
+    <button id="btn-ops"     class="btn" title="Ops">Ops</button>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</div>
+
+<!-- Google Maps JS API -->
+<script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=ja&region=JP&loading=async"></script>
+
+<script type="module">
+  /* ---------- small helpers ---------- */
+  const WORKER = "https://ors-proxy.miyata-connect-jp.workers.dev";
+
+  const toast = (msg, ok=false) => {
+    const el = document.getElementById('toast');
+    el.style.background = ok ? "#25d07a" : "#ff6b6b";
+    el.textContent = msg;
+    el.style.display = "block";
+    clearTimeout(el._t);
+    el._t = setTimeout(()=>{ el.style.display="none"; }, 2600);
+  };
+
+  async function waitForGoogleMaps(timeout = 15000) {
+    const t0 = performance.now();
+    while (performance.now() - t0 < timeout) {
+      if (window.google?.maps?.importLibrary) return true;
+      await new Promise(r=>setTimeout(r,50));
+    }
+    throw new Error("Google Maps failed to load within timeout.");
+  }
+
+  function kmDistance(a,b){
+    const R=6371e3; const φ1=a.lat*Math.PI/180, φ2=b.lat*Math.PI/180;
+    const dφ=(b.lat-a.lat)*Math.PI/180, dλ=(b.lng-a.lng)*Math.PI/180;
+    const s= Math.sin(dφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(dλ/2)**2;
+    return (2*R*Math.asin(Math.sqrt(s)))/1000;
+  }
+
+  /* ---------- app ---------- */
+  let map, marker, currentPos = {lat:35.681236,lng:139.767125}; // fallback Tokyo
+
+  await waitForGoogleMaps();
+  const { Map } = await google.maps.importLibrary("maps");
+  const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+
+  map = new Map(document.getElementById("map"), {
+    center: currentPos, zoom: 16, mapId: "DEMO_MAP", disableDefaultUI: true,
+  });
+  marker = new AdvancedMarkerElement({ map, position: currentPos });
+
+  const setCoord = (p)=>{
+    document.getElementById("coord").textContent =
+      `Lat: ${p.lat.toFixed(6)} / Lng: ${p.lng.toFixed(6)}`;
+  };
+  setCoord(currentPos);
+
+  async function getLocation(){
+    return new Promise((resolve,reject)=>{
+      if(!navigator.geolocation) return reject(new Error("Geolocation unsupported"));
+      navigator.geolocation.getCurrentPosition(
+        pos=>resolve({lat:pos.coords.latitude,lng:pos.coords.longitude}),
+        err=>reject(new Error(err.message||"Location error")),
+        {enableHighAccuracy:true,timeout:10000,maximumAge:0}
+      );
+    });
+  }
+
+  try{
+    currentPos = await getLocation();
+    map.setCenter(currentPos);
+    marker.position = currentPos;
+    setCoord(currentPos);
+  }catch(e){ toast(`Location error: ${e.message}`); }
+
+  /* ---------- UI wiring ---------- */
+  document.getElementById("btn-current").addEventListener("click", async ()=>{
+    try{
+      const p = await getLocation();
+      currentPos = p;
+      map.setCenter(p);
+      marker.position = p;
+      setCoord(p);
+      toast("Centered to current position", true);
+    }catch(e){ toast(`Location error: ${e.message}`); }
+  });
+
+  // open/close search options
+  document.getElementById("gear").addEventListener("click", ()=>{
+    document.getElementById("opts").classList.toggle("on");
+  });
+
+  // focus search by right Search button
+  document.getElementById("btn-search").addEventListener("click", ()=>{
+    document.getElementById("q").focus();
+  });
+
+  // plain buttons feedback
+  ["btn-stop","btn-dest","btn-reroute","btn-ops"].forEach(id=>{
+    document.getElementById(id).addEventListener("click", ()=>toast(`${id} tapped`));
+  });
+
+  // Search invoke
+  document.getElementById("search").addEventListener("click", runSearch);
+  document.getElementById("q").addEventListener("keydown", (e)=>{
+    if(e.key==="Enter") runSearch();
+  });
+
+  async function runSearch(){
+    const text = document.getElementById("q").value.trim();
+    if(!text){ toast("検索語を入力してください"); return; }
+
+    const openNow   = document.getElementById("optOpen").checked;
+    const radius    = parseInt(document.getElementById("optRadius").value,10); // meters
+    const rankHigh  = document.getElementById("optRating").checked;
+    const wantPhoto = document.getElementById("optPhoto").checked;
+
+    // build Places (New) searchText body
+    const body = {
+      textQuery: text,
+      languageCode: "ja",
+      regionCode: "JP",
+      pageSize: 8, // fetch a little more for client-side filtering
+      locationBias: {
+        circle: { center: { latitude: currentPos.lat, longitude: currentPos.lng }, radius }
+      },
+      openNow: openNow || undefined
     };
 
-    // --- wait for maps ---
-    async function waitForGoogleMaps(timeout = 15000) {
-      const start = performance.now();
-      while (performance.now() - start < timeout) {
-        if (window.google && google.maps && google.maps.importLibrary) return true;
-        await new Promise(r => setTimeout(r, 50));
-      }
-      throw new Error("Google Maps failed to load within timeout.");
+    let res;
+    try{
+      const r = await fetch(`${WORKER}/places:searchText`, {
+        method: "POST",
+        headers: { "Content-Type":"application/json", "Origin": location.origin },
+        body: JSON.stringify(body)
+      });
+      if(!r.ok){ throw new Error(`Places API error (${r.status})`); }
+      res = await r.json();
+    }catch(e){
+      toast(`Search error: ${e.message}`);
+      return;
     }
 
-    // --- utils ---
-    const toRad = (d) => d * Math.PI / 180;
-    function haversineMeters(a, b){
-      const R = 6371000;
-      const dLat = toRad(b.lat - a.lat);
-      const dLng = toRad(b.lng - a.lng);
-      const s = Math.sin(dLat/2)**2 +
-                Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*
-                Math.sin(dLng/2)**2;
-      return 2 * R * Math.asin(Math.sqrt(s));
+    const results = Array.isArray(res.places)? res.places : [];
+
+    // distance calc + filter strictly inside radius
+    const withDist = results.map(p=>{
+      const pos = {lat:p.location?.latitude, lng:p.location?.longitude};
+      const distKm = (pos.lat && pos.lng) ? kmDistance(currentPos, pos) : Infinity;
+      return { ...p, _distKm: distKm, _hasPhoto: !!(p.photos?.[0]?.thumbnailUri) };
+    }).filter(p => p._distKm <= (radius/1000+0.001)); // hard cut by radius
+
+    // sort: rating desc if requested, otherwise distance asc
+    withDist.sort((a,b)=>{
+      if(rankHigh){
+        const ra=a.rating??0, rb=b.rating??0;
+        if(rb!==ra) return rb-ra;
+        return a._distKm-b._distKm;
+      }
+      return a._distKm-b._distKm;
+    });
+
+    // prefer photo if requested (stable sort tweak)
+    let finalList = withDist;
+    if(wantPhoto){
+      finalList = withDist.slice().sort((a,b)=> (b._hasPhoto?1:0)-(a._hasPhoto?1:0) || a._distKm-b._distKm);
     }
 
-    // --- main ---
-    let map, marker;
-    let currentPos = { lat: 35.681236, lng: 139.767125 }; // fallback: Tokyo
+    // top 5
+    finalList = finalList.slice(0,5);
 
-    try {
-      await waitForGoogleMaps();
-      const { Map } = await google.maps.importLibrary("maps");
-      const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+    renderResults(finalList);
+  }
 
-      map = new Map(document.getElementById("map"), {
-        center: currentPos,
-        zoom: 16,
-        mapId: "DEMO_MAP",
-        disableDefaultUI: true,
-      });
+  function renderResults(items){
+    const box = document.getElementById("results");
+    if(!items.length){
+      box.innerHTML = `<div class="result">該当なし</div>`;
+      box.style.display = "block";
+      return;
+    }
 
-      marker = new AdvancedMarkerElement({ map, position: currentPos });
+    box.innerHTML = items.map(p=>{
+      const name = p.displayName?.text ?? "Unnamed";
+      const addr = p.formattedAddress ?? "";
+      const km   = (Math.round(p._distKm*100)/100).toFixed(2);
+      const rate = (p.rating!=null) ? `・★${p.rating}` : "";
+      const photo = p.photos?.[0]?.thumbnailUri || "";
+      return `
+        <div class="result" data-lat="${p.location?.latitude}" data-lng="${p.location?.longitude}">
+          <div class="result-row">
+            ${photo?`<img class="thumb" src="${photo}" alt="">`:``}
+            <div>
+              <strong>${escapeHTML(name)}</strong>
+              <div class="meta">${km} km ${rate} ・ ${escapeHTML(addr)}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
 
-      const $coord = document.getElementById("coord");
-      const setCoord = (pos) => {
-        $coord.textContent = `Lat: ${pos.lat.toFixed(6)} / Lng: ${pos.lng.toFixed(6)}`;
-      };
-      setCoord(currentPos);
-
-      // geolocation
-      const getLocation = () => new Promise((resolve,reject)=>{
-        if(!navigator.geolocation) return reject(new Error("Geolocation unsupported"));
-        navigator.geolocation.getCurrentPosition(
-          pos=>resolve({lat:pos.coords.latitude,lng:pos.coords.longitude}),
-          err=>reject(new Error(err.message||"Location error")),
-          {enableHighAccuracy:true,timeout:10000,maximumAge:0}
-        );
-      });
-
-      try {
-        currentPos = await getLocation();
-        map.setCenter(currentPos);
-        marker.position = currentPos;
-        setCoord(currentPos);
-        toast("Location updated", true);
-      } catch(e) {
-        toast(`Location error: ${e.message}`);
-      }
-
-      // UI wiring
-      document.getElementById("btn-current").addEventListener("click", async ()=>{
-        try{
-          const p = await getLocation();
-          currentPos = p;
+    // click -> move marker & center
+    box.querySelectorAll(".result").forEach(el=>{
+      el.addEventListener("click", ()=>{
+        const lat = parseFloat(el.getAttribute("data-lat"));
+        const lng = parseFloat(el.getAttribute("data-lng"));
+        if(Number.isFinite(lat) && Number.isFinite(lng)){
+          const p = {lat,lng};
           map.setCenter(p);
           marker.position = p;
-          setCoord(p);
-          toast("Centered to current position", true);
-        }catch(e){ toast(`Location error: ${e.message}`); }
+        }
       });
+    });
 
-      // search
-      const $q = document.getElementById("q");
-      const $btnSearch = document.getElementById("btn-search");
-      const $results = document.getElementById("results");
+    box.style.display = "block";
+  }
 
-      async function searchAround() {
-        const textQuery = ($q.value || "").trim() || "ラーメン";
-        const center = map.getCenter() ? { lat: map.getCenter().lat(), lng: map.getCenter().lng() } : currentPos;
-
-        // server-side bias to 10km + limit 5
-        const body = {
-          textQuery,
-          languageCode: "ja",
-          regionCode: "JP",
-          pageSize: MAX_RESULTS,
-          locationBias: {
-            circle: {
-              center: { latitude: center.lat, longitude: center.lng },
-              radius: MAX_RADIUS_M
-            }
-          }
-        };
-
-        const resp = await fetch(`${PROXY}/places:searchText`, {
-          method: "POST",
-          headers: { "Origin":"https://miyata-connect.github.io", "Content-Type":"application/json" },
-          body: JSON.stringify(body)
-        });
-
-        if (!resp.ok) {
-          const t = await resp.text().catch(()=> "");
-          throw new Error(`Proxy error ${resp.status}: ${t}`);
-        }
-
-        const data = await resp.json();
-        const raw = Array.isArray(data.places) ? data.places : [];
-
-        // strict client-side radius filter (<=10km), then cap 5
-        const within = raw.filter(p=>{
-          if (!p.location) return false;
-          const d = haversineMeters(center, { lat: p.location.latitude, lng: p.location.longitude });
-          p.__distance_m = d;
-          return d <= MAX_RADIUS_M;
-        }).sort((a,b)=> (a.__distance_m||1e12) - (b.__distance_m||1e12))
-          .slice(0, MAX_RESULTS);
-
-        renderResults(within, center);
-        toast(`Found ${within.length} result(s) within 10km`, true);
-      }
-
-      function renderResults(list, center){
-        if (!list.length){
-          $results.innerHTML = `<div class="item"><div>No results within 10 km.</div></div>`;
-          $results.style.display = "block";
-          return;
-        }
-        $results.innerHTML = list.map(p=>{
-          const name = p.displayName?.text || "(no name)";
-          const addr = p.formattedAddress || "";
-          const pos = p.location ? { lat:p.location.latitude, lng:p.location.longitude } : null;
-          const dist = (p.__distance_m ?? (pos ? haversineMeters(center,pos) : NaN));
-          const km = isFinite(dist) ? (dist/1000).toFixed(2) : "—";
-          return `
-            <div class="item">
-              <div>
-                <div><strong>${name}</strong></div>
-                <div class="meta">${km} km · ${addr}</div>
-              </div>
-              <div>
-                <button data-lat="${pos?.lat ?? ""}" data-lng="${pos?.lng ?? ""}" class="go">Go</button>
-              </div>
-            </div>
-          `;
-        }).join("");
-        $results.style.display = "block";
-
-        // bind Go buttons
-        $results.querySelectorAll("button.go").forEach(btn=>{
-          btn.addEventListener("click", ()=>{
-            const lat = parseFloat(btn.getAttribute("data-lat"));
-            const lng = parseFloat(btn.getAttribute("data-lng"));
-            if (Number.isFinite(lat) && Number.isFinite(lng)) {
-              const p = { lat, lng };
-              map.setCenter(p);
-              marker.position = p;
-              toast("Moved to selection", true);
-            }
-          });
-        });
-      }
-
-      $btnSearch.addEventListener("click", searchAround);
-      $q.addEventListener("keydown", (e)=>{ if (e.key === "Enter") searchAround(); });
-
-    } catch (e) {
-      console.error(e);
-      toast("Initialization error: " + e.message);
-    }
-  </script>
+  function escapeHTML(s){ return String(s??"").replace(/[&<>"']/g, m=>({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[m])); }
+</script>
 </body>
 </html>
