@@ -19,6 +19,7 @@
     *{box-sizing:border-box}
     .app{position:relative;height:100dvh;overflow:hidden}
     #map{position:absolute;inset:0}
+
     .overlay{
       position:absolute;left:12px;right:12px;top:12px;
       padding:16px 18px;border-radius:16px;background:var(--glass);
@@ -33,7 +34,7 @@
       width:96px;height:96px;border-radius:24px;background:rgba(255,255,255,.08);
       display:flex;align-items:center;justify-content:center;
       border:1px solid var(--stroke);color:var(--text);text-decoration:none;
-      box-shadow:0 10px 30px rgba(0,0,0,.25)
+      box-shadow:0 10px 30px rgba(0,0,0,.25);cursor:pointer
     }
     .toast{
       position:fixed;left:16px;right:16px;bottom:16px;padding:14px 16px;
@@ -65,97 +66,227 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <!-- Google Maps JS API loader -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXC6CB2yaUkrJ5UYj3mymAsruQe4MzGPk&v=weekly&language=ja&region=JP&loading=async"></script>
+  <!-- Google Maps JS API (use latest browser key) -->
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=en&region=JP&loading=async"></script>
 
-  <!-- App code -->
   <script type="module">
-    // --- 1. Toast helper ---
+    // ---------- Toast ----------
     const toast = (msg, ok=false) => {
       const el = document.getElementById('toast');
-      el.style.background = ok ? "#25d07a" : "#ff6b6b";
+      el.style.background = ok ? "var(--ok)" : "var(--danger)";
       el.textContent = msg;
       el.style.display = "block";
       clearTimeout(el._t);
       el._t = setTimeout(()=>{ el.style.display="none"; }, 3000);
     };
 
-    // --- 2. Ensure Maps is ready ---
+    // ---------- Ensure Google Maps loaded ----------
     async function waitForGoogleMaps(timeout = 15000) {
-      const start = performance.now();
-      while (performance.now() - start < timeout) {
-        if (window.google && google.maps && google.maps.importLibrary) {
-          return true;
-        }
+      const t0 = performance.now();
+      while (performance.now() - t0 < timeout) {
+        if (globalThis.google?.maps?.importLibrary) return;
         await new Promise(r => setTimeout(r, 50));
       }
-      throw new Error("Google Maps failed to load within timeout.");
+      throw new Error("Google Maps failed to load within timeout");
     }
 
-    // --- 3. Main execution ---
-    let map, marker;
+    // ---------- Cloudflare Proxy ----------
+    const PROXY_BASE = "https://ors-proxy.miyata-connect-jp.workers.dev";
+
+    async function cfPlacesSearchText(payload) {
+      const r = await fetch(`${PROXY_BASE}/places:searchText`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) throw new Error(`places: ${r.status}`);
+      return r.json();
+    }
+
+    async function cfDirections(params) {
+      const q = new URLSearchParams(params);
+      const r = await fetch(`${PROXY_BASE}/directions?${q}`);
+      if (!r.ok) throw new Error(`directions: ${r.status}`);
+      return r.json();
+    }
+
+    // ---------- App ----------
+    let map, currentMarker, destMarker, routePolyline;
     let currentPos = { lat: 35.681236, lng: 139.767125 }; // Tokyo default
+    let destination = null;
+
+    function setCoordLabel(pos) {
+      const c = document.getElementById("coord");
+      c.textContent = `Lat: ${pos.lat.toFixed(6)} / Lng: ${pos.lng.toFixed(6)}`;
+    }
+
+    async function getLocation() {
+      return new Promise((resolve,reject)=>{
+        if (!navigator.geolocation) return reject(new Error("Geolocation unsupported"));
+        navigator.geolocation.getCurrentPosition(
+          p => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
+          e => reject(new Error(e.message || "Location error")),
+          { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
+        );
+      });
+    }
+
+    function clearRoute() {
+      if (routePolyline) {
+        routePolyline.setMap(null);
+        routePolyline = null;
+      }
+    }
 
     try {
-      // Wait until fully loaded
       await waitForGoogleMaps();
-
       const { Map } = await google.maps.importLibrary("maps");
       const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
 
       map = new Map(document.getElementById("map"), {
         center: currentPos,
         zoom: 16,
-        mapId: "DEMO_MAP",
+        mapId: "WALKNAV_MAP",
         disableDefaultUI: true,
       });
 
-      marker = new AdvancedMarkerElement({
-        map,
-        position: currentPos,
-      });
+      currentMarker = new AdvancedMarkerElement({ map, position: currentPos });
+      setCoordLabel(currentPos);
 
-      const setCoord = (pos) => {
-        const c = document.getElementById("coord");
-        c.textContent = `Lat: ${pos.lat.toFixed(6)} / Lng: ${pos.lng.toFixed(6)}`;
-      };
-      setCoord(currentPos);
-
-      // --- Geolocation ---
-      const getLocation = () => new Promise((resolve,reject)=>{
-        if(!navigator.geolocation) return reject(new Error("Geolocation unsupported"));
-        navigator.geolocation.getCurrentPosition(
-          pos=>resolve({lat:pos.coords.latitude,lng:pos.coords.longitude}),
-          err=>reject(new Error(err.message||"Location error")),
-          {enableHighAccuracy:true,timeout:10000,maximumAge:0}
-        );
-      });
-
+      // Try to center to device location once
       try {
         currentPos = await getLocation();
         map.setCenter(currentPos);
-        marker.position = currentPos;
-        setCoord(currentPos);
+        currentMarker.position = currentPos;
+        setCoordLabel(currentPos);
         toast("Location updated", true);
-      } catch(e) {
+      } catch (e) {
         toast(`Location error: ${e.message}`);
       }
 
-      // --- Button wiring ---
-      document.getElementById("btn-current").addEventListener("click", async ()=>{
-        try{
+      // ---------- Buttons ----------
+      document.getElementById("btn-current").addEventListener("click", async () => {
+        try {
           const p = await getLocation();
           currentPos = p;
           map.setCenter(p);
-          marker.position = p;
-          setCoord(p);
+          currentMarker.position = p;
+          setCoordLabel(p);
           toast("Centered to current position", true);
-        }catch(e){ toast(`Location error: ${e.message}`); }
+        } catch (e) {
+          toast(`Location error: ${e.message}`);
+        }
       });
 
-      ["btn-search","btn-stop","btn-dest","btn-reroute","btn-ops"].forEach(id=>{
-        document.getElementById(id).addEventListener("click", ()=>toast(`${id} tapped`));
+      document.getElementById("btn-search").addEventListener("click", async () => {
+        const q = window.prompt("Search text (e.g., Ramen Tokushima):", "");
+        if (!q) return;
+
+        try {
+          const res = await cfPlacesSearchText({
+            textQuery: q,
+            languageCode: "en",
+            regionCode: "JP",
+            pageSize: 5
+          });
+
+          const place = res?.places?.[0];
+          if (!place?.location) {
+            toast("No results");
+            return;
+          }
+
+          const pos = {
+            lat: place.location.latitude,
+            lng: place.location.longitude
+          };
+
+          // Update destination marker
+          destination = pos;
+          if (!destMarker) {
+            destMarker = new AdvancedMarkerElement({
+              map,
+              position: pos
+            });
+          } else {
+            destMarker.position = pos;
+          }
+
+          map.panTo(pos);
+          toast(place.displayName?.text || "Destination set", true);
+        } catch (e) {
+          toast(`Search error: ${e.message}`);
+        }
       });
+
+      document.getElementById("btn-dest").addEventListener("click", () => {
+        if (!destination) {
+          toast("Destination not set");
+          return;
+        }
+        map.panTo(destination);
+        toast("Destination centered", true);
+      });
+
+      document.getElementById("btn-reroute").addEventListener("click", async () => {
+        if (!destination) {
+          toast("Destination not set");
+          return;
+        }
+        clearRoute();
+
+        try {
+          const dir = await cfDirections({
+            origin: `${currentPos.lat},${currentPos.lng}`,
+            destination: `${destination.lat},${destination.lng}`,
+            mode: "walking",
+            language: "en",
+            region: "JP",
+          });
+
+          const points = google.maps.geometry
+            ? google.maps.geometry.encoding.decodePath(dir.routes?.[0]?.overview_polyline?.points || "")
+            : decodePolyline(dir.routes?.[0]?.overview_polyline?.points || "");
+
+          routePolyline = new google.maps.Polyline({
+            path: points,
+            map,
+            strokeOpacity: 1.0,
+          });
+
+          toast("Route updated", true);
+        } catch (e) {
+          toast(`Directions error: ${e.message}`);
+        }
+      });
+
+      document.getElementById("btn-stop").addEventListener("click", () => {
+        clearRoute();
+        toast("Route cleared", true);
+      });
+
+      document.getElementById("btn-ops").addEventListener("click", () => {
+        toast("Ops tapped");
+      });
+
+      // ---------- Fallback polyline decoder (if geometry library absent) ----------
+      function decodePolyline(str) {
+        let index = 0, lat = 0, lng = 0, coordinates = [];
+        while (index < str.length) {
+          let b, shift = 0, result = 0;
+          do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+          const dlat = (result & 1) ? ~(result >> 1) : (result >> 1);
+          lat += dlat;
+
+          shift = 0; result = 0;
+          do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+          const dlng = (result & 1) ? ~(result >> 1) : (result >> 1);
+          lng += dlng;
+
+          coordinates.push({ lat: lat / 1e5, lng: lng / 1e5 });
+        }
+        return coordinates;
+      }
 
     } catch (e) {
       console.error(e);
