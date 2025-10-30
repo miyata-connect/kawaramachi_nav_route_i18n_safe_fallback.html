@@ -1,359 +1,334 @@
-// Cloudflare Worker (Module Worker) — Places API (New) only, HTTPS enforced.
-// Paste this entire file into the Dashboard > Edit code as `_worker.js`
+// worker.js  (Cloudflare Workers - module syntax)
+// Purpose: HTTPS-only proxy for Google Places API NEW (v1/places:searchText)
+// - Enforces HTTPS origins via allowlist
+// - Handles CORS (GET/POST/OPTIONS) with proper preflight
+// - Proxies only to Google Places NEW endpoints (searchText + photo render)
+// - Forces X-Goog-FieldMask (safe, minimal-but-useful default; overridable via ?fields=)
+// - Supports locationBias (circle) & locationRestriction (rectangle), openNow, rankPreference, pageSize, languageCode, regionCode
+// - Strong error mapping with opaque upstream details removed
 
-/**
- * Environment: set GMAPS_API_KEY as a Secret in Cloudflare dashboard.
- * Optional: set ALLOW_ORIGINS as a comma-separated list of allowed origins.
- */
 export default {
   async fetch(request, env, ctx) {
     try {
-      const url = new URL(request.url);
+      // ---- Hard HTTPS origin policy with allowlist ----
+      const origin = request.headers.get("Origin") || "";
+      const isHttpsOrigin = origin.startsWith("https://");
+      const allowed = isAllowedOrigin(origin, env);
 
-      // Preflight
+      // Preflight first
       if (request.method === "OPTIONS") {
-        return corsPreflight(request, env);
+        return handlePreflight(origin, isHttpsOrigin && allowed);
       }
 
-      // Health check
+      // Health check (no origin required)
+      const url = new URL(request.url);
       if (url.pathname === "/healthz") {
-        return withCors(
-          request,
-          json({ ok: true, ts: Date.now() }, 200),
-          env
+        return json({ ok: true, ts: Date.now() }, 200, corsHeaders(origin, isHttpsOrigin && allowed));
+      }
+
+      // Only allow HTTPS origins for API routes
+      if (!isHttpsOrigin || !allowed) {
+        return json(
+          {
+            ok: false,
+            error: "forbidden_origin",
+            message: "Only approved HTTPS origins may call this Worker."
+          },
+          403,
+          corsHeaders(origin, false)
         );
       }
 
-      // Endpoint: Places New searchText (HTTPS only)
-      if (request.method === "POST" && url.pathname === "/places:searchText") {
-        return await handleSearchText(request, env);
+      // ---- Routes ----
+      if (url.pathname === "/places:searchText") {
+        if (request.method !== "POST") {
+          return json({ ok: false, error: "method_not_allowed" }, 405, corsHeaders(origin, true));
+        }
+        if (!env || !env.GMAPS_API_KEY) {
+          return json({ ok: false, error: "missing_api_key" }, 500, corsHeaders(origin, true));
+        }
+
+        const body = await safeJson(request);
+        if (!body || typeof body.textQuery !== "string" || !body.textQuery.trim()) {
+          return json(
+            { ok: false, error: "invalid_request", message: "Field `textQuery` (string) is required." },
+            400,
+            corsHeaders(origin, true)
+          );
+        }
+
+        // Allow client to override pageSize/openNow/rankPreference/languageCode/regionCode/locationBias/locationRestriction
+        const payload = {
+          textQuery: body.textQuery,
+          languageCode: pickString(body.languageCode),
+          regionCode: pickString(body.regionCode),
+          openNow: typeof body.openNow === "boolean" ? body.openNow : undefined,
+          rankPreference: oneOf(body.rankPreference, ["RELEVANCE", "DISTANCE"]),
+          pageSize: clampInt(body.pageSize, 1, 20),
+          locationBias: normalizeBias(body.locationBias),
+          locationRestriction: normalizeRestriction(body.locationRestriction)
+        };
+
+        // Remove undefineds
+        cleanUndefined(payload);
+
+        // Field mask: either query ?fields=... or default
+        const fields = normalizeFieldMask(url.searchParams.get("fields"));
+
+        const upstream = await fetch("https://places.googleapis.com/v1/places:searchText", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json; charset=utf-8",
+            "X-Goog-Api-Key": env.GMAPS_API_KEY,
+            "X-Goog-FieldMask": fields
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const text = await upstream.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = { raw: text };
+        }
+
+        if (!upstream.ok) {
+          return json(
+            {
+              ok: false,
+              error: "upstream_error",
+              status: upstream.status,
+              message: data?.error?.message || "Google Places API error",
+              details: sanitizeError(data)
+            },
+            upstream.status,
+            corsHeaders(origin, true)
+          );
+        }
+
+        return json({ ok: true, ...data }, 200, corsHeaders(origin, true));
       }
 
-      return withCors(
-        request,
-        json(
-          {
-            error: {
-              code: 404,
-              message: "Not Found",
-              details: "Use POST /places:searchText or GET /healthz",
-            },
-          },
-          404
-        ),
-        env
-      );
-    } catch (err) {
-      return withCors(
-        request,
-        json(
-          {
-            error: {
-              code: 500,
-              message: "Worker internal error",
-              details: String(err?.message || err),
-            },
-          },
-          500
-        ),
-        null
+      // Photo render proxy:
+      // GET /photos:render?name=places/PLACE_ID/photos/PHOTO_ID&maxWidthPx=800&maxHeightPx=600
+      if (url.pathname === "/photos:render") {
+        if (request.method !== "GET") {
+          return json({ ok: false, error: "method_not_allowed" }, 405, corsHeaders(origin, true));
+        }
+        if (!env || !env.GMAPS_API_KEY) {
+          return json({ ok: false, error: "missing_api_key" }, 500, corsHeaders(origin, true));
+        }
+
+        const name = url.searchParams.get("name");
+        if (!name || !name.startsWith("places/")) {
+          return json(
+            { ok: false, error: "invalid_request", message: "Query param `name` must be like `places/ID/photos/PHOTO_ID`." },
+            400,
+            corsHeaders(origin, true)
+          );
+        }
+
+        const maxWidthPx = url.searchParams.get("maxWidthPx");
+        const maxHeightPx = url.searchParams.get("maxHeightPx");
+
+        const mediaUrl = new URL(`https://places.googleapis.com/v1/${encodeURI(name)}/media`);
+        if (maxWidthPx) mediaUrl.searchParams.set("maxWidthPx", String(Math.min(parseInt(maxWidthPx) || 0, 1600)));
+        if (maxHeightPx) mediaUrl.searchParams.set("maxHeightPx", String(Math.min(parseInt(maxHeightPx) || 0, 1600)));
+        mediaUrl.searchParams.set("key", env.GMAPS_API_KEY);
+
+        const upstream = await fetch(mediaUrl.toString(), { method: "GET" });
+        if (!upstream.ok) {
+          const txt = await upstream.text();
+          let err;
+          try {
+            err = JSON.parse(txt);
+          } catch {
+            err = { raw: txt };
+          }
+          return json(
+            { ok: false, error: "photo_error", status: upstream.status, details: sanitizeError(err) },
+            upstream.status,
+            corsHeaders(origin, true)
+          );
+        }
+
+        const res = new Response(upstream.body, {
+          status: 200,
+          headers: {
+            ...corsHeaders(origin, true),
+            "Content-Type": upstream.headers.get("Content-Type") || "image/jpeg",
+            "Cache-Control": "public, max-age=86400"
+          }
+        });
+        return res;
+      }
+
+      // Fallback
+      return json({ ok: false, error: "not_found" }, 404, corsHeaders(origin, allowed));
+    } catch (e) {
+      return json(
+        { ok: false, error: "internal_error", message: (e && e.message) || "Unexpected error" },
+        500,
+        corsHeaders(request.headers.get("Origin") || "", true)
       );
     }
-  },
+  }
 };
 
-/* -------------------------- Core Handlers -------------------------- */
+// ---------------- helpers ----------------
 
-async function handleSearchText(request, env) {
-  if (!env || !env.GMAPS_API_KEY) {
-    return json(
-      {
-        error: {
-          code: 500,
-          message: "Missing GMAPS_API_KEY",
-          details:
-            "Set Secret GMAPS_API_KEY in Cloudflare > Workers > Variables & Secrets.",
-        },
-      },
-      500
-    );
-  }
+function isAllowedOrigin(origin, env) {
+  if (!origin) return false;
+  if (!origin.startsWith("https://")) return false;
 
-  let payload;
-  try {
-    payload = await request.json();
-  } catch {
-    return withCors(
-      request,
-      json(
-        {
-          error: {
-            code: 400,
-            message: "Invalid JSON body",
-            details: "Request body must be a valid JSON object.",
-          },
-        },
-        400
-      ),
-      env
-    );
-  }
-
-  // -------- Validation & sane defaults --------
-  const errs = [];
-  if (!payload || typeof payload !== "object") {
-    errs.push("Body must be a JSON object.");
-  }
-  if (!payload?.textQuery || typeof payload.textQuery !== "string") {
-    errs.push("Property `textQuery` is required (string).");
-  }
-
-  if (errs.length) {
-    return withCors(
-      request,
-      json({ error: { code: 400, message: "Bad Request", details: errs } }, 400),
-      env
-    );
-  }
-
-  // Defaults (override only if not provided by client)
-  const merged = structuredClone(payload);
-
-  // Language & region defaults (can be overridden by client)
-  if (!merged.languageCode) merged.languageCode = "ja";
-  if (!merged.regionCode) merged.regionCode = "JP";
-
-  // Results limit hard cap (Places New allows up to 20). We default to 5.
-  const max = clampNumber(merged.pageSize ?? 5, 1, 20);
-  merged.pageSize = max;
-
-  // Rank preference default if client asked for "高レビュー順" semantics
-  // Client should set rankPreference explicitly; otherwise we do not force it.
-
-  // Safety caps for bias/restriction radii
-  // If client gave locationBias.circle.radius, clamp to 50km
-  if (merged.locationBias?.circle?.radius != null) {
-    merged.locationBias.circle.radius = clampNumber(
-      merged.locationBias.circle.radius,
-      1, // meters
-      50000
-    );
-  }
-
-  // If client gave a rectangle, trust it as-is (you already clamp on the UI side)
-
-  // -------- Field mask (STRICT) --------
-  // Keep responses lean; adjust as needed.
-  // docs: https://developers.google.com/maps/documentation/places/web-service/field-masks
-  const FIELD_MASK =
-    "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.types,places.nationalPhoneNumber,places.internationalPhoneNumber,places.currentOpeningHours,places.photos";
-
-  // -------- Build request to Places New (HTTPS only) --------
-  const endpoint = "https://places.googleapis.com/v1/places:searchText";
-
-  const headers = {
-    "Content-Type": "application/json; charset=utf-8",
-    "X-Goog-Api-Key": env.GMAPS_API_KEY,
-    "X-Goog-FieldMask": FIELD_MASK,
-  };
-
-  // Extra defense-in-depth: disallow accidental http (should never happen)
-  if (!endpoint.startsWith("https://")) {
-    return withCors(
-      request,
-      json(
-        {
-          error: {
-            code: 500,
-            message: "Endpoint must be HTTPS",
-          },
-        },
-        500
-      ),
-      env
-    );
-  }
-
-  let apiRes;
-  try {
-    apiRes = await fetch(endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(merged),
-      // Cloudflare fetch defaults to HTTP/2 over TLS; no need to tweak.
-    });
-  } catch (e) {
-    return withCors(
-      request,
-      json(
-        {
-          error: {
-            code: 502,
-            message: "Failed to reach Google Places API (New)",
-            details: String(e?.message || e),
-          },
-        },
-        502
-      ),
-      env
-    );
-  }
-
-  // Handle non-2xx with clear messaging
-  if (!apiRes.ok) {
-    const text = await safeText(apiRes);
-    const status = apiRes.status;
-
-    // Map common issues to clearer advice
-    let hint = undefined;
-    if (status === 400) {
-      hint =
-        "Check your payload (textQuery, bias/restriction, pageSize). Ensure it matches Places New schema.";
-    } else if (status === 401 || status === 403) {
-      hint =
-        "API key invalid or restricted. Confirm GMAPS_API_KEY and that Places API (New) is enabled on this key.";
-    } else if (status === 429) {
-      hint = "Rate limit exceeded. Slow down or add usage quotas.";
-    } else if (status >= 500) {
-      hint = "Upstream service error at Google. Retry later.";
-    }
-
-    return withCors(
-      request,
-      json(
-        {
-          error: {
-            code: status,
-            message: "Places API error",
-            upstream: tryParseJSON(text) ?? text,
-            hint,
-          },
-        },
-        status
-      ),
-      env
-    );
-  }
-
-  // Success
-  const data = await apiRes.json();
-
-  // Always return JSON with CORS
-  return withCors(
-    request,
-    new Response(JSON.stringify(data), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json; charset=utf-8",
-        "Cache-Control": "no-store",
-      },
-    }),
-    env
-  );
-}
-
-/* ----------------------------- CORS ------------------------------ */
-
-function allowedOrigins(env) {
-  // Comma-separated origins in env.ALLOW_ORIGINS, or default to GitHub Pages + localhost dev.
+  // Default allowlist; can be overridden by env.ORIGIN_ALLOWLIST (comma-separated)
   const defaults = [
     "https://miyata-connect.github.io",
-    "https://miyata-connect.github.io/walk-nav",
-    "https://miyata-connect.github.io/",
-    "http://localhost:5173",
-    "http://localhost:8080",
-    "https://localhost:5173",
-    "https://localhost:8080",
+    "https://miyata-connect.github.io" // GitHub Pages origin (path is not part of Origin)
   ];
-  if (!env?.ALLOW_ORIGINS) return new Set(defaults);
-  return new Set(
-    String(env.ALLOW_ORIGINS)
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean)
-  );
+
+  let allow = defaults;
+  if (env && typeof env.ORIGIN_ALLOWLIST === "string" && env.ORIGIN_ALLOWLIST.trim()) {
+    allow = env.ORIGIN_ALLOWLIST.split(",").map(s => s.trim()).filter(Boolean);
+  }
+  return allow.includes(origin);
 }
 
-function corsHeaders(origin) {
-  return {
-    "Access-Control-Allow-Origin": origin,
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type,Authorization",
-    "Access-Control-Max-Age": "3600",
-    Vary: "Origin",
-    "Referrer-Policy": "strict-origin-when-cross-origin",
-    "X-Content-Type-Options": "nosniff",
-    "X-Frame-Options": "DENY",
+function corsHeaders(origin, allow) {
+  const headers = {
+    "Vary": "Origin, Access-Control-Request-Method, Access-Control-Request-Headers"
   };
+  if (allow) {
+    headers["Access-Control-Allow-Origin"] = origin;
+    headers["Access-Control-Allow-Credentials"] = "true";
+  }
+  return headers;
 }
 
-function withCors(request, response, env) {
-  try {
-    const origin = request.headers.get("Origin");
-    const allow = allowedOrigins(env);
-    const hdrs = new Headers(response.headers);
-
-    if (origin && allow.has(origin)) {
-      const c = corsHeaders(origin);
-      for (const [k, v] of Object.entries(c)) hdrs.set(k, v);
-    } else {
-      // No origin or not whitelisted: do NOT echo back wildcard.
-      // Still return the response (useful for direct curl), but without CORS perms.
-      hdrs.set("Referrer-Policy", "strict-origin-when-cross-origin");
-      hdrs.set("X-Content-Type-Options", "nosniff");
-      hdrs.set("X-Frame-Options", "DENY");
+function handlePreflight(origin, allow) {
+  const reqMethod = "GET,POST,OPTIONS";
+  const reqHeaders = "Content-Type,Authorization,X-Requested-With";
+  return new Response(null, {
+    status: 204,
+    headers: {
+      ...corsHeaders(origin, allow),
+      "Access-Control-Allow-Methods": reqMethod,
+      "Access-Control-Allow-Headers": reqHeaders,
+      "Access-Control-Max-Age": "86400"
     }
-    return new Response(response.body, { status: response.status, headers: hdrs });
-  } catch {
-    return response;
-  }
-}
-
-function corsPreflight(request, env) {
-  const origin = request.headers.get("Origin");
-  const allow = allowedOrigins(env);
-  const headers = new Headers();
-
-  if (origin && allow.has(origin)) {
-    const c = corsHeaders(origin);
-    for (const [k, v] of Object.entries(c)) headers.set(k, v);
-  } else {
-    headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-    headers.set("X-Content-Type-Options", "nosniff");
-    headers.set("X-Frame-Options", "DENY");
-  }
-
-  // Short-circuit preflight
-  return new Response(null, { status: 204, headers });
-}
-
-/* --------------------------- Utilities --------------------------- */
-
-function clampNumber(v, min, max) {
-  const n = Number(v);
-  if (!Number.isFinite(n)) return min;
-  return Math.min(max, Math.max(min, n));
-}
-
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { "Content-Type": "application/json; charset=utf-8" },
   });
 }
 
-async function safeText(res) {
-  try {
-    return await res.text();
-  } catch {
-    return "";
-  }
+function json(data, status = 200, headers = {}) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      ...headers
+    }
+  });
 }
 
-function tryParseJSON(s) {
+async function safeJson(request) {
   try {
-    return JSON.parse(s);
+    const txt = await request.text();
+    if (!txt) return {};
+    return JSON.parse(txt);
   } catch {
     return null;
   }
+}
+
+function pickString(v) {
+  return typeof v === "string" && v.trim() ? v : undefined;
+}
+
+function oneOf(val, arr) {
+  if (typeof val !== "string") return undefined;
+  const up = val.toUpperCase();
+  return arr.includes(up) ? up : undefined;
+}
+
+function clampInt(v, min, max) {
+  if (v == null) return undefined;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return undefined;
+  return Math.min(Math.max(Math.floor(n), min), max);
+}
+
+function normalizeBias(bias) {
+  if (!bias || typeof bias !== "object") return undefined;
+  // Expecting { circle: { center: { latitude, longitude }, radius } }
+  if (bias.circle && bias.circle.center && Number.isFinite(bias.circle.center.latitude) && Number.isFinite(bias.circle.center.longitude)) {
+    const radius = clampInt(bias.circle.radius, 1, 50000); // cap 50km
+    return { circle: { center: { latitude: +bias.circle.center.latitude, longitude: +bias.circle.center.longitude }, radius: radius ?? 10000 } };
+  }
+  return undefined;
+}
+
+function normalizeRestriction(r) {
+  if (!r || typeof r !== "object") return undefined;
+  // Expecting { rectangle: { low: { latitude, longitude }, high: { latitude, longitude } } }
+  if (
+    r.rectangle &&
+    r.rectangle.low &&
+    r.rectangle.high &&
+    Number.isFinite(r.rectangle.low.latitude) &&
+    Number.isFinite(r.rectangle.low.longitude) &&
+    Number.isFinite(r.rectangle.high.latitude) &&
+    Number.isFinite(r.rectangle.high.longitude)
+  ) {
+    return {
+      rectangle: {
+        low: { latitude: +r.rectangle.low.latitude, longitude: +r.rectangle.low.longitude },
+        high: { latitude: +r.rectangle.high.latitude, longitude: +r.rectangle.high.longitude }
+      }
+    };
+  }
+  return undefined;
+}
+
+function normalizeFieldMask(raw) {
+  if (typeof raw === "string" && raw.trim()) {
+    return raw.trim();
+  }
+  // Sensible default mask (compact but useful)
+  return [
+    "places.id",
+    "places.displayName",
+    "places.formattedAddress",
+    "places.shortFormattedAddress",
+    "places.location",
+    "places.primaryType",
+    "places.types",
+    "places.rating",
+    "places.userRatingCount",
+    "places.nationalPhoneNumber",
+    "places.internationalPhoneNumber",
+    "places.websiteUri",
+    "places.googleMapsUri",
+    "places.businessStatus",
+    "places.currentOpeningHours",
+    "places.regularOpeningHours",
+    "places.priceLevel",
+    "places.photos"
+  ].join(",");
+}
+
+function cleanUndefined(obj) {
+  for (const k of Object.keys(obj)) {
+    if (obj[k] === undefined) delete obj[k];
+  }
+}
+
+function sanitizeError(e) {
+  if (!e || typeof e !== "object") return {};
+  const out = {};
+  if (e.error && typeof e.error === "object") {
+    out.code = e.error.status || e.error.code || undefined;
+    out.message = e.error.message || undefined;
+  }
+  if (e.status) out.status = e.status;
+  return out;
 }
