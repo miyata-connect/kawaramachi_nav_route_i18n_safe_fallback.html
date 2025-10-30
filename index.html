@@ -6,53 +6,43 @@
   <title>WalkNav</title>
   <style>
     :root{
-      --bg:#0a1321;
-      --text:#eaf2ff;
-      --muted:#a7b8ce;
-      --accent:#5fb1ff;
-      --glass: rgba(20,28,44,.78);
-      --stroke: rgba(255,255,255,.12);
-      --ok:#25d07a;
-      --danger:#ff6565;
+      --bg:#0a1321; --text:#eaf2ff; --muted:#a7b8ce; --accent:#5fb1ff;
+      --glass: rgba(20,28,44,.78); --stroke: rgba(255,255,255,.12);
+      --ok:#25d07a; --danger:#ff6565;
     }
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     *{box-sizing:border-box}
     .app{position:relative;height:100dvh;overflow:hidden}
-    /* map は最背面に固定 */
     #map{position:absolute;inset:0;z-index:0}
-
-    /* 上部パネル（クリックすり抜けないように必要最小限） */
     .overlay{
       position:absolute;left:12px;right:12px;top:12px;
       padding:16px 18px;border-radius:16px;background:var(--glass);
       border:1px solid var(--stroke);backdrop-filter:blur(6px);
-      z-index:10; /* ボタンよりは下げない（下げると重ならないのでOK） */
-      pointer-events:auto;
+      z-index:10; pointer-events:auto;
     }
     .row{display:flex;gap:10px;align-items:center;justify-content:space-between}
-
-    /* 右のボタン列。最前面へ・確実にタップ可能に */
     .pill{
-      position:fixed;right:12px;bottom:18px;
-      display:flex;flex-direction:column;gap:14px;
-      z-index:9999; /* 最前面に固定 */
-      pointer-events:none; /* 親は透過にして… */
+      position:fixed;right:12px;bottom:18px;display:flex;flex-direction:column;gap:14px;
+      z-index:9999; pointer-events:none;
     }
     .btn{
-      width:96px;height:96px;border-radius:24px;
-      display:flex;align-items:center;justify-content:center;
-      border:1px solid rgba(255,255,255,.28);
-      color:#fff;text-decoration:none;cursor:pointer;
-      box-shadow:0 10px 30px rgba(0,0,0,.45);
-      background:rgba(0,0,0,.42); /* コントラスト強化（見えない問題対策） */
-      font-weight:600;letter-spacing:.2px;
-      pointer-events:auto; /* 子要素だけタップ可に */
-      user-select:none;
+      width:96px;height:96px;border-radius:24px;display:flex;align-items:center;justify-content:center;
+      border:1px solid rgba(255,255,255,.28); color:#fff; text-decoration:none; cursor:pointer;
+      box-shadow:0 10px 30px rgba(0,0,0,.45); background:rgba(0,0,0,.42);
+      font-weight:600; letter-spacing:.2px; pointer-events:auto; user-select:none;
     }
     .toast{
-      position:fixed;left:16px;right:16px;bottom:16px;padding:14px 16px;
-      border-radius:12px;background:#ff6b6b;color:white;border:0;display:none;z-index:10000
+      position:fixed;left:16px;right:16px;bottom:16px;padding:14px 16px;border-radius:12px;
+      background:#ff6b6b;color:white;border:0;display:none;z-index:10000
     }
+    /* 結果パネル */
+    #results{ position:fixed; left:12px; right:12px; bottom:120px; top:auto;
+      max-height:40vh; overflow:auto; z-index:9998; display:none; }
+    #results h4{ margin:0 0 10px; font-size:14px; color:var(--muted) }
+    .item{ padding:10px 8px; border-radius:12px; border:1px solid var(--stroke);
+      background:rgba(255,255,255,.04); margin-bottom:8px; cursor:pointer }
+    .item b{ display:block; font-size:15px; color:var(--text) }
+    .item small{ display:block; color:var(--muted) }
   </style>
 </head>
 <body>
@@ -64,6 +54,12 @@
         <strong id="panel-title">Set your destination</strong>
         <span id="coord" style="font-variant-numeric:tabular-nums;color:var(--muted)">Lat: -- / Lng: --</span>
       </div>
+    </div>
+
+    <!-- 検索結果パネル -->
+    <div id="results" class="overlay">
+      <h4>Search results</h4>
+      <div id="list"></div>
     </div>
 
     <div class="pill">
@@ -78,21 +74,19 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <!-- Google Maps JS API（ブラウザ用キー） -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=en&region=JP&loading=async"></script>
+  <!-- Google Maps JS API（ブラウザキー） -->
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=ja&region=JP&loading=async"></script>
 
   <script type="module">
-    /* Toast */
     const toast = (msg, ok=false) => {
       const el = document.getElementById('toast');
       el.style.background = ok ? "var(--ok)" : "var(--danger)";
       el.textContent = msg;
       el.style.display = "block";
       clearTimeout(el._t);
-      el._t = setTimeout(()=>{ el.style.display="none"; }, 2200);
+      el._t = setTimeout(()=>{ el.style.display="none"; }, 2500);
     };
 
-    /* Google Maps load wait */
     async function waitForGoogleMaps(timeout = 15000) {
       const t0 = performance.now();
       while (performance.now() - t0 < timeout) {
@@ -102,22 +96,25 @@
       throw new Error("Google Maps failed to load within timeout");
     }
 
-    /* Cloudflare Proxy endpoints */
     const PROXY_BASE = "https://ors-proxy.miyata-connect-jp.workers.dev";
-    const cfPlacesSearchText = (payload)=>
-      fetch(`${PROXY_BASE}/places:searchText`,{
+    const cfPlacesSearchText = async (payload) => {
+      const r = await fetch(`${PROXY_BASE}/places:searchText`, {
         method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify(payload)
-      }).then(r=>{ if(!r.ok) throw new Error(`places: ${r.status}`); return r.json(); });
-
-    const cfDirections = (params)=>{
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(payload),
+      });
+      const text = await r.text();
+      if (!r.ok) throw new Error(`places ${r.status}: ${text.slice(0,120)}`);
+      try { return JSON.parse(text); } catch { return { raw:text }; }
+    };
+    const cfDirections = async (params) => {
       const q = new URLSearchParams(params);
-      return fetch(`${PROXY_BASE}/directions?${q}`)
-        .then(r=>{ if(!r.ok) throw new Error(`directions: ${r.status}`); return r.json(); });
+      const r = await fetch(`${PROXY_BASE}/directions?${q}`);
+      const text = await r.text();
+      if (!r.ok) throw new Error(`directions ${r.status}: ${text.slice(0,120)}`);
+      try { return JSON.parse(text); } catch { return { raw:text }; }
     };
 
-    /* App */
     let map, currentMarker, destMarker, routePolyline;
     let currentPos = { lat: 35.681236, lng: 139.767125 };
     let destination = null;
@@ -126,7 +123,6 @@
       const c = document.getElementById('coord');
       c.textContent = `Lat: ${p.lat.toFixed(6)} / Lng: ${p.lng.toFixed(6)}`;
     };
-
     const getLocation = ()=>new Promise((resolve,reject)=>{
       if(!navigator.geolocation) return reject(new Error("Geolocation unsupported"));
       navigator.geolocation.getCurrentPosition(
@@ -135,10 +131,42 @@
         {enableHighAccuracy:true,timeout:10000,maximumAge:0}
       );
     });
+    const clearRoute = ()=>{ if(routePolyline){ routePolyline.setMap(null); routePolyline=null; } };
 
-    const clearRoute = ()=>{
-      if(routePolyline){ routePolyline.setMap(null); routePolyline=null; }
+    // 結果パネル制御
+    const resultsBox = document.getElementById('results');
+    const listBox = document.getElementById('list');
+    const showResults = (items)=>{ resultsBox.style.display = "block"; listBox.innerHTML = ""; items.forEach(addItem); };
+    const hideResults = ()=>{ resultsBox.style.display = "none"; listBox.innerHTML = ""; };
+    const addItem = (p)=>{
+      const el = document.createElement('div');
+      el.className = 'item';
+      el.innerHTML = `<b>${p.displayName?.text ?? "Unnamed place"}</b><small>${p.formattedAddress ?? ""}</small>`;
+      el.onclick = ()=>{
+        destination = { lat:p.location.latitude, lng:p.location.longitude };
+        if(!destMarker){ destMarker = new google.maps.marker.AdvancedMarkerElement({ map, position: destination }); }
+        else { destMarker.position = destination; }
+        map.panTo(destination);
+        hideResults();
+        toast("Destination set", true);
+      };
+      listBox.appendChild(el);
     };
+
+    function decodePolyline(str){
+      if(!str) return [];
+      let index=0,lat=0,lng=0,coords=[];
+      while(index<str.length){
+        let b,shift=0,result=0;
+        do{ b=str.charCodeAt(index++)-63; result|=(b&0x1f)<<shift; shift+=5; }while(b>=0x20);
+        const dlat=(result&1)?~(result>>1):(result>>1); lat+=dlat;
+        shift=0; result=0;
+        do{ b=str.charCodeAt(index++)-63; result|=(b&0x1f)<<shift; shift+=5; }while(b>=0x20);
+        const dlng=(result&1)?~(result>>1):(result>>1); lng+=dlng;
+        coords.push({lat:lat/1e5,lng:lng/1e5});
+      }
+      return coords;
+    }
 
     try{
       await waitForGoogleMaps();
@@ -151,18 +179,13 @@
       currentMarker = new AdvancedMarkerElement({ map, position: currentPos });
       setCoord(currentPos);
 
-      // 一発センタリング
       try{
         currentPos = await getLocation();
         map.setCenter(currentPos);
         currentMarker.position = currentPos;
         setCoord(currentPos);
-      }catch(e){ /* 取得失敗でもUIは出す */ }
+      }catch(e){ /* 位置取れなくても続行 */ }
 
-      // UI 準備完了のトースト（見えない問題の検知用）
-      toast("UI ready", true);
-
-      // Buttons
       document.getElementById("btn-current").addEventListener("click", async ()=>{
         try{
           const p = await getLocation();
@@ -172,18 +195,21 @@
       });
 
       document.getElementById("btn-search").addEventListener("click", async ()=>{
-        const q = window.prompt("Search text (e.g., Ramen Tokushima):","");
-        if(!q) return;
+        const q = window.prompt("Search text (e.g., Ramen Tokushima):","ラーメン 徳島市");
+        if(!q){ hideResults(); return; }
         try{
-          const res = await cfPlacesSearchText({ textQuery:q, languageCode:"en", regionCode:"JP", pageSize:5 });
-          const place = res?.places?.[0];
-          if(!place?.location){ toast("No results"); return; }
-          destination = { lat:place.location.latitude, lng:place.location.longitude };
-          if(!destMarker){ destMarker = new AdvancedMarkerElement({ map, position: destination }); }
-          else { destMarker.position = destination; }
-          map.panTo(destination);
-          toast(place.displayName?.text || "Destination set", true);
-        }catch(e){ toast(`Search error: ${e.message}`); }
+          toast("Searching…");
+          const res = await cfPlacesSearchText({
+            textQuery: q, languageCode: "ja", regionCode: "JP", pageSize: 5
+          });
+          const items = res?.places || [];
+          if (!items.length){ hideResults(); toast("0件でした"); return; }
+          showResults(items);
+          toast(`${items.length}件ヒット`, true);
+        }catch(e){
+          hideResults();
+          toast(`Search error: ${e.message}`);
+        }
       });
 
       document.getElementById("btn-dest").addEventListener("click", ()=>{
@@ -198,7 +224,7 @@
           const dir = await cfDirections({
             origin:`${currentPos.lat},${currentPos.lng}`,
             destination:`${destination.lat},${destination.lng}`,
-            mode:"walking", language:"en", region:"JP"
+            mode:"walking", language:"ja", region:"JP"
           });
           const poly = dir?.routes?.[0]?.overview_polyline?.points || "";
           const pts = decodePolyline(poly);
@@ -211,25 +237,8 @@
         clearRoute(); toast("Route cleared", true);
       });
 
-      document.getElementById("btn-ops").addEventListener("click", ()=>{
-        toast("Ops tapped");
-      });
-
-      // polyline decoder fallback
-      function decodePolyline(str){
-        if(!str) return [];
-        let index=0,lat=0,lng=0,coords=[];
-        while(index<str.length){
-          let b,shift=0,result=0;
-          do{ b=str.charCodeAt(index++)-63; result|=(b&0x1f)<<shift; shift+=5; }while(b>=0x20);
-          const dlat=(result&1)?~(result>>1):(result>>1); lat+=dlat;
-          shift=0; result=0;
-          do{ b=str.charCodeAt(index++)-63; result|=(b&0x1f)<<shift; shift+=5; }while(b>=0x20);
-          const dlng=(result&1)?~(result>>1):(result>>1); lng+=dlng;
-          coords.push({lat:lat/1e5,lng:lng/1e5});
-        }
-        return coords;
-      }
+      // 結果パネル外をタップで閉じられるように
+      document.getElementById('map').addEventListener('click', hideResults);
     }catch(e){
       console.error(e);
       toast("Init error: "+e.message);
