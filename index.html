@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
@@ -7,34 +7,22 @@
   <style>
     :root{
       --bg:#0a1321; --text:#eaf2ff; --muted:#a7b8ce; --accent:#5fb1ff;
-      --glass: rgba(20,28,44,.78); --glass-strong: rgba(16,22,36,.88);
-      --stroke: rgba(255,255,255,.12); --ok:#25d07a; --danger:#ff6565;
+      --glass: rgba(20,28,44,.78); --stroke: rgba(255,255,255,.12);
+      --ok:#25d07a; --danger:#ff6565;
     }
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     *{box-sizing:border-box}
     .app{position:relative;height:100dvh;overflow:hidden}
-    #map{position:absolute;inset:0;z-index:0}
-    .overlay{
-      position:absolute;left:12px;right:12px;top:12px;padding:16px 18px;border-radius:16px;
-      background:var(--glass);border:1px solid var(--stroke);backdrop-filter:blur(6px);
-      z-index:10;pointer-events:auto
-    }
+    #map{position:absolute;inset:0}
+    .overlay{position:absolute;left:12px;right:12px;top:12px;padding:16px 18px;border-radius:16px;background:var(--glass);border:1px solid var(--stroke);backdrop-filter:blur(6px)}
     .row{display:flex;gap:10px;align-items:center;justify-content:space-between}
-    .pill{position:fixed;right:12px;bottom:18px;display:flex;flex-direction:column;gap:14px;z-index:9999;pointer-events:none}
-    .btn{
-      width:96px;height:96px;border-radius:24px;background:rgba(255,255,255,.08);
-      display:flex;align-items:center;justify-content:center;border:1px solid var(--stroke);
-      color:var(--text);text-decoration:none;box-shadow:0 10px 30px rgba(0,0,0,.25);pointer-events:auto
-    }
-    .toast{position:fixed;left:16px;right:16px;bottom:16px;padding:14px 16px;border-radius:12px;background:#ff6b6b;color:#fff;border:0;display:none;z-index:10000}
-    .result-panel{
-      position:absolute;left:0;right:0;bottom:0;background:var(--glass-strong);
-      backdrop-filter:blur(10px);border-top:1px solid var(--stroke);
-      padding:10px 16px;max-height:50%;overflow-y:auto;display:none;z-index:20
-    }
-    .result-item{border:1px solid var(--stroke);border-radius:12px;padding:10px 14px;margin:8px 0;background:rgba(255,255,255,.06)}
-    .result-title{font-weight:bold;font-size:1.1em}
-    .result-address{font-size:.9em;color:var(--muted)}
+    .pill{position:fixed;right:12px;display:flex;flex-direction:column;gap:14px;bottom:18px;z-index:3}
+    .btn{width:96px;height:96px;border-radius:24px;background:rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center;border:1px solid var(--stroke);color:var(--text);text-decoration:none;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+    .toast{position:fixed;left:16px;right:16px;bottom:16px;padding:14px 16px;border-radius:12px;background:#ff6b6b;color:#fff;border:0;display:none;z-index:5}
+    .sheet{position:fixed;left:12px;right:12px;bottom:12px;max-height:55vh;overflow:auto;background:var(--glass);border:1px solid var(--stroke);border-radius:16px;backdrop-filter:blur(6px);padding:12px 8px;display:none}
+    .item{padding:14px 16px;border-radius:12px;border:1px solid var(--stroke);margin:8px;background:rgba(255,255,255,.04)}
+    .item h4{margin:0 0 6px 0;font-size:16px}
+    .item p{margin:0;color:var(--muted);font-size:13px}
   </style>
 </head>
 <body>
@@ -57,119 +45,187 @@
       <button id="btn-ops" class="btn" title="Ops">Ops</button>
     </div>
 
-    <div id="results" class="result-panel"></div>
+    <div id="sheet" class="sheet" role="dialog" aria-label="Search results"></div>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <!-- Use user's browser Maps key (per policy) -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=ja&region=JP&loading=async"></script>
+  <!-- Google Maps JS API (auto-embedded key per governance) -->
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=en&region=JP&loading=async"></script>
 
   <script type="module">
-    // Toast
-    const toast=(m,ok=false)=>{const el=document.getElementById("toast");el.style.background=ok?"#25d07a":"#ff6b6b";el.textContent=m;el.style.display="block";clearTimeout(el._t);el._t=setTimeout(()=>el.style.display="none",3000)};
+    // --- constants ---
+    const PROXY = "https://ors-proxy.miyata-connect-jp.workers.dev";
+    const ALLOWED_ORIGIN = "https://miyata-connect.github.io";
+    const RADIUS_M = 10000; // 10km fixed
+    const MAX_RESULTS = 5;
 
-    // Wait Maps
-    async function waitForMaps(t=15000){const s=performance.now();while(performance.now()-s<t){if(window.google&&google.maps&&google.maps.importLibrary)return true;await new Promise(r=>setTimeout(r,50))}throw new Error("Google Maps failed to load")}
+    // --- helpers ---
+    const toast = (msg, ok=false) => {
+      const el = document.getElementById('toast');
+      el.style.background = ok ? "#25d07a" : "#ff6b6b";
+      el.textContent = msg;
+      el.style.display = "block";
+      clearTimeout(el._t);
+      el._t = setTimeout(()=>{ el.style.display="none"; }, 3000);
+    };
 
-    // Proxy call
-    async function cfPlacesSearchText(body){
-      const r=await fetch("https://ors-proxy.miyata-connect-jp.workers.dev/places:searchText",{
-        method:"POST",
-        headers:{ "Origin":"https://miyata-connect.github.io","Content-Type":"application/json" },
-        body:JSON.stringify(body)
-      });
-      if(!r.ok) throw new Error(`Places API error (${r.status})`);
-      return r.json();
+    const waitForGoogleMaps = async (timeout=15000)=>{
+      const t0 = performance.now();
+      while(performance.now()-t0 < timeout){
+        if (globalThis.google?.maps?.importLibrary) return;
+        await new Promise(r=>setTimeout(r,50));
+      }
+      throw new Error("Google Maps failed to load");
+    };
+
+    // distance in meters using haversine
+    function haversine(a, b){
+      const toRad = d => d*Math.PI/180;
+      const R = 6371000;
+      const dLat = toRad(b.lat - a.lat);
+      const dLng = toRad(b.lng - a.lng);
+      const s1 = Math.sin(dLat/2), s2 = Math.sin(dLng/2);
+      const aa = s1*s1 + Math.cos(toRad(a.lat))*Math.cos(toRad(b.lat))*s2*s2;
+      return 2*R*Math.asin(Math.sqrt(aa));
     }
 
-    // Main
-    let map, marker, currentPos={lat:35.681236,lng:139.767125};
+    // rectangle from center + radius (meters)
+    function rectFromCircle(center, radiusM){
+      const latDeg = radiusM / 111320; // approx meters per degree lat
+      const lngDeg = radiusM / (111320 * Math.cos(center.lat * Math.PI/180) || 1e-6);
+      return {
+        low:  { latitude: center.lat - latDeg, longitude: center.lng - lngDeg },
+        high: { latitude: center.lat + latDeg, longitude: center.lng + lngDeg }
+      };
+    }
 
+    // --- globals ---
+    let map, marker, destMarker;
+    let currentPos = { lat: 35.681236, lng: 139.767125 };
+    const setCoord = (pos)=>{
+      const c = document.getElementById("coord");
+      c.textContent = `Lat: ${pos.lat.toFixed(6)} / Lng: ${pos.lng.toFixed(6)}`;
+    };
+
+    // --- bootstrap ---
     try{
-      await waitForMaps();
-      const {Map}=await google.maps.importLibrary("maps");
-      const {AdvancedMarkerElement}=await google.maps.importLibrary("marker");
+      await waitForGoogleMaps();
+      const { Map } = await google.maps.importLibrary("maps");
+      const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
 
-      map=new Map(document.getElementById("map"),{center:currentPos,zoom:15,mapId:"DEMO_MAP",disableDefaultUI:true});
-      marker=new AdvancedMarkerElement({map,position:currentPos});
-      const setCoord=p=>{document.getElementById("coord").textContent=`Lat: ${p.lat.toFixed(6)} / Lng: ${p.lng.toFixed(6)}`}; setCoord(currentPos);
+      map = new Map(document.getElementById("map"), {
+        center: currentPos, zoom: 16, mapId: "WALKNAV_V5", disableDefaultUI: true,
+      });
 
-      const getLocation=()=>new Promise((res,rej)=>{
-        if(!navigator.geolocation) return rej(new Error("Geolocation unsupported"));
+      marker = new AdvancedMarkerElement({ map, position: currentPos });
+      setCoord(currentPos);
+
+      // geolocate
+      const getLocation = () => new Promise((resolve,reject)=>{
+        if(!navigator.geolocation) return reject(new Error("Geolocation unsupported"));
         navigator.geolocation.getCurrentPosition(
-          pos=>res({lat:pos.coords.latitude,lng:pos.coords.longitude}),
-          err=>rej(new Error(err.message||"Location error")),
-          {enableHighAccuracy:true,timeout:10000,maximumAge:0}
+          pos=>resolve({ lat:pos.coords.latitude, lng:pos.coords.longitude }),
+          err=>reject(new Error(err.message||"Location error")),
+          { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
         );
       });
 
-      try{ currentPos=await getLocation(); map.setCenter(currentPos); marker.position=currentPos; setCoord(currentPos); toast("Location updated",true); }
-      catch(e){ toast(`Location error: ${e.message}`); }
+      try{
+        currentPos = await getLocation();
+        map.setCenter(currentPos);
+        marker.position = currentPos;
+        setCoord(currentPos);
+        toast("Location updated", true);
+      }catch(e){ toast(`Location error: ${e.message}`); }
 
+      // buttons
       document.getElementById("btn-current").addEventListener("click", async ()=>{
-        try{ const p=await getLocation(); currentPos=p; map.setCenter(p); marker.position=p; setCoord(p); toast("Centered",true); }
-        catch(e){ toast(`Location error: ${e.message}`); }
+        try{
+          const p = await getLocation();
+          currentPos = p; map.setCenter(p); marker.position = p; setCoord(p);
+          toast("Centered to current position", true);
+        }catch(e){ toast(`Location error: ${e.message}`); }
       });
 
-      // SEARCH: strictly within 10km, max 5, nearest first
+      // search flow
       document.getElementById("btn-search").addEventListener("click", async ()=>{
-        const q=prompt("Search text (e.g., Ramen):");
+        const q = prompt("Search text (e.g., Ramen Tokushima):")?.trim();
         if(!q) return;
-        toast("Searching...", true);
+
+        const rect = rectFromCircle(currentPos, RADIUS_M);
+        const body = {
+          textQuery: q,
+          locationRestriction: { rectangle: rect },
+          pageSize: MAX_RESULTS
+        };
 
         try{
-          const body={
-            textQuery:q,
-            languageCode:"ja",
-            regionCode:"JP",
-            pageSize:5,
-            rankPreference:"DISTANCE",
-            locationRestriction:{            // strict filter (not bias)
-              circle:{
-                center:{ latitude: currentPos.lat, longitude: currentPos.lng },
-                radius:10000                 // meters (10km)
-              }
-            },
-            // Optional: uncomment to improve relevance for POI
-            // includedType: "establishment",
-          };
+          const res = await fetch(`${PROXY}/places:searchText`, {
+            method: "POST",
+            headers: { "Content-Type":"application/json", "Origin": ALLOWED_ORIGIN },
+            body: JSON.stringify(body)
+          });
 
-          const res=await cfPlacesSearchText(body);
-
-          const panel=document.getElementById("results");
-          panel.innerHTML="";
-          const items=(res.places||[]).slice(0,5);
-          if(items.length===0){ panel.style.display="none"; toast("No results within 10km"); return; }
-
-          // render
-          for(const p of items){
-            const div=document.createElement("div");
-            div.className="result-item";
-            div.innerHTML=`
-              <div class="result-title">${p.displayName?.text||"Unknown"}</div>
-              <div class="result-address">${p.formattedAddress||""}</div>
-            `;
-            // center map on tap
-            div.addEventListener("click", ()=>{
-              if(p.location){ const pos={lat:p.location.latitude,lng:p.location.longitude}; map.setCenter(pos); marker.position=pos; setCoord(pos); }
-              toast("Pinned", true);
-            });
-            panel.appendChild(div);
+          if(!res.ok){
+            const t = await res.text().catch(()=> "");
+            throw new Error(`Places API error (${res.status}) ${t || ""}`.trim());
           }
-          panel.style.display="block";
-          toast(`${items.length} results (<=10km)`, true);
 
+          const data = await res.json();
+          const list = Array.isArray(data.places) ? data.places : [];
+
+          // strict client-side radius filter (<=10km), then take up to 5 nearest
+          const candidates = list
+            .map(p=>{
+              const loc = { lat: p.location?.latitude ?? 0, lng: p.location?.longitude ?? 0 };
+              return { raw:p, loc, dist: haversine(currentPos, loc) };
+            })
+            .filter(x => isFinite(x.dist) && x.dist <= RADIUS_M)
+            .sort((a,b)=>a.dist-b.dist)
+            .slice(0, MAX_RESULTS);
+
+          if(candidates.length === 0){
+            toast("No results within 10km");
+            document.getElementById("sheet").style.display = "none";
+            return;
+          }
+
+          // render sheet
+          const sheet = document.getElementById("sheet");
+          sheet.innerHTML = `<div style="padding:6px 10px 10px 12px;font-weight:600">Search results (≤10km)</div>`;
+          candidates.forEach(c=>{
+            const name = c.raw.displayName?.text || "(no name)";
+            const addr = c.raw.formattedAddress || "";
+            const km = (c.dist/1000).toFixed(2);
+            const el = document.createElement("div");
+            el.className = "item";
+            el.innerHTML = `<h4>${name} — ${km} km</h4><p>${addr}</p>`;
+            el.addEventListener("click", ()=>{
+              if(!destMarker) destMarker = new google.maps.marker.AdvancedMarkerElement({map});
+              destMarker.position = c.loc;
+              map.setCenter(c.loc);
+              map.setZoom(16);
+              sheet.style.display = "none";
+              toast(`Destination set: ${name}`, true);
+            });
+            sheet.appendChild(el);
+          });
+          sheet.style.display = "block";
         }catch(e){
           console.error(e);
-          toast("Search error: "+e.message);
+          toast(`Search error: ${e.message}`);
+          document.getElementById("sheet").style.display = "none";
         }
       });
 
       ["btn-stop","btn-dest","btn-reroute","btn-ops"].forEach(id=>{
-        document.getElementById(id).addEventListener("click",()=>toast(`${id} tapped`));
+        document.getElementById(id).addEventListener("click", ()=>toast(`${id} tapped`));
       });
 
-    }catch(e){ console.error(e); toast("Map init error: "+e.message); }
+    }catch(e){
+      console.error(e);
+      toast("Map initialization error: " + e.message);
+    }
   </script>
 </body>
 </html>
