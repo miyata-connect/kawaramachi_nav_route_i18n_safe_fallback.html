@@ -5,353 +5,168 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <title>WalkNav</title>
   <style>
-    :root{
+    :root {
       --bg:#0a1321; --text:#eaf2ff; --muted:#a7b8ce; --accent:#5fb1ff;
       --glass: rgba(20,28,44,.78); --stroke: rgba(255,255,255,.12);
-      --ok:#25d07a; --danger:#ff6565;
-      --right-pad:128px; /* keep clear space for right-side buttons */
+      --right-pad:128px;
     }
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
-      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    *{box-sizing:border-box}
-    .app{position:relative;height:100dvh;overflow:hidden}
-    #map{position:absolute;inset:0}
+      font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}
+    *{box-sizing:border-box;}
+    .app{position:relative;height:100dvh;overflow:hidden;}
+    #map{position:absolute;inset:0;}
 
-    /* Top overlay: shifted left to avoid right buttons */
     .overlay{
       position:absolute;left:12px;right:var(--right-pad);top:12px;
-      padding:12px 14px;border-radius:16px;background:var(--glass);
-      border:1px solid var(--stroke);backdrop-filter:blur(6px);z-index:5
+      background:var(--glass);border:1px solid var(--stroke);
+      padding:12px 14px;border-radius:16px;backdrop-filter:blur(6px);z-index:5;
     }
-    .row{display:flex;gap:10px;align-items:center;justify-content:space-between}
-    .small{color:var(--muted);font-size:12px}
-    .inputs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
-    .inputs input[type="text"]{
-      flex:1 1 260px;height:40px;border-radius:10px;border:1px solid var(--stroke);
-      background:rgba(0,0,0,.25);color:var(--text);padding:0 12px;outline:none
+    .row{display:flex;justify-content:space-between;align-items:center;}
+    .inputs{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+    input,select,button,label{font-size:14px;}
+    input[type="text"]{
+      flex:1;height:40px;border-radius:8px;border:1px solid var(--stroke);
+      background:rgba(0,0,0,.3);color:var(--text);padding:0 12px;
     }
-    .inputs select,.inputs label.btnlike{
-      height:40px;border-radius:10px;border:1px solid var(--stroke);background:rgba(0,0,0,.25);
-      color:var(--text);padding:0 10px;display:flex;align-items:center;gap:6px;user-select:none
+    select,button{
+      height:40px;border-radius:8px;border:1px solid var(--stroke);
+      background:rgba(0,0,0,.3);color:var(--text);
     }
-    .inputs button{
-      height:40px;border-radius:10px;border:1px solid var(--stroke);
-      background:var(--accent);color:#08121f;font-weight:700;padding:0 14px;cursor:pointer
+    button{
+      background:var(--accent);color:#0a1321;font-weight:700;cursor:pointer;
     }
-    .inputs button#clearList{background:#cbd5e1;color:#0b1220}
-
-    /* Results list keeps clear from right buttons and bottom buttons area */
     .list{
-      position:absolute;left:12px;right:var(--right-pad);top:120px;max-height:45vh;overflow:auto;
-      background:rgba(0,0,0,.4);backdrop-filter:blur(6px);border:1px solid var(--stroke);
-      border-radius:14px;display:none;z-index:4
+      position:absolute;left:12px;right:var(--right-pad);top:120px;
+      max-height:45vh;overflow:auto;z-index:4;
+      background:rgba(0,0,0,.4);border-radius:12px;border:1px solid var(--stroke);
+      backdrop-filter:blur(6px);display:none;
     }
-    .item{padding:14px 16px;border-bottom:1px solid var(--stroke);cursor:pointer}
-    .item:hover{background:rgba(255,255,255,.06)}
-    .title{font-weight:700}
-    .meta{font-size:12px;color:var(--muted);margin-top:4px}
-
-    /* Right buttons: smaller and spaced, no overlap with overlays */
+    .item{padding:12px 14px;border-bottom:1px solid var(--stroke);cursor:pointer;}
+    .item:hover{background:rgba(255,255,255,.08);}
+    .meta{font-size:12px;color:var(--muted);}
     .pill{
-      position:fixed;right:12px;display:flex;flex-direction:column;gap:10px;
-      bottom:18px;z-index:4
+      position:fixed;right:12px;bottom:18px;display:flex;flex-direction:column;
+      gap:8px;z-index:4;
     }
     .btn{
-      width:64px;height:64px;border-radius:16px;background:rgba(255,255,255,.08);
-      display:flex;align-items:center;justify-content:center;text-align:center;
-      border:1px solid var(--stroke);color:#111;font-weight:700;line-height:1.1;
-      padding:6px;user-select:none
+      width:64px;height:64px;border-radius:16px;border:1px solid var(--stroke);
+      background:rgba(255,255,255,.08);color:#111;font-weight:700;
+      display:flex;align-items:center;justify-content:center;
     }
-
-    .routeBox{
-      position:absolute;left:12px;right:var(--right-pad);bottom:12px;
-      background:rgba(0,0,0,.45);border:1px solid var(--stroke);border-radius:12px;
-      padding:10px 12px;z-index:4;display:none
-    }
-
     .toast{
-      position:fixed;left:16px;right:16px;bottom:16px;padding:14px 16px;
-      border-radius:12px;background:#ff6b6b;color:white;border:0;display:none;z-index:6
+      position:fixed;left:16px;right:16px;bottom:16px;
+      padding:14px;border-radius:10px;background:#ff6565;
+      color:#fff;text-align:center;display:none;z-index:6;
     }
-    .hidden{display:none !important}
   </style>
 </head>
 <body>
   <div class="app">
-    <div id="map" aria-label="map"></div>
+    <div id="map"></div>
 
-    <div id="panel" class="overlay">
+    <div class="overlay">
       <div class="row">
-        <strong id="panel-title">Search nearby</strong>
-        <span id="coord" class="small">Lat: -- / Lng: --</span>
+        <strong>近くを検索</strong>
+        <span id="coord" style="font-size:12px;color:var(--muted);"></span>
       </div>
       <div class="inputs">
-        <input id="q" type="text" inputmode="search" placeholder="店名・カテゴリ・住所・電話・座標" />
+        <input id="q" type="text" placeholder="店名・カテゴリ・住所など" />
         <select id="radius">
           <option value="10000">10km</option>
           <option value="20000">20km</option>
           <option value="30000">30km</option>
         </select>
-        <label class="btnlike"><input id="openNow" type="checkbox" style="accent-color:#25d07a" /> Open now</label>
-        <label class="btnlike"><input id="sortRating" type="checkbox" style="accent-color:#25d07a" /> Sort by rating</label>
-        <button id="doSearch">Search</button>
-        <button id="clearList">Clear</button>
+        <button id="doSearch">検索</button>
+        <button id="clearList">クリア</button>
       </div>
-      <div class="small" id="hint">半径とオプションを選んで検索（最大5件）</div>
     </div>
 
-    <div id="results" class="list" role="listbox" aria-label="search results"></div>
-
-    <div class="routeBox" id="routeBox"></div>
+    <div id="results" class="list"></div>
 
     <div class="pill">
-      <button id="btn-current" class="btn" title="Current">Current</button>
-      <button id="btn-stop" class="btn" title="Stop">Stop</button>
-      <button id="btn-dest" class="btn" title="Destination">Dest</button>
-      <button id="btn-reroute" class="btn" title="Reroute">Reroute</button>
-      <button id="btn-ops" class="btn" title="Ops">Ops</button>
+      <button id="btn-current" class="btn">現在地</button>
+      <button id="btn-stop" class="btn">停止</button>
     </div>
 
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+    <div id="toast" class="toast"></div>
   </div>
 
-  <!-- Google Maps JS API -->
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=ja&region=JP&loading=async"></script>
+  <script defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&language=ja&region=JP&v=weekly"></script>
 
   <script type="module">
-    // ==== Config ====
     const ORS_BASE = "https://ors-proxy-dev.miyata-connect-jp.workers.dev";
 
-    // ==== Toast ====
-    const toast = (msg, ok=false) => {
-      const el = document.getElementById('toast');
-      el.style.background = ok ? "#25d07a" : "#ff6b6b";
-      el.textContent = msg;
-      el.style.display = "block";
-      clearTimeout(el._t);
-      el._t = setTimeout(()=>{ el.style.display="none"; }, 2500);
+    const toast = (msg, ok=false)=>{
+      const t=document.getElementById("toast");
+      t.textContent=msg;
+      t.style.background=ok?"#25d07a":"#ff6565";
+      t.style.display="block";
+      clearTimeout(t._id);
+      t._id=setTimeout(()=>t.style.display="none",2500);
     };
 
-    async function waitForGoogleMaps(timeout = 15000) {
-      const start = performance.now();
-      while (performance.now() - start < timeout) {
-        if (window.google && google.maps && google.maps.importLibrary) return true;
-        await new Promise(r => setTimeout(r, 50));
-      }
-      throw new Error("Google Maps failed to load within timeout.");
-    }
+    let map, marker, currentPos={lat:35.681236,lng:139.767125};
 
-    // Polyline decoder (Google Encoded Polyline Algorithm)
-    function decodePolyline(str){
-      let index = 0, lat = 0, lng = 0, points = [];
-      while (index < str.length) {
-        let b, shift = 0, result = 0;
-        do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-        const dlat = (result & 1) ? ~(result >> 1) : (result >> 1); lat += dlat;
-        shift = 0; result = 0;
-        do { b = str.charCodeAt(index++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
-        const dlng = (result & 1) ? ~(result >> 1) : (result >> 1); lng += dlng;
-        points.push({lat: lat / 1e5, lng: lng / 1e5});
-      }
-      return points;
-    }
-
-    function haversine(a, b) {
-      const toRad = x => x * Math.PI / 180, R = 6371e3;
-      const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
-      const la1 = toRad(a.lat), la2 = toRad(b.lat);
-      const s = Math.sin(dLat/2)**2 + Math.cos(la1)*Math.cos(la2)*Math.sin(dLng/2)**2;
-      return 2 * R * Math.asin(Math.sqrt(s));
-    }
-
-    let map, marker, routePolyline = null, routeMarkers = [];
-    let currentPos = { lat: 35.681236, lng: 139.767125 }; // fallback Tokyo
-
-    try {
-      await waitForGoogleMaps();
-      const { Map } = await google.maps.importLibrary("maps");
-      const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
-
-      map = new Map(document.getElementById("map"), {
-        center: currentPos,
-        zoom: 16,
-        mapId: "DEMO_MAP",
-        disableDefaultUI: true,
+    window.initMap=async function(){
+      map=new google.maps.Map(document.getElementById("map"),{
+        center:currentPos,zoom:15,mapId:"DEMO_MAP",disableDefaultUI:true
       });
+      marker=new google.maps.marker.AdvancedMarkerElement({map,position:currentPos});
+      updateCoord(currentPos);
+      locate();
+    };
 
-      marker = new AdvancedMarkerElement({ map, position: currentPos });
+    function updateCoord(pos){
+      document.getElementById("coord").textContent=`Lat:${pos.lat.toFixed(4)} / Lng:${pos.lng.toFixed(4)}`;
+    }
 
-      const setCoord = (pos) => {
-        document.getElementById("coord").textContent =
-          `Lat: ${pos.lat.toFixed(6)} / Lng: ${pos.lng.toFixed(6)}`;
+    async function locate(){
+      if(!navigator.geolocation){toast("位置情報未対応");return;}
+      navigator.geolocation.getCurrentPosition(p=>{
+        currentPos={lat:p.coords.latitude,lng:p.coords.longitude};
+        map.setCenter(currentPos);
+        marker.position=currentPos;
+        updateCoord(currentPos);
+      },err=>{
+        toast("位置情報を取得できません");
+      });
+    }
+
+    document.getElementById("btn-current").onclick=locate;
+    document.getElementById("btn-stop").onclick=()=>toast("ルート未設定");
+
+    document.getElementById("doSearch").onclick=doSearch;
+    document.getElementById("clearList").onclick=()=>{res.innerHTML="";res.style.display="none";};
+
+    const res=document.getElementById("results");
+    async function doSearch(){
+      const q=document.getElementById("q").value.trim();
+      if(!q)return toast("検索語を入力");
+      const radius=parseInt(document.getElementById("radius").value,10)||10000;
+
+      const body={
+        textQuery:q,languageCode:"ja",regionCode:"JP",pageSize:5,
+        locationBias:{circle:{center:{latitude:currentPos.lat,longitude:currentPos.lng},radius}}
       };
-      setCoord(currentPos);
-
-      const getLocation = () => new Promise((resolve,reject)=>{
-        if(!navigator.geolocation) return reject(new Error("Geolocation unsupported"));
-        navigator.geolocation.getCurrentPosition(
-          pos=>resolve({lat:pos.coords.latitude,lng:pos.coords.longitude}),
-          err=>reject(new Error(err.message||"Location error")),
-          {enableHighAccuracy:true,timeout:10000,maximumAge:0}
-        );
-      });
-
-      async function centerToCurrent(){
-        try{
-          const p = await getLocation();
-          currentPos = p;
-          map.setCenter(p);
-          marker.position = p;
-          setCoord(p);
-          toast("Current position updated", true);
-        }catch(e){ toast(`Location error: ${e.message}`); }
-      }
-
-      // initial try
-      centerToCurrent().catch(()=>{});
-
-      // Buttons
-      document.getElementById("btn-current").addEventListener("click", centerToCurrent);
-      document.getElementById("btn-stop").addEventListener("click", clearRoute);
-      document.getElementById("btn-dest").addEventListener("click", ()=>toast("Set destination from search results"));
-      document.getElementById("btn-reroute").addEventListener("click", ()=>toast("Search & tap a result to route"));
-      document.getElementById("btn-ops").addEventListener("click", ()=>toast("Ops panel coming soon"));
-
-      // Search
-      const resultsEl = document.getElementById("results");
-      const routeBox = document.getElementById("routeBox");
-
-      function renderList(items){
-        if(!items?.length){ resultsEl.style.display="none"; resultsEl.innerHTML=""; return; }
-        resultsEl.innerHTML = items.map(it=>{
-          const km = (it._distance/1000).toFixed(2);
-          const addr = it.formattedAddress ?? "";
-          const name = it.displayName?.text ?? "Unknown";
-          return `
-            <div class="item" data-lat="${it.location?.latitude}" data-lng="${it.location?.longitude}">
-              <div class="title">${name}</div>
-              <div class="meta">${km} km ・ ${addr}</div>
-            </div>`;
-        }).join("");
-        resultsEl.style.display="block";
-
-        Array.from(resultsEl.querySelectorAll(".item")).forEach(div=>{
-          div.addEventListener("click", async ()=>{
-            const lat = parseFloat(div.dataset.lat), lng = parseFloat(div.dataset.lng);
-            if(Number.isFinite(lat) && Number.isFinite(lng)){
-              const dest = {lat,lng};
-              await drawRoute(currentPos, dest);
-              resultsEl.style.display = "none";
-            }
-          });
+      try{
+        const r=await fetch(`${ORS_BASE}/places:searchText`,{
+          method:"POST",
+          headers:{
+            "Content-Type":"application/json",
+            "Origin":"https://miyata-connect.github.io"
+          },
+          body:JSON.stringify(body)
         });
-      }
-
-      function clearRoute(){
-        if(routePolyline){ routePolyline.setMap(null); routePolyline = null; }
-        routeMarkers.forEach(m=>m.setMap && m.setMap(null));
-        routeMarkers = [];
-        routeBox.style.display = "none";
-        toast("Route cleared", true);
-      }
-
-      async function drawRoute(origin, destination){
-        clearRoute();
-        const url = new URL(`${ORS_BASE}/directions`);
-        url.searchParams.set("origin", `${origin.lat},${origin.lng}`);
-        url.searchParams.set("destination", `${destination.lat},${destination.lng}`);
-        url.searchParams.set("mode","walking");
-        url.searchParams.set("language","ja");
-        url.searchParams.set("region","JP");
-        const res = await fetch(url.toString(), { headers: { "Origin": location.origin } });
-        if(!res.ok){ toast(`Directions error: ${res.status}`); return; }
-        const data = await res.json();
-        const route = data?.routes?.[0];
-        if(!route){ toast("No route found"); return; }
-
-        const path = decodePolyline(route.overview_polyline.points);
-        routePolyline = new google.maps.Polyline({
-          path, map, strokeColor:"#5fb1ff", strokeOpacity:0.9, strokeWeight:6
-        });
-
-        const bounds = new google.maps.LatLngBounds();
-        path.forEach(p=>bounds.extend(p));
-        map.fitBounds(bounds, { top:120, right:150, bottom:160, left:20 });
-
-        const leg = route.legs?.[0];
-        const dist = leg?.distance?.text ?? "";
-        const dur  = leg?.duration?.text ?? "";
-        routeBox.textContent = `徒歩 ${dist} ・ 約 ${dur}`;
-        routeBox.style.display = "block";
-
-        // destination marker
-        const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
-        const m = new AdvancedMarkerElement({ map, position: destination });
-        routeMarkers.push(m);
-      }
-
-      async function doSearch(){
-        const q = document.getElementById("q").value.trim();
-        if(!q){ toast("検索ワードを入力"); return; }
-        const radius = parseInt(document.getElementById("radius").value,10) || 10000;
-        const openNow = document.getElementById("openNow").checked;
-        const sortRating = document.getElementById("sortRating").checked;
-
-        const body = {
-          textQuery: q,
-          languageCode: "ja",
-          regionCode: "JP",
-          pageSize: 10,
-          openNow,
-          locationBias: {
-            circle: {
-              center: { latitude: currentPos.lat, longitude: currentPos.lng },
-              radius
-            }
-          }
-        };
-
-        try{
-          const res = await fetch(`${ORS_BASE}/places:searchText`,{
-            method:"POST", headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify(body)
-          });
-          if(!res.ok){ throw new Error(`HTTP ${res.status}`); }
-          const data = await res.json();
-          let items = Array.isArray(data.places) ? data.places : [];
-
-          items.forEach(p=>{
-            const loc = p.location;
-            const pos = loc ? {lat:loc.latitude, lng:loc.longitude} : null;
-            p._distance = pos ? haversine(currentPos, pos) : Number.POSITIVE_INFINITY;
-          });
-          items = items.filter(p => p._distance <= radius);
-
-          items.sort((a,b)=>{
-            const ra = a.rating ?? 0, rb = b.rating ?? 0;
-            if(sortRating && rb !== ra) return rb - ra;
-            return (a._distance||0) - (b._distance||0);
-          });
-
-          items = items.slice(0,5);
-          renderList(items);
-          document.getElementById("hint").textContent =
-            `半径 ${(radius/1000)|0} km / ${items.length} results`;
-          toast("Search done", true);
-        }catch(e){
-          console.error(e);
-          toast(`Search error: ${e.message}`);
-        }
-      }
-
-      document.getElementById("doSearch").addEventListener("click", doSearch);
-      document.getElementById("q").addEventListener("keydown", (ev)=>{ if(ev.key==="Enter") doSearch(); });
-      document.getElementById("clearList").addEventListener("click", ()=>{ resultsEl.style.display="none"; resultsEl.innerHTML=""; });
-
-    } catch (e) {
-      console.error(e);
-      toast("Map initialization error: " + e.message);
+        if(!r.ok)throw new Error(r.status);
+        const j=await r.json();
+        const list=j.places||[];
+        res.innerHTML=list.map(p=>`<div class="item">${p.displayName.text}<div class="meta">${p.formattedAddress}</div></div>`).join("");
+        res.style.display="block";
+        toast("検索完了",true);
+      }catch(e){toast("検索エラー "+e.message);}
     }
+
+    window.addEventListener("load",()=>setTimeout(()=>window.initMap(),1000));
   </script>
 </body>
 </html>
