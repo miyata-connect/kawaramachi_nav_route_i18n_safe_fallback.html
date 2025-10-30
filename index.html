@@ -43,7 +43,16 @@
     .check{display:flex;align-items:center;gap:6px;color:var(--text);opacity:.9}
     .check input{width:18px;height:18px}
 
-    /* 結果リスト：下部固定＋上に十分な余白を持つ */
+    /* 緯度経度表示：中央寄せ */
+    #coordBar{
+      width:100%;
+      text-align:center;
+      color:var(--muted);
+      margin-top:6px;
+      font-variant-numeric:tabular-nums;
+    }
+
+    /* 結果リスト：下部固定 */
     .results{
       position:absolute;left:12px;right:12px;bottom:12px;z-index:9;
       max-width:820px;margin:0 auto;
@@ -73,7 +82,7 @@
     <div class="panel">
       <h3 id="title">近くを検索</h3>
       <div class="row">
-        <input id="q" class="input grow" type="text" placeholder="店名・カテゴリ・住所など" />
+        <input id="q" class="input grow" type="text" placeholder="店名・カテゴリ・住所・電話・座標・施設" />
         <select id="radius" class="input" style="width:110px">
           <option value="10000">10km</option>
           <option value="20000">20km</option>
@@ -83,35 +92,67 @@
         <button id="btnClear" class="btn secondary">クリア</button>
       </div>
       <div class="row" style="margin-top:8px">
+        <label class="check"><input id="useCenter" type="checkbox" /> 地図中心で検索</label>
         <label class="check"><input id="optOpenNow" type="checkbox" /> 営業中</label>
         <label class="check"><input id="optSortRating" type="checkbox" /> 高レビュー順</label>
         <label class="check"><input id="optPhotos" type="checkbox" /> 画像あり</label>
-        <span id="coord" style="margin-left:auto;color:var(--muted)">Lat: -- / Lng: --</span>
       </div>
+      <div id="coordBar">緯度: -- / 経度: --</div>
     </div>
 
     <div class="results" id="results" hidden></div>
     <div class="routeHud" id="routeHud" hidden>
-      <div><strong id="routeTitle">Route</strong></div>
+      <div><strong id="routeTitle">経路</strong></div>
       <div id="routeMeta" class="imeta">--</div>
     </div>
     <div id="toast" class="toast"></div>
   </div>
 
+  <!-- Google Maps JS API（ユーザー指定のブラウザキー） -->
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=ja&region=JP"></script>
+
   <script type="module">
     const ORS_BASE = "https://ors-proxy.miyata-connect-jp.workers.dev";
     const $ = (id)=>document.getElementById(id);
     const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
     const toast=(m,ok=false)=>{const t=$("toast");t.style.background=ok?"#25d07a":"#ff6565";t.textContent=m;t.style.display="block";clearTimeout(t._t);t._t=setTimeout(()=>t.style.display="none",3000)};
+
     let map,here={lat:35.681236,lng:139.767125},curMarker,destMarker,dirSvc,dirRend;
+
+    // 先に宣言しておく（起動直後の未定義エラー対策）
+    function clearResults(){
+      const host=$("results");
+      host.hidden=true;
+      host.style.display="none";
+      host.innerHTML="";
+    }
 
     async function waitMaps(){
       const start=Date.now();
-      while(Date.now()-start<10000){
+      while(Date.now()-start<12000){
         if(window.google&&google.maps&&google.maps.importLibrary)return;
         await sleep(50);
-      }throw new Error("Maps not loaded");
+      }throw new Error("Maps の読み込みに失敗しました");
+    }
+
+    function updateCoord(p){
+      $("coordBar").textContent = `緯度: ${p.lat.toFixed(6)} / 経度: ${p.lng.toFixed(6)}`;
+    }
+
+    function locate(){
+      if(!navigator.geolocation){
+        updateCoord(here);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(pos=>{
+        here={lat:pos.coords.latitude,lng:pos.coords.longitude};
+        map.setCenter(here);
+        curMarker.position=here;
+        updateCoord(here);
+      },()=>{
+        // 失敗時は初期 center を使う（エラートーストは出さない）
+        updateCoord(here);
+      },{enableHighAccuracy:true,timeout:8000,maximumAge:0});
     }
 
     try{
@@ -119,57 +160,88 @@
       const {Map}=await google.maps.importLibrary("maps");
       const {AdvancedMarkerElement}=await google.maps.importLibrary("marker");
       const {DirectionsService,DirectionsRenderer}=await google.maps.importLibrary("routes");
+
       map=new Map($("map"),{center:here,zoom:16,mapId:"DEMO_MAP",disableDefaultUI:true});
       curMarker=new AdvancedMarkerElement({map,position:here});
       dirSvc=new DirectionsService();dirRend=new DirectionsRenderer({map,suppressMarkers:true});
-      locate();
-      $("btnSearch").onclick=doSearch;$("btnClear").onclick=clearResults;
-      $("q").onkeydown=e=>{if(e.key==="Enter")doSearch()};
-    }catch(e){toast("init error "+e.message)}
 
-    function locate(){
-      if(!navigator.geolocation){toast("No geolocation");updateCoord(here);return;}
-      navigator.geolocation.getCurrentPosition(pos=>{
-        here={lat:pos.coords.latitude,lng:pos.coords.longitude};
-        map.setCenter(here);curMarker.position=here;updateCoord(here);
-      },()=>{updateCoord(here);toast("位置取得失敗:地図中心を使用")});
+      locate();
+      updateCoord(here);
+
+      $("btnSearch").onclick=doSearch;
+      $("btnClear").onclick=()=>{ $("q").value=""; clearResults(); };
+      $("q").onkeydown=e=>{ if(e.key==="Enter") doSearch(); };
+    }catch(e){
+      toast("初期化エラー: "+e.message);
     }
-    function updateCoord(p){$("coord").textContent=`Lat: ${p.lat.toFixed(6)} / Lng: ${p.lng.toFixed(6)}`}
+
+    function distHav(a,b){ // km
+      const R=6371, toR=Math.PI/180;
+      const dLat=(b.latitude-a.lat)*toR, dLon=(b.longitude-a.lng)*toR;
+      const s1=Math.sin(dLat/2), s2=Math.sin(dLon/2);
+      const A=s1*s1 + Math.cos(a.lat*toR)*Math.cos(b.latitude*toR)*s2*s2;
+      return R*2*Math.atan2(Math.sqrt(A),Math.sqrt(1-A));
+    }
+    function escapeHtml(s){return (s||"").replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 
     async function doSearch(){
-      const q=$("q").value.trim();if(!q)return toast("入力を確認");
+      const q=$("q").value.trim(); if(!q){ toast("検索語を入力してください"); return; }
       const radius=parseInt($("radius").value)||10000;
-      const optOpen=$("optOpenNow").checked,optRate=$("optSortRating").checked,optPhoto=$("optPhotos").checked;
-      const center=map.getCenter().toJSON();
-      const body={textQuery:q,languageCode:"ja",regionCode:"JP",pageSize:5,locationBias:{circle:{center:{latitude:center.lat,longitude:center.lng},radius}},openNow:optOpen};
-      try{
-        const r=await fetch(`${ORS_BASE}/places:searchText`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-        const d=await r.json();let list=d.places||[];
-        if(optPhoto)list=list.filter(p=>Array.isArray(p.photos)&&p.photos.length>0);
-        if(optRate)list.sort((a,b)=>(b.rating||0)-(a.rating||0));
-        else list.sort((a,b)=>dist(center,a.location)-dist(center,b.location));
-        renderResults(list,radius,center);
-      }catch(e){toast("検索エラー:"+e.message)}
-    }
+      const useCenter=$("useCenter").checked;
+      const optOpen=$("optOpenNow").checked;
+      const optRate=$("optSortRating").checked;
+      const optPhoto=$("optPhotos").checked;
 
-    function dist(a,b){return Math.hypot(a.lat-b.latitude,a.lng-b.longitude)}
-    function km(m){return(m/1000).toFixed(2)}
-    function hav(lat1,lon1,lat2,lon2){const R=6371,toR=d=>d*Math.PI/180;const dLat=toR(lat2-lat1),dLon=toR(lon2-lon1);const a=Math.sin(dLat/2)**2+Math.cos(toR(lat1))*Math.cos(toR(lat2))*Math.sin(dLon/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))}
-    function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+      const base = useCenter ? map.getCenter().toJSON() : here;
+      const body={
+        textQuery:q,
+        languageCode:"ja",
+        regionCode:"JP",
+        pageSize:5,
+        openNow:optOpen,
+        locationBias:{circle:{center:{latitude:base.lat,longitude:base.lng},radius}}
+      };
+
+      try{
+        const r=await fetch(`${ORS_BASE}/places:searchText`,{
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body:JSON.stringify(body)
+        });
+        const d=await r.json();
+        let list=d.places||[];
+
+        if(optPhoto) list=list.filter(p=>Array.isArray(p.photos)&&p.photos.length>0);
+        // 並び：高評価 or 近い順
+        if(optRate) list.sort((a,b)=>(b.rating||0)-(a.rating||0));
+        else list.sort((a,b)=>distHav(base,a.location)-distHav(base,b.location));
+
+        renderResults(list,radius,base);
+      }catch(e){
+        toast("検索エラー: "+e.message);
+      }
+    }
 
     function renderResults(list,radius,center){
       const wrap=document.createElement("div");wrap.className="card";
-      wrap.innerHTML=list.length?""`<div class='empty'>結果がありません</div>`;
-      list.forEach(p=>{
-        const d=hav(center.lat,center.lng,p.location.latitude,p.location.longitude);
-        const el=document.createElement("div");
-        el.className="item";
-        el.innerHTML=`<div class="dot"></div><div class="grow"><div class="ititle">${escapeHtml(p.displayName?.text||"名称不明")}</div><div class="imeta">${d.toFixed(2)} km ・ ${escapeHtml(p.formattedAddress||"")} ${p.rating?`・⭐${p.rating}`:""}</div></div><button class="go">Go</button>`;
-        // Goボタン＆アイテム全体クリックでルート開始
-        el.onclick=()=>startRoute(p,center);
-        el.querySelector(".go").onclick=()=>startRoute(p,center);
-        wrap.appendChild(el);
-      });
+      if(!list.length){
+        wrap.innerHTML=`<div class="empty">結果がありません</div>`;
+      }else{
+        list.forEach(p=>{
+          const d=distHav(center,p.location);
+          const el=document.createElement("div");
+          el.className="item";
+          el.innerHTML=`<div class="dot"></div>
+            <div class="grow">
+              <div class="ititle">${escapeHtml(p.displayName?.text||"名称不明")}</div>
+              <div class="imeta">${d.toFixed(2)} km ・ ${escapeHtml(p.formattedAddress||"")} ${p.rating?`・⭐${p.rating}`:""}</div>
+            </div>
+            <button class="go">Go</button>`;
+          el.onclick=()=>startRoute(p,center);
+          el.querySelector(".go").onclick=()=>startRoute(p,center);
+          wrap.appendChild(el);
+        });
+      }
       const host=$("results");host.innerHTML="";host.appendChild(wrap);
       host.hidden=false;host.style.display="block";
       $("title").textContent=`近くを検索（${Math.round(radius/1000)} km / ${list.length}件）`;
@@ -177,17 +249,35 @@
 
     async function startRoute(p,origin){
       const dst={lat:p.location.latitude,lng:p.location.longitude};
-      if(!destMarker){const {AdvancedMarkerElement}=await google.maps.importLibrary("marker");destMarker=new AdvancedMarkerElement({map,position:dst});}else destMarker.position=dst;
+      if(!destMarker){
+        const {AdvancedMarkerElement}=await google.maps.importLibrary("marker");
+        destMarker=new AdvancedMarkerElement({map,position:dst});
+      }else{
+        destMarker.position=dst;
+      }
       try{
         const url=new URL(`${ORS_BASE}/directions`);
-        url.searchParams.set("origin",`${origin.lat},${origin.lng}`);url.searchParams.set("destination",`${dst.lat},${dst.lng}`);url.searchParams.set("mode","walking");url.searchParams.set("language","ja");url.searchParams.set("region","JP");
-        const r=await fetch(url);const d=await r.json();dirRend.setDirections(d);
-        const route=d.routes?.[0]?.legs?.[0];$("routeTitle").textContent=p.displayName?.text||"Destination";
-        $("routeMeta").textContent=route?`${route.distance.text} ・ ${route.duration.text}`:"--";
+        url.searchParams.set("origin",`${origin.lat},${origin.lng}`);
+        url.searchParams.set("destination",`${dst.lat},${dst.lng}`);
+        url.searchParams.set("mode","walking");
+        url.searchParams.set("language","ja");
+        url.searchParams.set("region","JP");
+
+        const r=await fetch(url);
+        const d=await r.json();
+        dirRend.setDirections(d);
+
+        const leg=d.routes?.[0]?.legs?.[0];
+        $("routeTitle").textContent=p.displayName?.text||"目的地";
+        $("routeMeta").textContent=leg?`${leg.distance.text} ・ ${leg.duration.text}`:"--";
         $("routeHud").hidden=false;
-        $("results").style.display="none"; // ← ルート開始時に検索結果非表示
+
+        // 検索結果を閉じる
+        clearResults();
         map.setCenter(dst);
-      }catch(e){toast("ルート取得失敗:"+e.message)}
+      }catch(e){
+        toast("経路取得エラー: "+e.message);
+      }
     }
   </script>
 </body>
