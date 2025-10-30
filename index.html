@@ -16,40 +16,41 @@
       --danger:#ff6565;
       --btnbg: rgba(255,255,255,.92);
       --btnfg: #0b1220;
+      --phSize:16px;             /* placeholder dynamic size (updated by JS) */
+      --phMin:11px;
     }
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     *{box-sizing:border-box}
     .app{position:relative;height:100dvh;overflow:hidden}
     #map{position:absolute;inset:0}
 
-    /* Top overlay (search panel) */
     .overlay{
       position:absolute;left:12px;right:12px;top:12px;z-index:5;
       padding:16px 18px;border-radius:16px;background:var(--glass);
       border:1px solid var(--stroke);backdrop-filter:blur(6px)
     }
-    .overlay h2{
-      margin:0 0 10px 0;font-weight:700;
-      font-size:clamp(16px,2.6vw,22px);
-      letter-spacing:.3px
-    }
-    .grid{
-      display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center
-    }
+    .overlay h2{margin:0 0 10px 0;font-weight:700;font-size:clamp(16px,2.6vw,22px);letter-spacing:.3px}
+    .grid{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    input[type="text"]{
+
+    .input-wrap{position:relative}
+    .input-wrap input[type="text"]{
       width:100%;height:44px;border-radius:12px;border:1px solid var(--stroke);
-      background:rgba(0,0,0,.25);color:var(--text);padding:0 14px;font-size:16px;
-      outline:none
+      background:rgba(0,0,0,.25);color:var(--text);padding:0 14px;font-size:16px;outline:none
     }
+    /* make placeholder non-wrapping and scalable */
+    .input-wrap input::placeholder{
+      font-size:var(--phSize);
+      white-space:nowrap;
+    }
+
     select{
       height:44px;border-radius:12px;border:1px solid var(--stroke);
       background:rgba(0,0,0,.25);color:var(--text);padding:0 12px;font-size:15px
     }
     .btn{
       height:44px;border-radius:12px;border:1px solid var(--stroke);
-      background:var(--btnbg);color:var(--btnfg);padding:0 16px;font-weight:700;
-      cursor:pointer
+      background:var(--btnbg);color:var(--btnfg);padding:0 16px;font-weight:700;cursor:pointer
     }
     .btn:active{transform:translateY(1px)}
     .check{
@@ -57,84 +58,61 @@
       padding:6px 10px;border-radius:10px;border:1px solid var(--stroke);
       background:rgba(255,255,255,.06);user-select:none
     }
-    .coord{
-      margin-top:10px;
-      font-variant-numeric:tabular-nums;
-      color:var(--muted);
-      display:flex;justify-content:flex-start;align-items:center;gap:10px;
-      white-space:nowrap;
-      font-size:clamp(12px,2.1vw,15px);
-    }
-    .coord .shrink{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+    .coord{margin-top:10px;font-variant-numeric:tabular-nums;color:var(--muted);display:flex;gap:10px;white-space:nowrap;font-size:clamp(12px,2.1vw,15px)}
 
-    /* Bottom results sheet */
-    .sheet{
-      position:absolute;left:12px;right:12px;bottom:12px;z-index:4;
-      background:var(--glass);border:1px solid var(--stroke);border-radius:16px;
-      backdrop-filter:blur(6px);max-height:46vh;overflow:auto;display:none;
-    }
-    .sheet-header{
-      padding:14px 16px;border-bottom:1px solid var(--stroke);
-      font-weight:700;display:flex;justify-content:space-between;align-items:center;
-      font-size:15px
-    }
-    .item{
-      display:flex;align-items:center;justify-content:space-between;gap:10px;
-      padding:14px 16px;border-bottom:1px solid var(--stroke);cursor:pointer
-    }
+    .sheet{position:absolute;left:12px;right:12px;bottom:12px;z-index:4;background:var(--glass);border:1px solid var(--stroke);border-radius:16px;backdrop-filter:blur(6px);max-height:46vh;overflow:auto;display:none}
+    .sheet-header{padding:14px 16px;border-bottom:1px solid var(--stroke);font-weight:700;display:flex;justify-content:space-between;align-items:center;font-size:15px}
+    .item{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--stroke);cursor:pointer}
     .item:last-child{border-bottom:none}
     .meta{color:var(--muted);font-size:13px;margin-top:4px}
-    .go{
-      min-width:70px;height:38px;border-radius:10px;border:1px solid var(--stroke);
-      background:var(--btnbg);color:var(--btnfg);font-weight:700;cursor:pointer
-    }
+    .go{min-width:70px;height:38px;border-radius:10px;border:1px solid var(--stroke);background:var(--btnbg);color:var(--btnfg);font-weight:700;cursor:pointer}
 
-    /* Side buttons on map (right) */
-    .side{
-      position:absolute;right:12px;top:50%;transform:translateY(-50%);
-      display:flex;flex-direction:column;gap:12px;z-index:3;
-    }
-    .sbtn{
-      width:60px;height:60px;border-radius:16px;border:1px solid var(--stroke);
-      background:var(--btnbg);color:var(--btnfg);font-weight:700;
-      display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.25);
-      cursor:pointer;user-select:none
-    }
+    .side{position:absolute;right:12px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:12px;z-index:3}
+    .sbtn{width:60px;height:60px;border-radius:16px;border:1px solid var(--stroke);background:var(--btnbg);color:var(--btnfg);font-weight:700;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.25);cursor:pointer;user-select:none}
 
-    /* Toast */
-    .toast{
-      position:fixed;left:16px;right:16px;bottom:16px;padding:14px 16px;
-      border-radius:12px;background:#ff6b6b;color:white;border:0;display:none;z-index:7
-    }
+    .toast{position:fixed;left:16px;right:16px;bottom:16px;padding:14px 16px;border-radius:12px;background:#ff6b6b;color:white;border:0;display:none;z-index:7}
     .toast.ok{background:var(--ok)}
 
-    /* First-load blackout overlay */
-    .blackout{
-      position:absolute;inset:0;background:#000;display:flex;align-items:center;justify-content:center;
-      z-index:6;color:#fff;text-align:center;padding:24px
-    }
-    .blackout .box{
-      max-width:min(680px,90vw);
-      border:1px solid rgba(255,255,255,.18);border-radius:16px;
-      background:rgba(255,255,255,.06);padding:18px 16px;font-size:16px;line-height:1.7
-    }
+    .blackout{position:absolute;inset:0;background:#000;display:flex;align-items:center;justify-content:center;z-index:6;color:#fff;text-align:center;padding:24px}
+    .blackout .box{max-width:min(680px,90vw);border:1px solid rgba(255,255,255,.18);border-radius:16px;background:rgba(255,255,255,.06);padding:18px 16px;font-size:16px;line-height:1.7}
     .hidden{display:none !important}
+
+    /* ===== Dynamic current-location marker (ripple) ===== */
+    .pin-wrap{
+      position:relative;width:34px;height:34px;display:grid;place-items:center;
+      transform:translate(-50%,-100%); /* anchor bottom center similar to pin */
+    }
+    .pin{
+      width:26px;height:26px;border-radius:50%;background:#ff4949;border:3px solid #fff;box-shadow:0 6px 14px rgba(0,0,0,.35);
+    }
+    .ripple{
+      position:absolute;inset:auto;bottom:-6px;left:50%;transform:translateX(-50%);
+      width:18px;height:6px;border-radius:50%;background:rgba(0,0,0,.25);filter:blur(1px)
+    }
+    .wave{
+      position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      width:40px;height:40px;border:2px solid rgba(255,73,73,.55);border-radius:50%;
+      animation:wave 1.8s ease-out infinite;
+    }
+    .wave.wave2{animation-delay:.45s}
+    .wave.wave3{animation-delay:.9s}
+    @keyframes wave{
+      0%{opacity:.55;transform:translate(-50%,-50%) scale(.35)}
+      70%{opacity:.08}
+      100%{opacity:0;transform:translate(-50%,-50%) scale(1.25)}
+    }
   </style>
 </head>
 <body>
   <div class="app">
     <div id="map" aria-label="map"></div>
 
-    <!-- first-load blackout -->
-    <div id="blackout" class="blackout">
-      <div class="box" id="blackout-text"></div>
-    </div>
+    <div id="blackout" class="blackout"><div class="box" id="blackout-text"></div></div>
 
-    <!-- search panel -->
     <div id="panel" class="overlay" aria-live="polite">
       <h2 id="panel-title"></h2>
       <div class="grid">
-        <input id="q" type="text" autocomplete="off" />
+        <div class="input-wrap"><input id="q" type="text" autocomplete="off" /></div>
         <select id="radius">
           <option value="10000">10km</option>
           <option value="20000">20km</option>
@@ -151,12 +129,10 @@
       </div>
 
       <div class="coord">
-        <span class="shrink" id="coord"></span>
-        <span id="coord-tail"></span>
+        <span id="coord-tail"></span><span id="coord"></span>
       </div>
     </div>
 
-    <!-- results sheet (bottom) -->
     <div id="sheet" class="sheet" role="dialog" aria-modal="false">
       <div class="sheet-header">
         <span id="sheet-title"></span>
@@ -165,7 +141,6 @@
       <div id="sheet-body"></div>
     </div>
 
-    <!-- right side buttons -->
     <div class="side" aria-label="map controls">
       <div id="btn-current" class="sbtn">Cur</div>
       <div id="btn-stop" class="sbtn">Stop</div>
@@ -175,32 +150,29 @@
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
   </div>
 
-  <!-- Google Maps JS API (browser key per policy) -->
+  <!-- Google Maps JS API (browser key) -->
   <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=ja&region=JP&loading=async"></script>
 
   <script type="module">
-    // ===== Locale (Japanese via Unicode escapes so code stays ASCII) =====
+    // ===== JP strings in escapes =====
     const JA = {
-      titleWith: (km)=>`\u8FD1\u304F\u3092\u691C\u7D22\uFF08${km}\u0020km\u0020/\u00205\u4EF6\uFF09`,
-      placeholder: "\u5E97\u8217\u540D\u30FB\u96FB\u8A71\u756A\u53F7\u30FB\u30AB\u30C6\u30B4\u30EA\u30FB\u4F4F\u6240\u30FB\u5EA7\u6A19\u30FB\u65BD\u8A2D\u540D",
-      search: "\u691C\u7D22",
-      useCenter: "\u5730\u56F3\u4E2D\u5FC3\u3067\u691C\u7D22",
-      openNow: "\u55B6\u696D\u4E2D",
-      topRated: "\u9AD8\u30EC\u30D3\u30E5\u30FC\u9806",
-      hasPhoto: "\u753B\u50CF\u3042\u308A",
-      lat: "\u7DEF\u5EA6",
-      lng: "\u7D4C\u5EA6",
-      currentTail: "\u73FE\u5728\u5730\uFF1A",
-      resultsTitle: (km,n)=>`\u8FD1\u304F\u3092\u691C\u7D22\uFF08${km}\u0020km\u0020/\u0020${n}\u4EF6\uFF09`,
-      toastEnterQuery: "\u691C\u7D22\u3057\u305F\u3044\u6587\u5B57\u3092\u5165\u529B\u3057\u3066\u304F\u3060\u3055\u3044\u3002",
-      toastFetchErr: "\u691C\u7D22\u30A8\u30E9\u30FC",
-      gnavStart: "\u30EB\u30FC\u30C8\u958B\u59CB",
-      loadingCopy: "\u73FE\u5728\u5730\u53D6\u5F97\u4E2D\u3067\u3059\u3002\u3054\u8FF7\u60D1\u3092\u304A\u639B\u3051\u3057\u307E\u3059\u3002\u73FE\u5728\u5730\u8868\u793A\u307E\u306730\u79D2\u7A0B\u304A\u5F85\u3061\u304F\u3060\u3055\u3044\u3002",
-      timeoutCopy: "\u73FE\u5728\u5730\u3092\u53D6\u5F97\u3067\u304D\u307E\u305B\u3093\u3067\u3057\u305F\u3002\u5C45\u5BA4\u5185\u306E\u5834\u5408\u306F\u7A93\u969B\u3084\u5E83\u3044\u7A7A\u304C\u898B\u3048\u308B\u5834\u6240\u3078\u79FB\u52D5\u3057\u3066\u518D\u8A66\u884C\u3057\u3066\u304F\u3060\u3055\u3044\u3002"
+      titleWith:(km)=>`\\u8FD1\\u304F\\u3092\\u691C\\u7D22\\uFF08${km}\\u0020km\\u0020/\\u00205\\u4EF6\\uFF09`,
+      placeholder:"\\u5E97\\u8217\\u0020\\u540D\\u30FB\\u96FB\\u8A71\\u756A\\u53F7\\u30FB\\u30AB\\u30C6\\u30B4\\u30EA\\u30FB\\u4F4F\\u6240\\u30FB\\u5EA7\\u6A19\\u30FB\\u65BD\\u8A2D\\u0020\\u540D",
+      search:"\\u691C\\u7D22",
+      useCenter:"\\u5730\\u56F3\\u4E2D\\u5FC3\\u3067\\u691C\\u7D22",
+      openNow:"\\u55B6\\u696D\\u4E2D",
+      topRated:"\\u9AD8\\u30EC\\u30D3\\u30E5\\u30FC\\u9806",
+      hasPhoto:"\\u753B\\u50CF\\u3042\\u308A",
+      lat:"\\u7DEF\\u5EA6", lng:"\\u7D4C\\u5EA6",
+      currentTail:"\\u73FE\\u5728\\u5730\\uFF1A",
+      resultsTitle:(km,n)=>`\\u8FD1\\u304F\\u3092\\u691C\\u7D22\\uFF08${km}\\u0020km\\u0020/\\u0020${n}\\u4EF6\\uFF09`,
+      toastEnterQuery:"\\u691C\\u7D22\\u3057\\u305F\\u3044\\u6587\\u5B57\\u3092\\u5165\\u529B\\u3057\\u3066\\u304F\\u3060\\u3055\\u3044\\u3002",
+      gnavStart:"\\u30EB\\u30FC\\u30C8\\u958B\\u59CB",
+      loadingCopy:"\\u73FE\\u5728\\u5730\\u53D6\\u5F97\\u4E2D\\u3067\\u3059\\u3002\\u3054\\u8FF7\\u60D1\\u3092\\u304A\\u639B\\u3051\\u3057\\u307E\\u3059\\u3002\\u73FE\\u5728\\u5730\\u8868\\u793A\\u307E\\u306730\\u79D2\\u7A0B\\u304A\\u5F85\\u3061\\u304F\\u3060\\u3055\\u3044\\u3002",
+      timeoutCopy:"\\u73FE\\u5728\\u5730\\u3092\\u53D6\\u5F97\\u3067\\u304D\\u307E\\u305B\\u3093\\u3067\\u3057\\u305F\\u3002\\u5E83\\u3044\\u7A7A\\u304C\\u898B\\u3048\\u308B\\u5834\\u6240\\u3067\\u518D\\u8A66\\u884C\\u3057\\u3066\\u304F\\u3060\\u3055\\u3044\\u3002"
     };
 
-    // ===== DOM refs =====
-    const el = (id)=>document.getElementById(id);
+    const el = id=>document.getElementById(id);
     const panelTitle = el('panel-title');
     const q = el('q');
     const radiusSel = el('radius');
@@ -209,288 +181,176 @@
     const openNow = el('open-now');
     const topRated = el('top-rated');
     const hasPhoto = el('has-photo');
+    const coord = el('coord');
+    const coordTail = el('coord-tail');
+    const sheet = el('sheet'); const sheetTitle = el('sheet-title'); const sheetBody = el('sheet-body');
+    const toastEl = el('toast');
+    const blackout = el('blackout'); const blackoutText = el('blackout-text');
+
+    // UI text
     el('use-center-label').textContent = JA.useCenter;
     el('open-now-label').textContent = JA.openNow;
     el('top-rated-label').textContent = JA.topRated;
     el('has-photo-label').textContent = JA.hasPhoto;
     btnSearch.textContent = JA.search;
     q.placeholder = JA.placeholder;
-
-    const coord = el('coord');
-    const coordTail = el('coord-tail');
     coordTail.textContent = JA.currentTail;
 
-    const sheet = el('sheet');
-    const sheetTitle = el('sheet-title');
-    const sheetBody = el('sheet-body');
-    el('sheet-close').addEventListener('click',()=>sheet.style.display='none');
-
-    const toastEl = el('toast');
-    const showToast = (msg, ok=false)=>{
-      toastEl.textContent = msg;
-      toastEl.classList.toggle('ok', ok);
-      toastEl.style.display = 'block';
-      clearTimeout(toastEl._t);
-      toastEl._t = setTimeout(()=>toastEl.style.display='none', 3000);
-    };
-
-    const refreshPanelTitle = ()=>{
-      const km = radiusSel.options[radiusSel.selectedIndex].text.replace("km","").trim();
-      panelTitle.textContent = JA.titleWith(km);
-    };
-    refreshPanelTitle();
-    radiusSel.addEventListener('change', refreshPanelTitle);
-
-    // ===== Maps init / geolocation =====
     const PROXY_BASE = "https://ors-proxy.miyata-connect-jp.workers.dev";
-    let map, marker, polyline = null;
-    let geometryLib = null;
-    let currentPos = null;
-    let lastDest = null;
+    let map, currentMarker, destPolyline=null, lastDest=null;
+    let currentPos=null;
 
-    const waitForMaps = async (timeout=20000)=>{
-      const t0 = performance.now();
-      while (performance.now()-t0 < timeout) {
-        if (window.google && google.maps && google.maps.importLibrary) return true;
-        await new Promise(r=>setTimeout(r,50));
-      }
-      throw new Error("Google Maps failed to load");
-    };
+    const showToast=(msg,ok=false)=>{toastEl.textContent=msg;toastEl.classList.toggle('ok',ok);toastEl.style.display='block';clearTimeout(toastEl._t);toastEl._t=setTimeout(()=>toastEl.style.display='none',3000);};
 
-    const setCoord = (pos)=>{
-      coord.textContent = `${JA.lat}: ${pos.lat.toFixed(6)} / ${JA.lng}: ${pos.lng.toFixed(6)}`;
-    };
+    const refreshTitle=()=>{const km=radiusSel.options[radiusSel.selectedIndex].text.replace("km","").trim();panelTitle.textContent=JA.titleWith(km);};
+    radiusSel.addEventListener('change', refreshTitle); refreshTitle();
 
-    const getLocationOnce = ()=>new Promise((resolve,reject)=>{
+    // Placeholder auto shrink
+    function fitPlaceholder(){
+      const ctx=document.createElement('canvas').getContext('2d');
+      const style=getComputedStyle(q);
+      const baseSize=16; let size=baseSize;
+      const font=`${style.fontWeight} ${size}px ${style.fontFamily}`;
+      const maxW=q.clientWidth-28; // paddings
+      const text=JA.placeholder.replace(/\\s+/g,' ');
+      const measure=(s)=>{ctx.font=`${style.fontWeight} ${s}px ${style.fontFamily}`;return ctx.measureText(text).width;};
+      while(size>parseInt(getComputedStyle(document.documentElement).getPropertyValue('--phMin')) && measure(size)>maxW){size-=1;}
+      document.documentElement.style.setProperty('--phSize', size+'px');
+    }
+    new ResizeObserver(fitPlaceholder).observe(q);
+    window.addEventListener('orientationchange',fitPlaceholder);
+    window.addEventListener('load',fitPlaceholder);
+
+    // Maps init & geolocation
+    const waitForMaps=async(t=20000)=>{const t0=performance.now();while(performance.now()-t0<t){if(window.google&&google.maps&&google.maps.importLibrary)return;await new Promise(r=>setTimeout(r,50));}throw new Error("Maps load timeout");};
+
+    const setCoord=(pos)=>{coord.textContent=`${JA.lat}: ${pos.lat.toFixed(6)} / ${JA.lng}: ${pos.lng.toFixed(6)}`;};
+
+    const getLocationOnce=()=>new Promise((resolve,reject)=>{
       if(!navigator.geolocation) return reject(new Error("Geolocation unsupported"));
       navigator.geolocation.getCurrentPosition(
         p=>resolve({lat:p.coords.latitude,lng:p.coords.longitude}),
-        err=>reject(new Error(err.message||"Location error")),
+        e=>reject(new Error(e.message||"Location error")),
         {enableHighAccuracy:true,timeout:30000,maximumAge:0}
       );
     });
 
-    // blackout
-    const blackout = el('blackout');
-    const blackoutText = el('blackout-text');
-    blackoutText.textContent = JA.loadingCopy;
+    // ripple marker dom
+    function buildRipplePin(){
+      const wrap=document.createElement('div'); wrap.className='pin-wrap';
+      const pin=document.createElement('div'); pin.className='pin';
+      const r=document.createElement('div'); r.className='ripple';
+      const w1=document.createElement('div'); w1.className='wave';
+      const w2=document.createElement('div'); w2.className='wave wave2';
+      const w3=document.createElement('div'); w3.className='wave wave3';
+      wrap.append(w1,w2,w3,pin,r);
+      return wrap;
+    }
 
-    let mapLib, markerLib;
-    (async()=>{
-      try{
-        await waitForMaps();
-        const { Map } = await google.maps.importLibrary("maps"); mapLib = {Map};
-        const { AdvancedMarkerElement } = await google.maps.importLibrary("marker"); markerLib = {AdvancedMarkerElement};
-        geometryLib = await google.maps.importLibrary("geometry");
-
-        // 30s window for current position
-        const timer = setTimeout(()=>{ blackoutText.textContent = JA.timeoutCopy; }, 30000);
-        try{
-          const pos = await getLocationOnce();
-          currentPos = pos;
-          initMap(pos);
-          clearTimeout(timer);
-          blackout.classList.add('hidden');
-        }catch{
-          // fallback after 30s
-          setTimeout(()=>{
-            if (!map) initMap({lat:35.681236,lng:139.767125});
-            blackout.classList.add('hidden');
-          }, Math.max(0, 30000));
-        }
-      }catch(e){
-        showToast(e.message);
-      }
-    })();
-
-    function initMap(center){
-      const { Map } = mapLib;
-      const { AdvancedMarkerElement } = markerLib;
-
-      map = new Map(el("map"), {
-        center, zoom: 16, mapId: "DEMO_MAP", disableDefaultUI: true
+    function setCurrentMarker(mapInstance, position){
+      if (currentMarker) currentMarker.map=null;
+      const {AdvancedMarkerElement}=google.maps.marker;
+      currentMarker=new AdvancedMarkerElement({
+        map: mapInstance,
+        position,
+        content: buildRipplePin()
       });
-      marker = new AdvancedMarkerElement({ map, position: center });
-      setCoord(center);
+    }
+
+    const init=async()=>{
+      blackoutText.textContent=JA.loadingCopy;
+      await waitForMaps();
+      const {Map}=await google.maps.importLibrary("maps");
+      // try location up to 30s; show timeout message then still proceed
+      const timer=setTimeout(()=>{blackoutText.textContent=JA.timeoutCopy;},30000);
+      try{
+        currentPos=await getLocationOnce();
+      }catch{}
+      clearTimeout(timer);
+      const start=currentPos||{lat:35.681236,lng:139.767125};
+      map=new Map(el('map'),{center:start,zoom:16,mapId:"DEMO_MAP",disableDefaultUI:true});
+      setCurrentMarker(map, start);
+      setCoord(start);
+      blackout.classList.add('hidden');
 
       map.addListener('click',(ev)=>{
-        marker.position = ev.latLng;
+        // just pan to clicked; current marker keeps ripple
         map.panTo(ev.latLng);
-        setCoord({lat:ev.latLng.lat(),lng:ev.latLng.lng()});
-      });
-    }
-
-    // ===== Search =====
-    btnSearch.addEventListener('click', runSearch);
-
-    async function runSearch(){
-      const text = q.value.trim();
-      if (!text) { showToast(JA.toastEnterQuery); return; }
-
-      const center = useCenter.checked || !currentPos
-        ? map.getCenter()
-        : new google.maps.LatLng(currentPos.lat, currentPos.lng);
-
-      const biasCircle = {
-        circle:{
-          center:{ latitude:center.lat(), longitude:center.lng() },
-          radius: Number(radiusSel.value)
-        }
-      };
-
-      const body = {
-        textQuery: text,
-        languageCode: "ja",
-        regionCode: "JP",
-        pageSize: 10,
-        locationBias: biasCircle,
-        openNow: !!openNow.checked
-      };
-
-      try{
-        const resp = await fetch(`${PROXY_BASE}/places:searchText`,{
-          method:"POST",
-          headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify(body)
-        });
-        if(!resp.ok) throw new Error(JA.toastFetchErr + ` (${resp.status})`);
-        const data = await resp.json();
-        renderResults(data.places || [], center);
-      }catch(e){
-        showToast(JA.toastFetchErr + ": " + (e.message||""));
-      }
-    }
-
-    function distanceKm(a,b){
-      const toRad = d=>d*Math.PI/180;
-      const R=6371;
-      const dLat=toRad(b.lat()-a.lat());
-      const dLng=toRad(b.lng()-a.lng());
-      const sa=Math.sin(dLat/2)**2 + Math.cos(toRad(a.lat()))*Math.cos(toRad(b.lat()))*Math.sin(dLng/2)**2;
-      return 2*R*Math.asin(Math.sqrt(sa));
-    }
-
-    function renderResults(places, center){
-      if (topRated.checked) places = [...places].sort((a,b)=>(b.rating||0)-(a.rating||0));
-      const kmText = radiusSel.options[radiusSel.selectedIndex].text.replace("km","").trim();
-      const list = places.slice(0,5);
-      sheetTitle.textContent = JA.resultsTitle(kmText, list.length);
-      sheetBody.innerHTML = "";
-
-      list.forEach(p=>{
-        const pos = new google.maps.LatLng(p.location.latitude, p.location.longitude);
-        const kmAway = distanceKm(center, pos).toFixed(2);
-
-        const row = document.createElement('div');
-        row.className = 'item';
-        const left = document.createElement('div');
-        left.innerHTML = `
-          <div style="font-weight:700">${p.displayName?.text || "-"}</div>
-          <div class="meta">${kmAway} km \u30FB ${p.formattedAddress || ""}${p.rating?` \u2605 ${p.rating}`:""}</div>
-        `;
-        const go = document.createElement('button');
-        go.className = 'go';
-        go.textContent = 'Go';
-
-        const startRoute = ()=>{ beginRouteTo(pos); sheet.style.display='none'; };
-
-        row.addEventListener('click', startRoute);
-        go.addEventListener('click', (ev)=>{ ev.stopPropagation(); startRoute(); });
-
-        row.appendChild(left);
-        row.appendChild(go);
-        sheetBody.appendChild(row);
-      });
-
-      sheet.style.display = 'block';
-    }
-
-    // ===== Routing via Worker proxy (polyline on map) =====
-    async function beginRouteTo(destLatLng){
-      try{
-        lastDest = destLatLng;
-        const origin = (currentPos)
-          ? `${currentPos.lat},${currentPos.lng}`
-          : `${map.getCenter().lat()},${map.getCenter().lng()}`;
-        const dest = `${destLatLng.lat()},${destLatLng.lng()}`;
-        const url = `${PROXY_BASE}/directions?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest)}&mode=walking&language=ja&region=JP`;
-        const res = await fetch(url, { headers: { }});
-        if (!res.ok) throw new Error(`Directions ${res.status}`);
-        const data = await res.json();
-        const route = data?.routes?.[0];
-        if (!route) throw new Error("No route");
-
-        const points = route.overview_polyline?.points;
-        if (!points) throw new Error("No polyline");
-        // decode via geometry library
-        const path = google.maps.geometry.encoding.decodePath(points);
-
-        // clear previous
-        if (polyline) { polyline.setMap(null); polyline = null; }
-
-        polyline = new google.maps.Polyline({
-          map,
-          path,
-          strokeColor: "#5fb1ff",
-          strokeOpacity: 0.95,
-          strokeWeight: 6
-        });
-
-        // move marker to destination, center map
-        marker.position = destLatLng;
-        map.panTo(destLatLng);
-        showToast(JA.gnavStart, true);
-      }catch(e){
-        showToast("Directions error: " + e.message);
-      }
-    }
-
-    function stopRoute(){
-      if (polyline){ polyline.setMap(null); polyline = null; }
-      lastDest = null;
-    }
-
-    async function reroute(){
-      if (!lastDest){ showToast("No destination"); return; }
-      try{
-        // refresh current position then route again
-        try{
-          const pos = await getLocationOnce();
-          currentPos = pos;
-          setCoord(pos);
-          map.panTo(new google.maps.LatLng(pos.lat,pos.lng));
-        }catch{}
-        await beginRouteTo(lastDest);
-      }catch(e){
-        showToast("Reroute error: " + e.message);
-      }
-    }
-
-    // ===== Side buttons =====
-    el('btn-current').addEventListener('click', async ()=>{
-      try{
-        const p = await getLocationOnce();
-        currentPos = p;
-        map.panTo(new google.maps.LatLng(p.lat,p.lng));
-        marker.position = new google.maps.LatLng(p.lat,p.lng);
-        setCoord(p);
-        showToast("\u73FE\u5728\u5730\u3078\u30BB\u30F3\u30BF\u30FC", true);
-      }catch(e){ showToast(e.message); }
-    });
-    el('btn-stop').addEventListener('click', ()=>{ stopRoute(); showToast("\u6848\u5185\u3092\u505C\u6B62", true); });
-    el('btn-reroute').addEventListener('click', ()=>{ reroute(); });
-
-    // keep coord updated when map moves if user wants center
-    const attachIdleWatcher = ()=>{
-      if (!map) return;
-      map.addListener('idle', ()=>{
-        if (!map) return;
-        const c = map.getCenter();
-        if (useCenter.checked) setCoord({lat:c.lat(),lng:c.lng()});
       });
     };
-    const idleInterval = setInterval(()=>{ if(map){ attachIdleWatcher(); clearInterval(idleInterval);} }, 200);
+    init().catch(e=>showToast(e.message));
 
+    // Search
+    btnSearch.addEventListener('click', runSearch);
+    async function runSearch(){
+      const text=q.value.trim();
+      if(!text){showToast(JA.toastEnterQuery);return;}
+      const center = (useCenter.checked || !currentPos) ? map.getCenter() : new google.maps.LatLng(currentPos.lat,currentPos.lng);
+      const body={
+        textQuery:text,languageCode:"ja",regionCode:"JP",pageSize:10,
+        locationBias:{circle:{center:{latitude:center.lat(),longitude:center.lng()},radius:Number(radiusSel.value)}},
+        openNow: !!openNow.checked
+      };
+      try{
+        const resp=await fetch(`${PROXY_BASE}/places:searchText`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+        const data=await resp.json();
+        renderResults(data.places||[], center);
+      }catch(e){showToast("Search error");}
+    }
+
+    function distanceKm(a,b){const R=6371;const toRad=d=>d*Math.PI/180;const dLat=toRad(b.lat()-a.lat());const dLng=toRad(b.lng()-a.lng());const sa=Math.sin(dLat/2)**2+Math.cos(toRad(a.lat()))*Math.cos(toRad(b.lat()))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(sa));}
+
+    function renderResults(places, center){
+      if(topRated.checked) places=[...places].sort((a,b)=>(b.rating||0)-(a.rating||0));
+      const kmText=radiusSel.options[radiusSel.selectedIndex].text.replace("km","").trim();
+      const list=places.slice(0,5);
+      sheetTitle.textContent=JA.resultsTitle(kmText, list.length);
+      sheetBody.innerHTML="";
+      list.forEach(p=>{
+        const pos=new google.maps.LatLng(p.location.latitude,p.location.longitude);
+        const kmAway=distanceKm(center,pos).toFixed(2);
+        const row=document.createElement('div');row.className='item';
+        const left=document.createElement('div');
+        left.innerHTML=`<div style="font-weight:700">${p.displayName?.text||"-"}</div><div class="meta">${kmAway} km \u30FB ${p.formattedAddress||""}${p.rating?` \u2605 ${p.rating}`:""}</div>`;
+        const go=document.createElement('button');go.className='go';go.textContent='Go';
+        const start=()=>{beginRouteTo(pos);sheet.style.display='none';};
+        row.addEventListener('click',start); go.addEventListener('click',e=>{e.stopPropagation();start();});
+        row.append(left,go); sheetBody.appendChild(row);
+      });
+      sheet.style.display='block';
+    }
+
+    async function beginRouteTo(dest){
+      lastDest=dest;
+      try{
+        const origin = currentPos ? `${currentPos.lat},${currentPos.lng}` : `${map.getCenter().lat()},${map.getCenter().lng()}`;
+        const url = `${PROXY_BASE}/directions?origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(dest.lat()+","+dest.lng())}&mode=walking&language=ja&region=JP`;
+        const r=await fetch(url); const data=await r.json();
+        const route=data?.routes?.[0]; const pts=route?.overview_polyline?.points; if(!pts) throw new Error("no polyline");
+        const path=google.maps.geometry.encoding.decodePath(pts);
+        if(destPolyline) destPolyline.setMap(null);
+        destPolyline=new google.maps.Polyline({map,path,strokeColor:"#5fb1ff",strokeOpacity:.95,strokeWeight:6});
+        map.panTo(dest);
+        showToast(JA.gnavStart,true);
+      }catch(e){showToast("Directions error");}
+    }
+
+    function stopRoute(){ if(destPolyline){ destPolyline.setMap(null); destPolyline=null; } lastDest=null; }
+
+    async function reroute(){
+      if(!lastDest){showToast("No destination");return;}
+      try{ const pos=await getLocationOnce(); currentPos=pos; map.panTo(new google.maps.LatLng(pos.lat,pos.lng)); setCurrentMarker(map, new google.maps.LatLng(pos.lat,pos.lng)); setCoord(pos);}catch{}
+      beginRouteTo(lastDest);
+    }
+
+    // side buttons
+    el('btn-current').addEventListener('click', async ()=>{
+      try{ const p=await getLocationOnce(); currentPos=p; map.panTo(new google.maps.LatLng(p.lat,p.lng)); setCurrentMarker(map,new google.maps.LatLng(p.lat,p.lng)); setCoord(p); showToast("\\u73FE\\u5728\\u5730",true);}catch(e){showToast(e.message);} });
+    el('btn-stop').addEventListener('click', ()=>{ stopRoute(); showToast("\\u6848\\u5185\\u505C\\u6B62",true); });
+    el('btn-reroute').addEventListener('click', ()=>{ reroute(); });
+
+    // keep coord if using map center
+    setInterval(()=>{ if(map && useCenter.checked){ const c=map.getCenter(); setCoord({lat:c.lat(),lng:c.lng()}); } }, 500);
   </script>
 </body>
 </html>
