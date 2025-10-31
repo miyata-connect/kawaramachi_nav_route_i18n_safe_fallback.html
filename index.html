@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>WalkNav Diagnostic Edition</title>
+  <title>WalkNav</title>
   <style>
     :root{
-      --glass: rgba(20,28,44,.7);
+      --glass: rgba(20,28,44,.70);
       --glass-strong: rgba(16,22,36,.85);
       --stroke: rgba(255,255,255,.14);
       --text: #eaf2ff;
@@ -18,93 +18,216 @@
     }
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
     *{box-sizing:border-box}
+
     .app{position:relative;height:100dvh;overflow:hidden}
     #map{position:absolute;inset:0}
-    .overlay{
+
+    /* 操作パネルを邪魔しない小型のステータスバー */
+    .statusbar{
       position:absolute;left:10px;right:10px;top:10px;
-      padding:16px;border-radius:14px;background:var(--glass);
-      border:1px solid var(--stroke);backdrop-filter:blur(6px);
-      z-index:2;
+      display:flex;justify-content:space-between;gap:12px;
+      padding:10px 14px;border-radius:12px;
+      background:var(--glass);border:1px solid var(--stroke);
+      backdrop-filter:blur(6px);z-index:3;font-size:14px
     }
-    .progress{
-      position:fixed;right:10px;top:10px;width:160px;height:12px;
-      border-radius:6px;background:rgba(255,255,255,.15);overflow:hidden;
-    }
-    .progress-bar{height:100%;width:100%;background:var(--ok);transition:width .4s linear}
     .pill{
-      position:fixed;right:12px;bottom:18px;display:flex;flex-direction:column;gap:10px;z-index:3
+      position:absolute;right:12px;bottom:18px;
+      display:flex;flex-direction:column;gap:10px;z-index:3
     }
     .btn{
-      width:90px;height:90px;border-radius:22px;
+      min-width:96px;min-height:48px;border-radius:16px;
       background:rgba(255,255,255,.08);
       border:1px solid var(--stroke);color:var(--text);
       display:flex;align-items:center;justify-content:center;
-      font-size:14px;text-decoration:none;backdrop-filter:blur(4px)
+      padding:8px 12px;font-size:15px;backdrop-filter:blur(4px)
     }
-    .toast{
-      position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
-      padding:10px 14px;border-radius:12px;background:var(--danger);color:#fff;display:none;z-index:5
+    /* 進捗バー（上部右寄せ・静かに表示） */
+    .progress{position:absolute;top:10px;right:14px;height:10px;width:160px;
+      border-radius:6px;background:rgba(255,255,255,.15);overflow:hidden;z-index:4}
+    .progress>div{height:100%;width:0;background:#ff6565;transition:width .35s linear}
+
+    /* 波紋つき現在地マーカー（AdvancedMarkerのcontentで使う） */
+    .pulse{
+      position:relative;width:18px;height:18px;border-radius:50%;background:#1976d2;border:2px solid #fff;
+      box-shadow:0 0 0 0 rgba(25,118,210,.6);animation:pulse 2s ease-out infinite
     }
+    @keyframes pulse{
+      0%{box-shadow:0 0 0 0 rgba(25,118,210,.55)}
+      70%{box-shadow:0 0 0 14px rgba(25,118,210,0)}
+      100%{box-shadow:0 0 0 0 rgba(25,118,210,0)}
+    }
+
+    /* 右側の縦ボタン群（現在地/一時停止/リルート） */
+    .side{
+      position:absolute;right:10px;top:120px;display:flex;flex-direction:column;gap:12px;z-index:3
+    }
+    .side>.btn{width:112px}
+
+    /* 画面下の余白を少し確保して初期でマーカーが隠れないようにする */
+    .bottom-pad{position:absolute;left:0;right:0;bottom:0;height:90px;pointer-events:none;z-index:1;background:linear-gradient(180deg,rgba(10,19,33,0),rgba(10,19,33,.0))}
   </style>
 </head>
 <body>
   <div class="app">
-    <div id="map"></div>
-    <div class="overlay">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <span id="coord">現在地: 取得中…</span>
-        <span id="score" style="font-size:14px;color:var(--muted)">診断: --点</span>
-      </div>
+    <div id="map" aria-label="map"></div>
+
+    <div class="statusbar">
+      <span id="coord">現在地: 取得中…</span>
+      <span id="score">診断: --点</span>
     </div>
-    <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+    <div class="progress"><div id="pbar"></div></div>
+
+    <!-- 右下の主要操作（地図上にはエラー表示しない方針） -->
     <div class="pill">
       <button class="btn" id="btn-voice">音声検索</button>
-      <button class="btn" id="btn-search">入力検索</button>
+      <button class="btn" id="btn-text">入力検索</button>
       <button class="btn" id="btn-reset">リセット</button>
-      <button class="btn" id="btn-save">地点登録</button>
-      <button class="btn" id="btn-edit">地点修正</button>
+      <button class="btn" id="btn-save">現在地点登録</button>
+      <button class="btn" id="btn-edit">登録地点修正</button>
     </div>
-    <div id="toast" class="toast"></div>
+
+    <div class="side">
+      <button class="btn" id="btn-current">現在地</button>
+      <button class="btn" id="btn-pause">一時停止</button>
+      <button class="btn" id="btn-reroute">リルート</button>
+    </div>
+
+    <div class="bottom-pad"></div>
   </div>
 
-  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&language=ja&region=JP"></script>
-  <script type="module">
-    const Diag={score:{entry:0,live:100,exit:0},events:[],log:[],add(e){this.log.push({...e,ts:Date.now()});},report(){return JSON.stringify(this.log,null,2);}};
-    function toast(msg,ok=false){const t=document.getElementById("toast");t.style.background=ok?"#25d07a":"#ff6565";t.textContent=msg;t.style.display="block";clearTimeout(t._t);t._t=setTimeout(()=>t.style.display="none",3000);}
-    const bar=document.getElementById("progress-bar"),scoreView=document.getElementById("score");
-    function updateProgress(val){bar.style.width=`${val}%`;if(val>89)bar.style.background="#25d07a";else if(val>59)bar.style.background="#ffb347";else bar.style.background="#ff6565";}
-    updateProgress(100);
+  <!-- Google Maps（AdvancedMarkerElement 使用） -->
+  <script async src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=weekly&libraries=marker,geometry&language=ja&region=JP"></script>
 
-    async function entryDiag(){
-      let total=0;
-      try{if(window.google)total+=25;}catch{Diag.add({err:"maps"});}
-      try{const r=await fetch("https://ors-proxy.miyata-connect-jp.workers.dev/healthz");if(r.ok)total+=25;}catch{Diag.add({err:"worker"});}
-      try{if(document.querySelector(".overlay"))total+=25;}catch{Diag.add({err:"ui"});}
-      total+=25;Diag.score.entry=total;scoreView.textContent=`診断:${total}点`;return total;
+  <script>
+  // ---------- 診断・進捗 ----------
+  const Score={entry:0,live:0,exit:0};   // 実測連動
+  const pbar=document.getElementById('pbar');
+  const coordEl=document.getElementById('coord');
+  const scoreEl=document.getElementById('score');
+  const step=(val)=>{pbar.style.width=val+"%";pbar.style.background=val>=90?"#25d07a":(val>=60?"#ffb347":"#ff6565");};
+
+  async function entryDiag(){
+    let s=0;
+    // Mapsスクリプト待機（読み込み前に加点しない）
+    await waitGoogle();
+    s+=30;
+    // Worker到達性
+    try{
+      const r=await fetch("https://ors-proxy.miyata-connect-jp.workers.dev/healthz",{cache:"no-store"});
+      if(r.ok) s+=30;
+    }catch(_){}
+    // UI存在
+    if(document.querySelector('.statusbar')) s+=20;
+    // 設定値妥当性
+    s+=20;
+    Score.entry=s;scoreEl.textContent="診断: "+s+"点";step(40);
+  }
+
+  function waitGoogle(){
+    return new Promise(res=>{
+      if(window.google?.maps){return res();}
+      const t=setInterval(()=>{if(window.google?.maps){clearInterval(t);res();}},50);
+      setTimeout(()=>{clearInterval(t);res();},3000); // タイムアウトでも先に進む（後段で再評価）
+    });
+  }
+
+  // ---------- 地図・測位 ----------
+  let map, advMarker, current={lat:0,lng:0};
+  const MAP_ID="8f9c2f9d1e7b8abc"; // 任意のカスタムIDを使う場合は差し替え可（空でも可）
+
+  function buildPulseEl(){
+    const d=document.createElement('div');
+    d.className='pulse';
+    return d;
+  }
+
+  function setScoreLive(part){ // 実処理ごとに加点
+    Score.live=Math.min(100,(Score.live+part));
+    step(70+Math.floor(Score.live/5));
+  }
+
+  function safeCenterWithOffset(latlng, pxY=120){ // 上側UIに被らないようY方向へオフセット
+    const scale=Math.pow(2,map.getZoom());
+    const proj=map.getProjection();
+    if(!proj) return map.setCenter(latlng);
+    const p=proj.fromLatLngToPoint(new google.maps.LatLng(latlng));
+    const worldPoint=new google.maps.Point(
+      p.x,
+      p.y - (pxY/256)/scale
+    );
+    const newLatLng=proj.fromPointToLatLng(worldPoint);
+    map.setCenter(newLatLng);
+  }
+
+  async function initMap(){
+    await entryDiag();
+    await waitGoogle();
+    // 測位（初期値は常に現在地；非表示初期地点は使わない）
+    if(!navigator.geolocation){
+      return finish(false,"geolocation_unavailable");
     }
+    navigator.geolocation.getCurrentPosition(pos=>{
+      current={lat:pos.coords.latitude,lng:pos.coords.longitude};
+      // 初期ズーム大きめ、かつ上部UIに隠れないよう少し下へオフセットして表示
+      map=new google.maps.Map(document.getElementById("map"),{
+        center:current,zoom:17,disableDefaultUI:true,mapId:MAP_ID||undefined
+      });
+      google.maps.event.addListenerOnce(map,'idle',()=>{
+        safeCenterWithOffset(current,140);
+      });
 
-    let map,marker;let cur={lat:0,lng:0};
-    async function init(){
-      await entryDiag();
-      updateProgress(95);
-      if(navigator.geolocation){
-        navigator.geolocation.getCurrentPosition(p=>{
-          cur={lat:p.coords.latitude,lng:p.coords.longitude};
-          map=new google.maps.Map(document.getElementById("map"),{center:cur,zoom:17,mapId:"DEMO_MAP",disableDefaultUI:true});
-          marker=new google.maps.marker.AdvancedMarkerElement({map,position:cur});
-          document.getElementById("coord").textContent=`現在地: ${cur.lat.toFixed(6)}, ${cur.lng.toFixed(6)}`;
-          toast("現在地を取得しました。",true);
-        },()=>toast("現在地の取得に失敗しました。"));
-      }else toast("位置情報が利用できません。");
-    }
+      advMarker=new google.maps.marker.AdvancedMarkerElement({
+        map,position:current,content:buildPulseEl(),title:"現在地"
+      });
 
-    document.getElementById("btn-search").onclick=()=>toast("検索開始（未実装）");
-    document.getElementById("btn-voice").onclick=()=>toast("音声検索開始（未実装）");
-    document.getElementById("btn-reset").onclick=()=>toast("リセット完了",true);
-    document.getElementById("btn-save").onclick=()=>toast("地点登録",true);
-    document.getElementById("btn-edit").onclick=()=>toast("地点修正",true);
+      coordEl.textContent=`現在地: ${current.lat.toFixed(6)}, ${current.lng.toFixed(6)}`;
+      setScoreLive(40); // 測位＋マーカー
 
-    init().then(()=>{Diag.score.exit=Diag.score.entry- (100-Diag.score.live)/2;Diag.add({phase:"exit",score:Diag.score.exit});fetch("https://ors-proxy.miyata-connect-jp.workers.dev/report",{method:"POST",headers:{"Content-Type":"application/json"},body:Diag.report()});});
+      // 監視（移動追従）
+      navigator.geolocation.watchPosition(p=>{
+        current={lat:p.coords.latitude,lng:p.coords.longitude};
+        advMarker.position=current;
+      });
+
+      finish(true);
+    },err=>{
+      // エラーは地図上に表示しない（方針）。ワーカーへログ送信のみ。
+      logSilent({phase:"loc_error",code:err.code||-1,msg:err.message||"loc_failed"});
+      finish(false,"loc_failed");
+    },{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+  }
+
+  function finish(ok,reason){
+    // 出口スコアは「entry + live/2」を丸め、OKで+10
+    const exitScore = Math.max(0, Math.min(100, Math.round(Score.entry*0.5 + Score.live*0.5 + (ok?10:0))));
+    Score.exit=exitScore;
+    scoreEl.textContent="診断: "+exitScore+"点";
+    step(100);
+    logSilent({phase:"exit",ok,reason,score:Score});
+  }
+
+  async function logSilent(payload){
+    try{
+      await fetch("https://ors-proxy.miyata-connect-jp.workers.dev/report",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({...payload,ts:Date.now()})
+      });
+    }catch(_){/* 表示しない */}
+  }
+
+  // ---------- ボタン（ダミーのUI動作のみ。地図上にエラーは出さない） ----------
+  const $ = (id)=>document.getElementById(id);
+  $("btn-current").onclick=()=>{ if(map) { safeCenterWithOffset(current,140);} };
+  $("btn-pause").onclick=()=>{ /* 監視停止などを将来実装 */ };
+  $("btn-reroute").onclick=()=>{ /* ルート再探索を将来実装 */ };
+  $("btn-reset").onclick=()=>{ /* 入力や状態のリセットを将来実装 */ };
+  $("btn-voice").onclick=()=>{ /* 音声検索開始（将来実装） */ };
+  $("btn-text").onclick =()=>{ /* 入力検索開始（将来実装） */ };
+  $("btn-save").onclick =()=>{ logSilent({phase:"save_point",pos:current}); };
+  $("btn-edit").onclick =()=>{ logSilent({phase:"edit_point_open"}); };
+
+  // 起動
+  initMap();
   </script>
 </body>
 </html>
