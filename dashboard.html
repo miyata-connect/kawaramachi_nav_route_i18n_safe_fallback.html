@@ -2,73 +2,198 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>WalkNav Judge Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>WalkNav 管理ダッシュボード</title>
   <style>
-    :root{ --bg:#0a1321; --card:rgba(255,255,255,.06); --stroke:rgba(255,255,255,.14); --text:#eaf2ff; --muted:#a7b8ce; }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    :root{
+      --bg:#0a1321; --text:#eaf2ff; --muted:#a7b8ce; --accent:#5fb1ff;
+      --glass: rgba(20,28,44,.78); --stroke: rgba(255,255,255,.12);
+      --ok:#25d07a; --danger:#ff6565; --warn:#f5a524;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
     *{box-sizing:border-box}
-    .wrap{max-width:1100px;margin:28px auto;padding:0 16px}
-    .card{background:var(--card);border:1px solid var(--stroke);border-radius:14px;padding:16px;backdrop-filter:blur(10px)}
-    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    input,button{border:1px solid var(--stroke);background:rgba(255,255,255,.08);color:var(--text);border-radius:10px;padding:10px 12px;font-size:16px;outline:none}
-    button.primary{background:#5fb1ff;border:none;font-weight:800}
-    table{width:100%;border-collapse:collapse;margin-top:12px}
-    th,td{border-bottom:1px solid var(--stroke);padding:8px 10px;text-align:left;font-size:14px}
-    .muted{color:var(--muted)}
-    .badge{padding:4px 8px;border-radius:8px;border:1px solid var(--stroke);display:inline-block}
+    .wrap{max-width:1100px;margin:20px auto;padding:16px}
+    .card{background:var(--glass);border:1px solid var(--stroke);border-radius:16px;padding:16px;margin-bottom:16px;backdrop-filter:blur(6px)}
+    h1,h2{margin:0 0 10px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .col{flex:1 1 320px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .kpi{padding:14px;border:1px solid var(--stroke);border-radius:12px;text-align:center}
+    .kpi strong{font-size:28px;display:block}
+    label{display:block;margin-bottom:6px;color:var(--muted)}
+    input,select,button{
+      background:#0f1b2e;color:var(--text);border:1px solid var(--stroke);
+      padding:10px;border-radius:10px;width:100%;
+    }
+    button{cursor:pointer}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{border-bottom:1px solid var(--stroke);padding:8px 6px;text-align:left;vertical-align:top}
+    .ok{color:var(--ok)} .bad{color:var(--danger)} .warn{color:var(--warn)}
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+    canvas{background:#0f1b2e;border:1px solid var(--stroke);border-radius:12px;padding:8px}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Judge Dashboard</h1>
     <div class="card">
+      <h1>WalkNav 管理ダッシュボード</h1>
       <div class="row">
-        <label class="muted">Run ID</label>
-        <input id="run" class="grow" placeholder="WALKNAV-YYYYMMDD-XXXX" style="min-width:280px" />
-        <button id="load" class="primary">Load</button>
-        <span id="count" class="badge">0 items</span>
-      </div>
-      <div class="row" style="margin-top:10px">
-        <label class="muted">Proxy Base</label>
-        <input id="base" class="grow" value="https://ors-proxy.miyata-connect-jp.workers.dev" />
+        <div class="col">
+          <label for="base">Worker 基本URL</label>
+          <input id="base" class="mono" value="https://ors-proxy-dev.miyata-connect-jp.workers.dev" />
+        </div>
+        <div class="col">
+          <label for="token">管理者トークン (設定時のみ)</label>
+          <input id="token" class="mono" type="password" placeholder="任意: ADMIN_TOKEN" />
+        </div>
+        <div class="col" style="align-self:flex-end">
+          <button id="load">再読み込み</button>
+        </div>
       </div>
     </div>
 
-    <div class="card" style="margin-top:18px;">
+    <div class="card">
+      <h2>自己診断の概要</h2>
+      <div class="grid">
+        <div class="kpi">
+          <span>受信レポート総数</span>
+          <strong id="k-total">0</strong>
+        </div>
+        <div class="kpi">
+          <span>平均開始スコア</span>
+          <strong id="k-entry">0</strong>
+        </div>
+        <div class="kpi">
+          <span>平均終了スコア</span>
+          <strong id="k-exit">0</strong>
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div class="col">
+          <canvas id="chartScore" height="180"></canvas>
+        </div>
+        <div class="col">
+          <canvas id="chartError" height="180"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>最近の自己診断履歴</h2>
       <table>
         <thead>
-          <tr><th>Time</th><th>Level</th><th>Tag</th><th>Message</th><th>Meta</th></tr>
+          <tr>
+            <th>時刻</th>
+            <th>フェーズ</th>
+            <th>開始スコア</th>
+            <th>エラー率(%)</th>
+            <th>終了スコア</th>
+            <th>検出エラー</th>
+            <th>メタ情報</th>
+          </tr>
         </thead>
         <tbody id="tbody"></tbody>
       </table>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script>
-    const $ = s => document.querySelector(s);
-    $("#load").onclick = async ()=>{
-      const base = $("#base").value.trim().replace(/\/+$/,"");
-      const run  = $("#run").value.trim();
-      if (!run) { alert("Run ID を入力"); return; }
-      const url = `${base}/trace?runId=${encodeURIComponent(run)}`;
-      const res = await fetch(url, { headers: { "X-Run-Id": run } });
-      const j = await res.json().catch(()=>({items:[]}));
-      const items = j.items || [];
-      $("#count").textContent = `${items.length} items`;
-      const tb = $("#tbody"); tb.innerHTML = "";
-      for (const it of items) {
+    const $ = (id)=>document.getElementById(id);
+    const tbody = $("tbody");
+    const kTotal = $("k-total");
+    const kEntry = $("k-entry");
+    const kExit  = $("k-exit");
+
+    let chartScore, chartError;
+
+    function fmtTs(ts){
+      const d = new Date(ts);
+      return d.toLocaleString("ja-JP");
+    }
+    function avg(arr){
+      if(!arr.length) return 0;
+      return Math.round( (arr.reduce((a,b)=>a+b,0)/arr.length) * 10 )/10;
+    }
+    function buildCharts(){
+      const ctx1 = document.getElementById("chartScore");
+      const ctx2 = document.getElementById("chartError");
+      chartScore = new Chart(ctx1, {
+        type: "line",
+        data: { labels: [], datasets: [
+          { label: "開始スコア", data: [], tension:.2, borderColor:"#5fb1ff" },
+          { label: "終了スコア", data: [], tension:.2, borderColor:"#25d07a" }
+        ]},
+        options: { responsive:true, scales:{ y:{ beginAtZero:true, max:100 } } }
+      });
+      chartError = new Chart(ctx2, {
+        type: "line",
+        data: { labels: [], datasets: [
+          { label: "エラー率(%)", data: [], tension:.2, borderColor:"#ff6565" }
+        ]},
+        options: { responsive:true, scales:{ y:{ beginAtZero:true, max:100 } } }
+      });
+    }
+    function updateCharts(items){
+      const labels = items.map(x=>new Date(x.ts).toLocaleTimeString("ja-JP"));
+      const entry  = items.map(x=>x.scoreEntry||0);
+      const exit   = items.map(x=>x.scoreExit||0);
+      const errp   = items.map(x=>x.errorRate||0);
+
+      chartScore.data.labels = labels;
+      chartScore.data.datasets[0].data = entry;
+      chartScore.data.datasets[1].data = exit;
+      chartScore.update();
+
+      chartError.data.labels = labels;
+      chartError.data.datasets[0].data = errp;
+      chartError.update();
+    }
+    function renderTable(items){
+      tbody.innerHTML = "";
+      for(const it of items.slice().reverse()){
         const tr = document.createElement("tr");
-        const dt = new Date(it.ts || Date.now());
-        tr.innerHTML = `
-          <td>${dt.toLocaleString()}</td>
-          <td>${it.level||""}</td>
-          <td>${it.tag||""}</td>
-          <td>${(it.msg||"").toString().slice(0,200)}</td>
-          <td><pre style="white-space:pre-wrap;margin:0">${JSON.stringify(it.meta||{}, null, 2)}</pre></td>`;
-        tb.appendChild(tr);
+        const td1 = `<td class="mono">${fmtTs(it.ts)}</td>`;
+        const td2 = `<td>${it.phase}</td>`;
+        const td3 = `<td>${it.scoreEntry??0}</td>`;
+        const td4 = `<td>${it.errorRate??0}</td>`;
+        const td5 = `<td>${it.scoreExit??0}</td>`;
+        const td6 = `<td class="mono">${(it.errors||[]).slice(0,3).join(" | ")}</td>`;
+        const td7 = `<td class="mono">${JSON.stringify(it.meta||{})}</td>`;
+        tr.innerHTML = td1+td2+td3+td4+td5+td6+td7;
+        tbody.appendChild(tr);
       }
-    };
+    }
+
+    async function loadData(){
+      const base = $("base").value.trim().replace(/\/+$/,"");
+      const token = $("token").value.trim();
+      const url = `${base}/report-log?limit=200`;
+      const headers = { "Accept":"application/json" };
+      if(token) headers["X-Admin-Token"] = token;
+
+      const r = await fetch(url, { headers });
+      if(!r.ok){
+        alert("レポート取得に失敗しました: " + r.status);
+        return;
+      }
+      const j = await r.json();
+      if(!j || !j.ok) {
+        alert("レポートの内容が不正です");
+        return;
+      }
+      const items = j.items||[];
+      kTotal.textContent = j.count||0;
+      kEntry.textContent = avg(items.map(x=>x.scoreEntry||0));
+      kExit.textContent  = avg(items.map(x=>x.scoreExit||0));
+      updateCharts(items);
+      renderTable(items);
+    }
+
+    $("load").addEventListener("click", loadData);
+    buildCharts();
+    loadData();
+    setInterval(loadData, 5000);
   </script>
 </body>
 </html>
