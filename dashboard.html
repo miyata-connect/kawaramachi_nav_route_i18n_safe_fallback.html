@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>WalkNav Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body{background:#0a1321;color:#eaf2ff;font-family:system-ui;-apple-system,sans-serif;padding:20px}
+.card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:16px;margin-bottom:20px}
+canvas{width:100%;height:180px}
+</style>
+</head>
+<body>
+<h2>WalkNav Diagnostic Dashboard</h2>
+<div class="card"><h3>Entry/Runtime/Exit Score</h3><canvas id="scoreChart"></canvas></div>
+<div class="card"><pre id="log" style="max-height:400px;overflow:auto"></pre></div>
+<script>
+const ctx=document.getElementById('scoreChart');
+new Chart(ctx,{type:'bar',data:{labels:['Entry','Runtime','Exit'],datasets:[{label:'Score',data:[100,95,97],backgroundColor:['#25d07a','#ffb347','#25d07a']}]},options:{scales:{y:{beginAtZero:true,max:100}}}});
+document.getElementById('log').textContent='ログ受信待機中...';
+</script>
+</body>
+</html>
