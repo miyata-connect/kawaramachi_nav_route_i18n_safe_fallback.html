@@ -2,198 +2,275 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>WalkNav 管理ダッシュボード</title>
+  <meta name="color-scheme" content="dark light" />
   <style>
     :root{
-      --bg:#0a1321; --text:#eaf2ff; --muted:#a7b8ce; --accent:#5fb1ff;
-      --glass: rgba(20,28,44,.78); --stroke: rgba(255,255,255,.12);
-      --ok:#25d07a; --danger:#ff6565; --warn:#f5a524;
+      --glass: rgba(20,28,44,.72);
+      --glass-strong: rgba(16,22,36,.88);
+      --stroke: rgba(255,255,255,.12);
+      --text: #eaf2ff;
+      --muted:#a7b8ce;
+      --accent:#64d2ff;
+      --ok:#22c55e;
+      --warn:#f59e0b;
+      --danger:#ef4444;
     }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
+    html,body{height:100%;margin:0;background:#0b1220;color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     *{box-sizing:border-box}
-    .wrap{max-width:1100px;margin:20px auto;padding:16px}
-    .card{background:var(--glass);border:1px solid var(--stroke);border-radius:16px;padding:16px;margin-bottom:16px;backdrop-filter:blur(6px)}
-    h1,h2{margin:0 0 10px}
-    .row{display:flex;gap:12px;flex-wrap:wrap}
-    .col{flex:1 1 320px}
-    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-    .kpi{padding:14px;border:1px solid var(--stroke);border-radius:12px;text-align:center}
-    .kpi strong{font-size:28px;display:block}
-    label{display:block;margin-bottom:6px;color:var(--muted)}
-    input,select,button{
-      background:#0f1b2e;color:var(--text);border:1px solid var(--stroke);
-      padding:10px;border-radius:10px;width:100%;
+    .wrap{max-width:1000px;margin:32px auto;padding:0 16px}
+    .card{background:var(--glass);border:1px solid var(--stroke);border-radius:18px;box-shadow:0 6px 30px rgba(0,0,0,.35)}
+    .head{padding:20px 24px;border-bottom:1px solid var(--stroke)}
+    .title{font-size:28px;font-weight:800;letter-spacing:.02em}
+    .body{padding:20px 24px}
+    .row{display:flex;gap:14px;flex-wrap:wrap}
+    .input, .btn{
+      height:44px;border-radius:12px;border:1px solid var(--stroke);
+      background:var(--glass-strong);color:var(--text);padding:0 14px;font-size:14px;outline:none
     }
-    button{cursor:pointer}
-    table{width:100%;border-collapse:collapse;font-size:14px}
-    th,td{border-bottom:1px solid var(--stroke);padding:8px 6px;text-align:left;vertical-align:top}
-    .ok{color:var(--ok)} .bad{color:var(--danger)} .warn{color:var(--warn)}
-    .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
-    canvas{background:#0f1b2e;border:1px solid var(--stroke);border-radius:12px;padding:8px}
+    .input::placeholder{color:var(--muted)}
+    .btn{cursor:pointer}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    .btn-accent{background:linear-gradient(180deg,#87c7ff,#4aa8ff);color:#071524;border:none}
+    .btn-ghost{background:transparent}
+    .kpi{flex:1 1 180px;min-width:180px;padding:16px;border-radius:14px;border:1px solid var(--stroke);background:rgba(255,255,255,.02)}
+    .kpi .n{font-size:28px;font-weight:800}
+    .kpi .l{font-size:12px;color:var(--muted)}
+    .grid{display:grid;grid-template-columns:1fr;gap:14px}
+    @media (min-width:860px){.grid{grid-template-columns:1fr 1fr}}
+    .table{width:100%;border-collapse:collapse;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
+    .table th,.table td{border-bottom:1px solid var(--stroke);padding:10px 12px;text-align:left;font-size:13px}
+    .table th{background:rgba(255,255,255,.04);color:var(--muted);font-weight:600}
+    .badge{padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--stroke);background:rgba(255,255,255,.06)}
+    .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+    .ok{background:var(--ok)} .warn{background:var(--warn)} .danger{background:var(--danger)}
+    .muted{color:var(--muted)}
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="wrap">
     <div class="card">
-      <h1>WalkNav 管理ダッシュボード</h1>
-      <div class="row">
-        <div class="col">
-          <label for="base">Worker 基本URL</label>
-          <input id="base" class="mono" value="https://ors-proxy-dev.miyata-connect-jp.workers.dev" />
-        </div>
-        <div class="col">
-          <label for="token">管理者トークン (設定時のみ)</label>
-          <input id="token" class="mono" type="password" placeholder="任意: ADMIN_TOKEN" />
-        </div>
-        <div class="col" style="align-self:flex-end">
-          <button id="load">再読み込み</button>
-        </div>
+      <div class="head">
+        <div class="title">WalkNav 管理ダッシュボード</div>
+        <div class="muted" style="margin-top:6px">自己診断・監視・採点の可視化</div>
       </div>
-    </div>
+      <div class="body">
+        <div class="row" style="margin-bottom:12px">
+          <input id="baseUrl" class="input" style="flex:1 1 520px" placeholder="Worker 基本URL（例: https://ors-proxy-dev.miyata-connect-jp.workers.dev）">
+          <input id="adminToken" class="input" style="width:240px" placeholder="管理者トークン（任意）">
+          <button id="saveCfg" class="btn btn-accent">保存</button>
+        </div>
+        <div class="row" style="margin-bottom:8px">
+          <button id="reloadBtn" class="btn">最新を取得</button>
+          <span id="statusLine" class="muted" style="align-self:center"></span>
+        </div>
 
-    <div class="card">
-      <h2>自己診断の概要</h2>
-      <div class="grid">
-        <div class="kpi">
-          <span>受信レポート総数</span>
-          <strong id="k-total">0</strong>
+        <div class="row" style="margin:14px 0 18px">
+          <div class="kpi">
+            <div class="l">レポート総数</div>
+            <div id="kpiTotal" class="n">0</div>
+          </div>
+          <div class="kpi">
+            <div class="l">直近エラー率</div>
+            <div id="kpiErr" class="n">0%</div>
+          </div>
+          <div class="kpi">
+            <div class="l">開始スコア（平均）</div>
+            <div id="kpiEntry" class="n">0</div>
+          </div>
+          <div class="kpi">
+            <div class="l">終了スコア（平均）</div>
+            <div id="kpiExit" class="n">0</div>
+          </div>
         </div>
-        <div class="kpi">
-          <span>平均開始スコア</span>
-          <strong id="k-entry">0</strong>
-        </div>
-        <div class="kpi">
-          <span>平均終了スコア</span>
-          <strong id="k-exit">0</strong>
-        </div>
-      </div>
-      <div class="row" style="margin-top:12px">
-        <div class="col">
-          <canvas id="chartScore" height="180"></canvas>
-        </div>
-        <div class="col">
-          <canvas id="chartError" height="180"></canvas>
-        </div>
-      </div>
-    </div>
 
-    <div class="card">
-      <h2>最近の自己診断履歴</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>時刻</th>
-            <th>フェーズ</th>
-            <th>開始スコア</th>
-            <th>エラー率(%)</th>
-            <th>終了スコア</th>
-            <th>検出エラー</th>
-            <th>メタ情報</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
+        <div class="grid" style="margin-bottom:16px">
+          <div class="card">
+            <div class="head"><b>スコア推移</b></div>
+            <div class="body"><canvas id="scoreChart" height="180"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="head"><b>エラー率推移</b></div>
+            <div class="body"><canvas id="errorChart" height="180"></canvas></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="head">
+            <b>最新ログ</b>
+            <span id="logHint" class="badge" style="margin-left:8px">データがありません</span>
+          </div>
+          <div class="body" style="overflow:auto">
+            <table class="table" id="logTable">
+              <thead>
+                <tr>
+                  <th>時刻</th>
+                  <th>フェーズ</th>
+                  <th>開始</th>
+                  <th>終了</th>
+                  <th>エラー率</th>
+                  <th>件数</th>
+                  <th>メタ</th>
+                </tr>
+              </thead>
+              <tbody id="logBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script>
-    const $ = (id)=>document.getElementById(id);
-    const tbody = $("tbody");
-    const kTotal = $("k-total");
-    const kEntry = $("k-entry");
-    const kExit  = $("k-exit");
+<script>
+(function(){
+  const qs = s => document.querySelector(s);
+  const baseUrlEl = qs('#baseUrl');
+  const adminEl   = qs('#adminToken');
+  const saveBtn   = qs('#saveCfg');
+  const reloadBtn = qs('#reloadBtn');
+  const statusLine= qs('#statusLine');
 
-    let chartScore, chartError;
+  // init config from localStorage
+  const store = {
+    get k(){ return localStorage.getItem('wn_base') || ''; },
+    set k(v){ localStorage.setItem('wn_base', v); },
+    get t(){ return localStorage.getItem('wn_token') || ''; },
+    set t(v){ localStorage.setItem('wn_token', v); }
+  };
+  baseUrlEl.value = store.k || location.origin.replace(/\/$/, '');
+  adminEl.value   = store.t;
 
-    function fmtTs(ts){
-      const d = new Date(ts);
-      return d.toLocaleString("ja-JP");
-    }
-    function avg(arr){
-      if(!arr.length) return 0;
-      return Math.round( (arr.reduce((a,b)=>a+b,0)/arr.length) * 10 )/10;
-    }
-    function buildCharts(){
-      const ctx1 = document.getElementById("chartScore");
-      const ctx2 = document.getElementById("chartError");
-      chartScore = new Chart(ctx1, {
-        type: "line",
-        data: { labels: [], datasets: [
-          { label: "開始スコア", data: [], tension:.2, borderColor:"#5fb1ff" },
-          { label: "終了スコア", data: [], tension:.2, borderColor:"#25d07a" }
-        ]},
-        options: { responsive:true, scales:{ y:{ beginAtZero:true, max:100 } } }
-      });
-      chartError = new Chart(ctx2, {
-        type: "line",
-        data: { labels: [], datasets: [
-          { label: "エラー率(%)", data: [], tension:.2, borderColor:"#ff6565" }
-        ]},
-        options: { responsive:true, scales:{ y:{ beginAtZero:true, max:100 } } }
-      });
-    }
-    function updateCharts(items){
-      const labels = items.map(x=>new Date(x.ts).toLocaleTimeString("ja-JP"));
-      const entry  = items.map(x=>x.scoreEntry||0);
-      const exit   = items.map(x=>x.scoreExit||0);
-      const errp   = items.map(x=>x.errorRate||0);
+  saveBtn.addEventListener('click', ()=>{
+    store.k = baseUrlEl.value.trim().replace(/\/$/,'');
+    store.t = adminEl.value.trim();
+    toast('設定を保存しました');
+  });
 
-      chartScore.data.labels = labels;
-      chartScore.data.datasets[0].data = entry;
-      chartScore.data.datasets[1].data = exit;
-      chartScore.update();
+  reloadBtn.addEventListener('click', () => loadAll());
 
-      chartError.data.labels = labels;
-      chartError.data.datasets[0].data = errp;
-      chartError.update();
-    }
-    function renderTable(items){
-      tbody.innerHTML = "";
-      for(const it of items.slice().reverse()){
-        const tr = document.createElement("tr");
-        const td1 = `<td class="mono">${fmtTs(it.ts)}</td>`;
-        const td2 = `<td>${it.phase}</td>`;
-        const td3 = `<td>${it.scoreEntry??0}</td>`;
-        const td4 = `<td>${it.errorRate??0}</td>`;
-        const td5 = `<td>${it.scoreExit??0}</td>`;
-        const td6 = `<td class="mono">${(it.errors||[]).slice(0,3).join(" | ")}</td>`;
-        const td7 = `<td class="mono">${JSON.stringify(it.meta||{})}</td>`;
-        tr.innerHTML = td1+td2+td3+td4+td5+td6+td7;
-        tbody.appendChild(tr);
+  let scoreChart, errorChart;
+
+  function toast(msg){
+    statusLine.textContent = msg;
+    setTimeout(()=> statusLine.textContent='', 4000);
+  }
+
+  async function getJson(path){
+    const base = (baseUrlEl.value || '').trim().replace(/\/$/,'');
+    if(!base){ toast('基本URLを設定してください'); return null; }
+    const url = `${base}${path}`;
+    const headers = {};
+    if (adminEl.value.trim()) headers['x-admin-token'] = adminEl.value.trim();
+
+    try{
+      const res = await fetch(url, { headers });
+      if (res.status === 404){
+        // Treat 404 as empty (silent)
+        console.warn('404 (treated as empty):', url);
+        return { empty: true, items: [] };
       }
-    }
-
-    async function loadData(){
-      const base = $("base").value.trim().replace(/\/+$/,"");
-      const token = $("token").value.trim();
-      const url = `${base}/report-log?limit=200`;
-      const headers = { "Accept":"application/json" };
-      if(token) headers["X-Admin-Token"] = token;
-
-      const r = await fetch(url, { headers });
-      if(!r.ok){
-        alert("レポート取得に失敗しました: " + r.status);
-        return;
+      if (!res.ok){
+        console.warn('Fetch failed:', res.status, url);
+        return { empty: true, items: [] };
       }
-      const j = await r.json();
-      if(!j || !j.ok) {
-        alert("レポートの内容が不正です");
-        return;
-      }
-      const items = j.items||[];
-      kTotal.textContent = j.count||0;
-      kEntry.textContent = avg(items.map(x=>x.scoreEntry||0));
-      kExit.textContent  = avg(items.map(x=>x.scoreExit||0));
-      updateCharts(items);
-      renderTable(items);
+      return await res.json();
+    }catch(err){
+      console.warn('Network error:', err);
+      return { empty: true, items: [] };
     }
+  }
 
-    $("load").addEventListener("click", loadData);
-    buildCharts();
-    loadData();
-    setInterval(loadData, 5000);
-  </script>
+  function num(n, d=0){
+    if (n === null || n === undefined || isNaN(n)) return '0';
+    return Number(n).toFixed(d);
+  }
+
+  function renderKPI(items){
+    const total = items.length;
+    const last  = items[0];
+    const avgEntry = total ? items.reduce((s,x)=>s+(x.scoreEntry||0),0)/total : 0;
+    const avgExit  = total ? items.reduce((s,x)=>s+(x.scoreExit||0),0)/total : 0;
+    const errRate  = last ? (last.errorRate||0) : 0;
+
+    qs('#kpiTotal').textContent = total;
+    qs('#kpiEntry').textContent = num(avgEntry,1);
+    qs('#kpiExit').textContent  = num(avgExit,1);
+    qs('#kpiErr').textContent   = `${num(errRate,1)}%`;
+  }
+
+  function renderCharts(items){
+    const labels = items.map(x=> new Date(x.ts||Date.now()).toLocaleTimeString()).reverse();
+    const entry  = items.map(x=> x.scoreEntry||0).reverse();
+    const exit   = items.map(x=> x.scoreExit||0).reverse();
+    const err    = items.map(x=> x.errorRate||0).reverse();
+
+    const sc = qs('#scoreChart').getContext('2d');
+    const ec = qs('#errorChart').getContext('2d');
+
+    if (scoreChart) scoreChart.destroy();
+    if (errorChart) errorChart.destroy();
+
+    scoreChart = new Chart(sc, {
+      type:'line',
+      data:{ labels, datasets:[
+        { label:'開始スコア', data:entry, tension:.3 },
+        { label:'終了スコア', data:exit, tension:.3 }
+      ]},
+      options:{ responsive:true, plugins:{legend:{labels:{color:'#cbd5e1'}}}, scales:{x:{ticks:{color:'#94a3b8'}},y:{min:0,max:100,ticks:{color:'#94a3b8'}}}}
+    });
+
+    errorChart = new Chart(ec, {
+      type:'line',
+      data:{ labels, datasets:[ { label:'エラー率(%)', data:err, tension:.3 } ] },
+      options:{ responsive:true, plugins:{legend:{labels:{color:'#cbd5e1'}}}, scales:{x:{ticks:{color:'#94a3b8'}},y:{min:0,max:100,ticks:{color:'#94a3b8'}}}}
+    });
+  }
+
+  function renderTable(items){
+    const body = qs('#logBody');
+    const hint = qs('#logHint');
+    body.innerHTML = '';
+    if (!items.length){
+      hint.textContent = 'データがありません';
+      return;
+    }
+    hint.textContent = `表示件数: ${items.length}`;
+    for (const it of items){
+      const tr = document.createElement('tr');
+      const ts = new Date(it.ts||Date.now()).toLocaleString();
+      const errBadge = `<span class="badge"><span class="status-dot ${ it.errorRate>20?'danger':(it.errorRate>5?'warn':'ok') }"></span>${num(it.errorRate,1)}%</span>`;
+      tr.innerHTML = `
+        <td>${ts}</td>
+        <td>${it.phase||'-'}</td>
+        <td>${num(it.scoreEntry,1)}</td>
+        <td>${num(it.scoreExit,1)}</td>
+        <td>${errBadge}</td>
+        <td>${(it.errors||[]).length}</td>
+        <td class="muted">${escapeHtml(JSON.stringify(it.meta||{}))}</td>
+      `;
+      body.appendChild(tr);
+    }
+  }
+
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  async function loadAll(){
+    const res = await getJson('/report-log?limit=100');
+    const items = Array.isArray(res?.items) ? res.items : [];
+    renderKPI(items);
+    renderCharts(items);
+    renderTable(items);
+    toast('更新しました');
+  }
+
+  // first load
+  loadAll();
+})();
+</script>
 </body>
 </html>
