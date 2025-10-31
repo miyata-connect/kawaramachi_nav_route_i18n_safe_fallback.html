@@ -12,385 +12,97 @@
       --accent:#5fb1ff;
       --glass: rgba(20,28,44,.78);
       --stroke: rgba(255,255,255,.12);
-      --ok:#25d07a;
-      --danger:#ff6565;
-      --panelH: 180px;
     }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,"Noto Sans JP",sans-serif}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     *{box-sizing:border-box}
     .app{position:relative;height:100dvh;overflow:hidden}
-    #map{position:absolute;inset:0}
-
-    /* top info panel */
-    .panel{
-      position:absolute; left:12px; right:12px; top:12px; z-index:4;
-      border-radius:16px; background:var(--glass); border:1px solid var(--stroke);
-      backdrop-filter: blur(6px); padding:12px;
+    #map{position:absolute;inset:0;display:none}
+    .loading{
+      position:absolute;inset:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:10;
     }
-    .row{display:flex; align-items:center; gap:10px}
-    .row.space{justify-content:space-between}
-    .col{display:flex; flex-direction:column; gap:8px}
-    .title{font-weight:700}
-    .muted{color:var(--muted)}
-    input[type="text"]{
-      width:100%; padding:12px 14px; border-radius:12px; border:1px solid var(--stroke);
-      background:rgba(0,0,0,.2); color:var(--text); outline:none;
+    .spinner{
+      width:48px;height:48px;border-radius:50%;
+      border:3px solid rgba(255,255,255,.2);
+      border-top-color:#fff;animation:spin 1s linear infinite
     }
-    .btn{
-      padding:10px 14px; border-radius:12px; border:1px solid var(--stroke);
-      background:rgba(255,255,255,.10); color:var(--text); cursor:pointer;
-      user-select:none;
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .pulse{
+      position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+      width:14px;height:14px;border-radius:50%;background:#ff3b3b;border:2px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,.2)
     }
-    .btn:active{transform:translateY(1px)}
-    .btn.gray{background:rgba(255,255,255,.06)}
-    .btn.ok{background:rgba(37,208,122,.16); border-color:rgba(37,208,122,.35)}
-    .btn.danger{background:rgba(255,101,101,.16); border-color:rgba(255,101,101,.35)}
-    .inline{display:flex; gap:8px; align-items:center}
-
-    /* right side vertical buttons (map controls) */
-    .side{
-      position:absolute; right:12px; z-index:3;
-      display:flex; flex-direction:column; gap:10px;
-      /* will be placed just below panel via script */
-      top: calc(var(--panelH) + 28px);
+    .pulse::after{
+      content:"";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+      width:14px;height:14px;border-radius:50%;border:2px solid rgba(255,59,59,.7);
+      animation:ripple 1.8s ease-out infinite;
     }
-
-    /* toast (top-right) */
-    .toast{
-      position:absolute; right:12px; top:12px; z-index:5;
-      padding:10px 14px; border-radius:12px; border:1px solid var(--stroke);
-      color:#fff; background:rgba(255,101,101,.9); display:none;
-      max-width: 92vw;
+    @keyframes ripple{
+      0%{opacity:.8;transform:translate(-50%,-50%) scale(1)}
+      100%{opacity:0;transform:translate(-50%,-50%) scale(2.6)}
     }
-    .toast.ok{background:rgba(37,208,122,.92)}
-    .hidden{display:none !important}
-
-    /* search results (bottom sheet) */
-    .sheet{
-      position:absolute; left:0; right:0; bottom:0; z-index:4;
-      background:var(--glass); border-top:1px solid var(--stroke);
-      padding:10px 12px; max-height:45vh; overflow:auto; display:none;
-    }
-    .item{
-      padding:10px; border:1px solid var(--stroke); border-radius:10px; margin-bottom:8px;
-      background:rgba(0,0,0,.18); cursor:pointer;
-    }
-    .badge{padding:2px 8px; border-radius:999px; border:1px solid var(--stroke); font-size:12px}
-
-    /* prevent UI overlap with marker */
-    .safe-bottom{height: calc(env(safe-area-inset-bottom) + 10px)}
   </style>
 </head>
 <body>
-<div class="app">
-  <div id="map" aria-label="map"></div>
-
-  <!-- Top Info Panel -->
-  <div id="panel" class="panel" style="height:var(--panelH);">
-    <div class="row space">
-      <div class="title">近くを検索 <span id="kmLabel" class="badge">10km / 5件</span></div>
-      <div id="geoLabel" class="muted">現在地：—</div>
+  <div class="app">
+    <div id="loading" class="loading" role="status" aria-live="polite">
+      <div class="spinner"></div>
     </div>
-
-    <div class="row">
-      <div class="inline">
-        <button id="btnShortest" class="btn gray">最短Ai</button>
-        <button id="btnEasy" class="btn gray">楽チンAi</button>
-      </div>
-      <div class="inline">
-        <button id="sel10" class="btn ok">10km</button>
-        <button id="sel20" class="btn gray">20km</button>
-      </div>
-    </div>
-
-    <div class="col">
-      <input id="q" type="text" placeholder="店舗名・電話番号・カテゴリ・住所・座標・施設名" />
-      <div class="inline">
-        <button id="btnInput" class="btn ok">入力検索</button>
-        <button id="btnVoice" class="btn gray">音声検索</button>
-        <button id="btnReset" class="btn danger">リセット</button>
-      </div>
-      <div class="inline">
-        <button id="btnAny" class="btn gray" title="任意の場所を検索">任意の場所を検索</button>
-        <button id="btnSave" class="btn gray">現在地点登録</button>
-        <button id="btnEdit" class="btn gray">登録地点修正</button>
-      </div>
-    </div>
+    <div id="map"></div>
   </div>
 
-  <!-- Right side controls -->
-  <div id="side" class="side">
-    <button id="btnCurrent" class="btn gray">現在地</button>
-    <button id="btnPause" class="btn gray">一時停止</button>
-    <button id="btnReroute" class="btn gray">リルート</button>
-  </div>
+  <script async src="https://maps.googleapis.com/maps/api/js?key=YOUR_BROWSER_KEY&v=weekly&language=ja&region=JP&loading=async"></script>
 
-  <!-- Toast -->
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module">
+    const wait = (ms)=>new Promise(r=>setTimeout(r,ms));
+    const Diag = {
+      _buf:[],
+      log(o){try{
+        const t = typeof o==='string'?o:JSON.stringify(o);
+        this._buf.push(`[${new Date().toISOString()}] ${t}`);
+        console.log('[WN]',t);
+      }catch(e){}},
+      report(){return this._buf.join('\n');}
+    };
 
-  <!-- Bottom Sheet: search results -->
-  <div id="sheet" class="sheet"></div>
-  <div class="safe-bottom"></div>
-</div>
-
-<!-- Google Maps JS API (AdvancedMarkerElement 必須) -->
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&v=beta&libraries=marker&language=ja&region=JP"></script>
-
-<script type="module">
-  const WORKER_BASE = "https://ors-proxy-dev.miyata-connect-jp.workers.dev";
-  const state = {
-    km: 10,
-    pageSize: 5,
-    current: null,         // {lat,lng}
-    selectingAny: false,
-    aborter: null,
-  };
-
-  const el = (id)=>document.getElementById(id);
-  const panel = el("panel"), toastEl=el("toast"), sheet=el("sheet"), kmLabel=el("kmLabel"), geoLabel=el("geoLabel");
-
-  function toast(msg, ok=false){
-    toastEl.textContent = msg;
-    toastEl.classList.toggle("ok", ok);
-    toastEl.style.display="block";
-    clearTimeout(toastEl._t);
-    toastEl._t=setTimeout(()=>toastEl.style.display="none", 2500);
-  }
-
-  // place right-side buttons below panel
-  function placeSide(){
-    const side = el("side");
-    const rect = panel.getBoundingClientRect();
-    side.style.top = `${rect.bottom + 16}px`;
-  }
-  new ResizeObserver(placeSide).observe(panel);
-
-  // Google Maps init
-  let map, centerMarker, userMarker, anyMarker;
-  let longPressTimer=null;
-
-  function rippleMarker(color="#ff4d4d"){
-    const d = document.createElement("div");
-    d.style.width="16px"; d.style.height="16px"; d.style.borderRadius="50%";
-    d.style.background=color; d.style.boxShadow="0 0 0 0 rgba(255,77,77,.6)";
-    d.style.animation="pulse 2s infinite";
-    const s=document.createElement("style");
-    s.textContent=`@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(255,77,77,.6)}70%{box-shadow:0 0 0 22px rgba(255,77,77,0)}100%{box-shadow:0 0 0 0 rgba(255,77,77,0)}}`;
-    d.appendChild(s);
-    return d;
-  }
-
-  function updateKmLabel(){
-    kmLabel.textContent = `${state.km}km / ${state.pageSize}件`;
-  }
-
-  function setGeoLabel(p){
-    geoLabel.textContent = `現在地：${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`;
-  }
-
-  function abortInFlight(){
-    if (state.aborter){ state.aborter.abort(); state.aborter=null; }
-  }
-
-  async function getLocation(timeout=30000){
-    return new Promise((resolve, reject)=>{
-      if(!navigator.geolocation) return reject(new Error("端末の位置情報が無効です"));
-      const t = setTimeout(()=>reject(new Error("現在地を取得出来ませんでした。屋外に出られるか、なるべく空が開けた場所へ移動してください。")), timeout);
-      navigator.geolocation.getCurrentPosition(
-        pos=>{ clearTimeout(t); resolve({lat:pos.coords.latitude, lng:pos.coords.longitude}); },
-        err=>{ clearTimeout(t); reject(new Error(err.message||"位置情報エラー")); },
-        {enableHighAccuracy:true, maximumAge:0, timeout}
-      );
-    });
-  }
-
-  function panByPanel(){
-    const rect = panel.getBoundingClientRect();
-    map.panBy(0, Math.round(rect.height/2));
-  }
-
-  function createAdvancedMarker(position, contentEl){
-    return new google.maps.marker.AdvancedMarkerElement({ map, position, content: contentEl });
-  }
-
-  async function initMap(){
-    // 初期は黒画面案内
-    toast("現在地取得中です。ご迷惑をお掛けします。現在地表示まで30秒程お待ちください。");
-
-    const { Map } = await google.maps.importLibrary("maps");
-    map = new Map(el("map"), {
-      center: {lat: 35.681236, lng: 139.767125}, // fallback（表示はすぐ現在地へ）
-      zoom: 16,
-      disableDefaultUI: true,
-      mapId: "WALKNAV_MAP",
-      gestureHandling: "greedy",
-    });
-
-    // center marker (青)
-    centerMarker = createAdvancedMarker(map.getCenter(), rippleMarker("#5fb1ff"));
-    // user marker (赤)
-    userMarker   = createAdvancedMarker(map.getCenter(), rippleMarker("#ff4d4d"));
-    // any marker (黄)
-    anyMarker    = createAdvancedMarker(map.getCenter(), rippleMarker("#ffd84d"));
-    anyMarker.map = null;
-
-    // 現在地取得→中心＆ズーム＆パネル干渉回避
-    try{
-      const cur = await getLocation();
-      state.current = cur;
-      map.setCenter(cur);
-      map.setZoom(17);
-      userMarker.position = cur;
-      setGeoLabel(cur);
-      panByPanel();
-      toast("現在地を取得しました。", true);
-    }catch(e){
-      toast(e.message);
-    }
-
-    // map center change → centerMarkerを追従
-    google.maps.event.addListener(map, "center_changed", ()=>{
-      centerMarker.position = map.getCenter();
-    });
-
-    // 任意の場所ロングプレス
-    map.addListener("mousedown", (e)=>{
-      if(!state.selectingAny) return;
-      longPressTimer = setTimeout(()=>{
-        const p = e.latLng.toJSON();
-        anyMarker.position = p;
-        if(!anyMarker.map) anyMarker.map = map;
-        toast("任意の場所を確定しました。", true);
-      }, 600);
-    });
-    map.addListener("mouseup", ()=>{ if(longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } });
-
-    placeSide();
-    await fetch(`${WORKER_BASE}/health`).catch(()=>{ /* health失敗は黙殺 */ });
-  }
-
-  // Fetch helpers
-  async function postJSON(path, body){
-    abortInFlight();
-    state.aborter = new AbortController();
-    const res = await fetch(`${WORKER_BASE}${path}`, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify(body),
-      signal: state.aborter.signal,
-    });
-    state.aborter = null;
-    if(!res.ok){
-      const txt = await res.text().catch(()=>String(res.status));
-      throw new Error(`HTTP ${res.status} ${txt}`);
-    }
-    return res.json();
-  }
-
-  function showResults(list){
-    sheet.innerHTML = "";
-    if (!list || list.length===0){
-      sheet.style.display = "none";
-      toast("結果がありません");
-      return;
-    }
-    list.forEach(p=>{
-      const div = document.createElement("div");
-      div.className="item";
-      div.innerHTML = `
-        <div><strong>${p.displayName?.text || "名称不明"}</strong></div>
-        <div class="muted">${p.formattedAddress || ""}</div>
-        <div class="inline"><span class="badge">${(p.rating ?? "-")}★</span> <span class="badge">${(p.currentOpeningHours?.openNow? "現在営業中":"")}</span></div>
-      `;
-      div.addEventListener("click", ()=>{
-        // ルート案内は今はセンター→対象までのカメラ移動のみ（経路描画は別実装）
-        const loc = p.location;
-        if (loc?.latitude && loc?.longitude){
-          const pos = {lat:loc.latitude, lng:loc.longitude};
-          map.panTo(pos);
-          if(anyMarker.map) anyMarker.map = null;
-          centerMarker.position = pos;
-          sheet.style.display="none";
-          toast("目的地をセットしました。", true);
-        } else {
-          toast("位置が取得できませんでした");
-        }
+    async function getLocation(timeoutMs=30000){
+      return new Promise((resolve,reject)=>{
+        const t=setTimeout(()=>reject(new Error('timeout')),timeoutMs);
+        if(!navigator.geolocation){clearTimeout(t);reject(new Error('unsupported'));return;}
+        navigator.geolocation.getCurrentPosition(
+          pos=>{clearTimeout(t);resolve({lat:pos.coords.latitude,lng:pos.coords.longitude});},
+          err=>{clearTimeout(t);reject(new Error(err.message||'geo error'));},
+          {enableHighAccuracy:true,timeout:timeoutMs,maximumAge:0}
+        );
       });
-      sheet.appendChild(div);
-    });
-    // 結果表示中は検索パネルを隠す
-    panel.style.display="none";
-    sheet.style.display="block";
-  }
+    }
 
-  // UI wiring
-  el("sel10").addEventListener("click", ()=>{ state.km=10; updateKmLabel(); el("sel10").classList.add("ok"); el("sel20").classList.remove("ok"); });
-  el("sel20").addEventListener("click", ()=>{ state.km=20; updateKmLabel(); el("sel20").classList.add("ok"); el("sel10").classList.remove("ok"); });
+    async function loadMaps(){
+      while(!(window.google&&google.maps&&google.maps.importLibrary)){await wait(25);}
+      const { Map } = await google.maps.importLibrary("maps");
+      const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+      return { Map, AdvancedMarkerElement };
+    }
 
-  el("btnInput").addEventListener("click", async ()=>{
-    const q = el("q").value.trim();
-    if(!q){ toast("検索したい文字を入力してください。"); return; }
-    const center = map.getCenter().toJSON();
-    try{
-      const radius = state.km * 1000;
-      const body = {
-        textQuery: q,
-        pageSize: state.pageSize,
-        languageCode: "ja",
-        regionCode: "JP",
-        locationBias: { circle: { center: { latitude:center.lat, longitude:center.lng }, radius } }
-      };
-      const data = await postJSON("/v1/places:searchText", body);
-      showResults(data.places || []);
-    }catch(e){ toast(`検索エラー: ${e.message}`); }
-  });
+    function makeMarker(AdvancedMarkerElement,pos,map){
+      const div=document.createElement('div');div.className='pulse';
+      return new AdvancedMarkerElement({map,position:pos,content:div});
+    }
 
-  el("btnVoice").addEventListener("click", async ()=>{
-    // 簡易：ブラウザ音声認識の存在チェックのみ（本格実装は後続）
-    toast("音声検索は準備中です。");
-  });
-
-  el("btnReset").addEventListener("click", ()=>{
-    abortInFlight();
-    el("q").value = "";
-    sheet.style.display="none";
-    panel.style.display="block";
-    toast("検索をリセットしました。", true);
-  });
-
-  el("btnAny").addEventListener("click", ()=>{
-    state.selectingAny = !state.selectingAny;
-    el("btnAny").classList.toggle("ok", state.selectingAny);
-    toast(state.selectingAny ? "任意の場所を長押しで確定できます" : "任意の場所の選択を終了しました。", true);
-  });
-
-  el("btnSave").addEventListener("click", ()=>{
-    if(!state.current){ toast("現在地が未取得です"); return; }
-    toast("現在地点を登録しました。", true);
-  });
-
-  el("btnEdit").addEventListener("click", ()=>{
-    toast("登録地点の名称編集／削除モーダルは準備中です。");
-  });
-
-  el("btnCurrent").addEventListener("click", async ()=>{
-    try{
-      const cur = await getLocation(15000);
-      state.current = cur;
-      userMarker.position = cur;
-      map.panTo(cur);
-      map.setZoom(17);
-      setGeoLabel(cur);
-      panByPanel();
-      toast("現在地へ移動しました。", true);
-    }catch(e){ toast(e.message); }
-  });
-  el("btnPause").addEventListener("click", ()=>toast("案内を一時停止しました。", true));
-  el("btnReroute").addEventListener("click", ()=>toast("リルートしました。", true));
-
-  // 初期化
-  updateKmLabel();
-  initMap().catch(err=>toast("初期化エラー: "+err.message));
-</script>
+    (async function main(){
+      try{
+        Diag.log({phase:'boot'});
+        const cur=await getLocation(30000);
+        const { Map,AdvancedMarkerElement }=await loadMaps();
+        const map=new Map(document.getElementById('map'),{
+          center:cur,zoom:18,disableDefaultUI:true,mapId:"WALKNAV_MAP",gestureHandling:"greedy",
+        });
+        document.getElementById('map').style.display='block';
+        document.getElementById('loading').style.display='none';
+        makeMarker(AdvancedMarkerElement,cur,map);
+        Diag.log({event:'ready',cur});
+      }catch(e){
+        Diag.log({fatal:e.message});
+      }
+    })();
+  </script>
 </body>
 </html>
