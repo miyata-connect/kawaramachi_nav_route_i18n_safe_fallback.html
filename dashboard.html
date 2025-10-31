@@ -1,23 +1,199 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>WalkNav Dashboard</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-body{background:#0a1321;color:#eaf2ff;font-family:system-ui;-apple-system,sans-serif;padding:20px}
-.card{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:16px;margin-bottom:20px}
-canvas{width:100%;height:180px}
-</style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>WalkNav Diagnostics Dashboard</title>
+  <style>
+    :root{
+      --bg:#0a1321; --text:#eaf2ff; --muted:#a7b8ce; --accent:#5fb1ff;
+      --glass: rgba(20,28,44,.78); --stroke: rgba(255,255,255,.12);
+      --ok:#25d07a; --danger:#ff6565; --warn:#f5a524;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    *{box-sizing:border-box}
+    .wrap{max-width:1100px;margin:20px auto;padding:16px}
+    .card{background:var(--glass);border:1px solid var(--stroke);border-radius:16px;padding:16px;margin-bottom:16px;backdrop-filter:blur(6px)}
+    h1,h2{margin:0 0 10px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .col{flex:1 1 320px}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+    .kpi{padding:14px;border:1px solid var(--stroke);border-radius:12px;text-align:center}
+    .kpi strong{font-size:28px;display:block}
+    label{display:block;margin-bottom:6px;color:var(--muted)}
+    input,select,button{
+      background:#0f1b2e;color:var(--text);border:1px solid var(--stroke);
+      padding:10px;border-radius:10px;width:100%;
+    }
+    button{cursor:pointer}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{border-bottom:1px solid var(--stroke);padding:8px 6px;text-align:left;vertical-align:top}
+    .ok{color:var(--ok)} .bad{color:var(--danger)} .warn{color:var(--warn)}
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace}
+    canvas{background:#0f1b2e;border:1px solid var(--stroke);border-radius:12px;padding:8px}
+  </style>
 </head>
 <body>
-<h2>WalkNav Diagnostic Dashboard</h2>
-<div class="card"><h3>Entry/Runtime/Exit Score</h3><canvas id="scoreChart"></canvas></div>
-<div class="card"><pre id="log" style="max-height:400px;overflow:auto"></pre></div>
-<script>
-const ctx=document.getElementById('scoreChart');
-new Chart(ctx,{type:'bar',data:{labels:['Entry','Runtime','Exit'],datasets:[{label:'Score',data:[100,95,97],backgroundColor:['#25d07a','#ffb347','#25d07a']}]},options:{scales:{y:{beginAtZero:true,max:100}}}});
-document.getElementById('log').textContent='ログ受信待機中...';
-</script>
+  <div class="wrap">
+    <div class="card">
+      <h1>Diagnostics Dashboard</h1>
+      <div class="row">
+        <div class="col">
+          <label for="base">Worker Base URL</label>
+          <input id="base" class="mono" value="https://ors-proxy-dev.miyata-connect-jp.workers.dev" />
+        </div>
+        <div class="col">
+          <label for="token">X-Admin-Token (if configured)</label>
+          <input id="token" class="mono" type="password" placeholder="Optional: ADMIN_TOKEN" />
+        </div>
+        <div class="col" style="align-self:flex-end">
+          <button id="load">Load Now</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Overview</h2>
+      <div class="grid">
+        <div class="kpi">
+          <span>Total Reports</span>
+          <strong id="k-total">0</strong>
+        </div>
+        <div class="kpi">
+          <span>Avg Entry Score</span>
+          <strong id="k-entry">0</strong>
+        </div>
+        <div class="kpi">
+          <span>Avg Exit Score</span>
+          <strong id="k-exit">0</strong>
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div class="col">
+          <canvas id="chartScore" height="180"></canvas>
+        </div>
+        <div class="col">
+          <canvas id="chartError" height="180"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Recent Items</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Phase</th>
+            <th>Entry</th>
+            <th>Error%</th>
+            <th>Exit</th>
+            <th>Errors</th>
+            <th>Meta</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script>
+    const $ = (id)=>document.getElementById(id);
+    const tbody = $("tbody");
+    const kTotal = $("k-total");
+    const kEntry = $("k-entry");
+    const kExit  = $("k-exit");
+
+    let chartScore, chartError;
+
+    function fmtTs(ts){
+      const d = new Date(ts);
+      return d.toLocaleString();
+    }
+    function avg(arr){
+      if(!arr.length) return 0;
+      return Math.round( (arr.reduce((a,b)=>a+b,0)/arr.length) * 10 )/10;
+    }
+    function buildCharts(){
+      const ctx1 = document.getElementById("chartScore");
+      const ctx2 = document.getElementById("chartError");
+      chartScore = new Chart(ctx1, {
+        type: "line",
+        data: { labels: [], datasets: [
+          { label: "Entry Score", data: [], tension:.2 },
+          { label: "Exit Score",  data: [], tension:.2 }
+        ]},
+        options: { responsive:true, scales:{ y:{ beginAtZero:true, max:100 } } }
+      });
+      chartError = new Chart(ctx2, {
+        type: "line",
+        data: { labels: [], datasets: [
+          { label: "Error Rate %", data: [], tension:.2 }
+        ]},
+        options: { responsive:true, scales:{ y:{ beginAtZero:true, max:100 } } }
+      });
+    }
+    function updateCharts(items){
+      const labels = items.map(x=>new Date(x.ts).toLocaleTimeString());
+      const entry  = items.map(x=>x.scoreEntry||0);
+      const exit   = items.map(x=>x.scoreExit||0);
+      const errp   = items.map(x=>x.errorRate||0);
+
+      chartScore.data.labels = labels;
+      chartScore.data.datasets[0].data = entry;
+      chartScore.data.datasets[1].data = exit;
+      chartScore.update();
+
+      chartError.data.labels = labels;
+      chartError.data.datasets[0].data = errp;
+      chartError.update();
+    }
+    function renderTable(items){
+      tbody.innerHTML = "";
+      for(const it of items.slice().reverse()){ // newest first
+        const tr = document.createElement("tr");
+        const td1 = `<td class="mono">${fmtTs(it.ts)}</td>`;
+        const td2 = `<td>${it.phase}</td>`;
+        const td3 = `<td>${it.scoreEntry??0}</td>`;
+        const td4 = `<td>${it.errorRate??0}</td>`;
+        const td5 = `<td>${it.scoreExit??0}</td>`;
+        const td6 = `<td class="mono">${(it.errors||[]).slice(0,3).join(" | ")}</td>`;
+        const td7 = `<td class="mono">${JSON.stringify(it.meta||{})}</td>`;
+        tr.innerHTML = td1+td2+td3+td4+td5+td6+td7;
+        tbody.appendChild(tr);
+      }
+    }
+
+    async function loadData(){
+      const base = $("base").value.trim().replace(/\/+$/,"");
+      const token = $("token").value.trim();
+      const url = `${base}/report-log?limit=200`;
+      const headers = { "Accept":"application/json" };
+      if(token) headers["X-Admin-Token"] = token;
+
+      const r = await fetch(url, { headers });
+      if(!r.ok){
+        alert("Failed to load report-log: " + r.status);
+        return;
+      }
+      const j = await r.json();
+      if(!j || !j.ok) {
+        alert("Invalid payload");
+        return;
+      }
+      const items = j.items||[];
+      kTotal.textContent = j.count||0;
+      kEntry.textContent = avg(items.map(x=>x.scoreEntry||0));
+      kExit.textContent  = avg(items.map(x=>x.scoreExit||0));
+      updateCharts(items);
+      renderTable(items);
+    }
+
+    $("load").addEventListener("click", loadData);
+    buildCharts();
+    loadData();
+    setInterval(loadData, 5000);
+  </script>
 </body>
 </html>
