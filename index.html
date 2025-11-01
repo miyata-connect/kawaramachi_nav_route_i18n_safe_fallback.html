@@ -241,7 +241,7 @@
       map.panTo({lat, lng});
     }
 
-    // ====== Overpass API (OpenStreetMap) による検索 ======
+    // ====== Nominatim検索（範囲拡大版） ======
     async function performSearch(query){
       if(!query || query.trim() === ''){
         console.log('[Search] 検索ワードが空です');
@@ -267,14 +267,16 @@
       const radiusMeters = radiusKm * 1000;
 
       try {
-        // Nominatim Search API（OpenStreetMap）を使用
+        // より広範囲で検索し、後でフィルタリング
+        // viewboxを大きく設定（±2度 ≒ 約220km四方）
         const nominatimUrl = `https://nominatim.openstreetmap.org/search?` + 
           `q=${encodeURIComponent(query)}` +
           `&format=json` +
-          `&limit=20` +
-          `&viewbox=${centerLng-0.5},${centerLat+0.5},${centerLng+0.5},${centerLat-0.5}` +
-          `&bounded=1` +
-          `&accept-language=ja`;
+          `&limit=50` +  // 取得数を増やす
+          `&viewbox=${centerLng-2},${centerLat+2},${centerLng+2},${centerLat-2}` +
+          `&bounded=0` +  // bounded を外して広範囲検索
+          `&accept-language=ja` +
+          `&countrycodes=jp`;  // 日本に限定
 
         console.log('[Search] Nominatim URL:', nominatimUrl);
 
@@ -292,7 +294,7 @@
         console.log('[Search] Nominatim Results:', data);
 
         if(!data || data.length === 0){
-          alert('検索結果が見つかりませんでした');
+          alert('検索結果が見つかりませんでした\n\n別のキーワードで試してください');
           document.getElementById('results').style.display = 'none';
           return;
         }
@@ -302,7 +304,7 @@
           const lat = parseFloat(place.lat);
           const lon = parseFloat(place.lon);
           const distance = calculateDistance(centerLat, centerLng, lat, lon);
-          return {...place, distance};
+          return {...place, distance, lat, lon};
         }).filter(place => place.distance <= radiusMeters);
 
         resultsWithDistance.sort((a, b) => a.distance - b.distance);
@@ -312,7 +314,7 @@
         const limitedResults = resultsWithDistance.slice(0, maxResults);
 
         if(limitedResults.length === 0){
-          alert(`${radiusKm}km圏内に結果が見つかりませんでした`);
+          alert(`${radiusKm}km圏内に結果が見つかりませんでした\n\n検索範囲を20kmに変更するか、別のキーワードで試してください`);
           document.getElementById('results').style.display = 'none';
           return;
         }
@@ -321,7 +323,7 @@
 
       } catch(error) {
         console.error('[Search] Error:', error);
-        alert(`検索エラー: ${error.message}`);
+        alert(`検索エラー: ${error.message}\n\nもう一度試してください`);
       }
     }
 
@@ -348,8 +350,8 @@
       places.forEach((place, index) => {
         const name = place.display_name.split(',')[0] || '名称不明';
         const address = place.display_name || '住所不明';
-        const lat = parseFloat(place.lat);
-        const lon = parseFloat(place.lon);
+        const lat = place.lat;
+        const lon = place.lon;
         const distanceKm = (place.distance / 1000).toFixed(2);
 
         const item = document.createElement('div');
@@ -398,8 +400,8 @@
 
       // 最初の結果に地図を移動
       if(places[0]){
-        const firstLat = parseFloat(places[0].lat);
-        const firstLon = parseFloat(places[0].lon);
+        const firstLat = places[0].lat;
+        const firstLon = places[0].lon;
         map.panTo({lat: firstLat, lng: firstLon});
         map.setZoom(15);
       }
