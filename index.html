@@ -360,8 +360,16 @@
         const result = await response.json();
 
         if(result.status === 'OK' && result.routes && result.routes.length > 0){
-          // DirectionsRendererにセット
-          directionsRenderer.setDirections(result);
+          // DirectionsRendererにセット（Google形式に整形）
+          const directionsResult = {
+            routes: result.routes,
+            request: {
+              origin: { lat: currentPos.lat, lng: currentPos.lng },
+              destination: { lat: destination.lat, lng: destination.lng },
+              travelMode: 'WALKING'
+            }
+          };
+          directionsRenderer.setDirections(directionsResult);
           
           const route = result.routes[0].legs[0];
           const distance = route.distance.text;
