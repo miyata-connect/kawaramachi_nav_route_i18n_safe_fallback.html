@@ -39,6 +39,8 @@
       border-radius:var(--radius);box-shadow:var(--shadow);
       padding:14px 14px 12px;backdrop-filter:blur(10px);
       z-index:2500;
+      max-height:calc(100vh - 32px);
+      overflow-y:auto;
     }
     .panel h2{margin:0 0 10px;font-size:20px;letter-spacing:.5px}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -73,8 +75,6 @@
 
     .results{
       margin-top:12px;
-      max-height:300px;
-      overflow-y:auto;
       background:rgba(0,0,0,.3);
       border-radius:12px;
       padding:8px;
@@ -99,6 +99,36 @@
       color:var(--muted);
     }
 
+    /* ルート案内パネル */
+    .route-panel{
+      position:absolute;
+      left:16px;
+      bottom:16px;
+      right:110px;
+      background:var(--glass-strong);
+      border:1px solid var(--stroke);
+      border-radius:var(--radius);
+      box-shadow:var(--shadow);
+      padding:14px;
+      backdrop-filter:blur(10px);
+      z-index:2500;
+      display:none;
+    }
+    .route-info{
+      font-size:14px;
+      margin-bottom:8px;
+    }
+    .route-distance{
+      font-size:24px;
+      font-weight:bold;
+      color:var(--primary);
+    }
+    .route-time{
+      font-size:16px;
+      color:var(--muted);
+      margin-left:12px;
+    }
+
     .toast, .error-banner{display:none !important}
   </style>
 </head>
@@ -107,7 +137,7 @@
     <div id="map" aria-label="地図"></div>
 
     <section class="panel" id="searchPanel" aria-label="検索パネル">
-      <h2>近くを検索（<span id="radiusLabel">10km</span> / <span id="maxResults">5</span>件）</h2>
+      <h2>近くを検索（<span id="radiusLabel">10km</span> / 5件）</h2>
       <div class="row" style="margin-bottom:8px">
         <button class="chip active" id="r10">10km</button>
         <button class="chip" id="r20">20km</button>
@@ -125,6 +155,18 @@
       
       <div id="results" class="results" style="display:none"></div>
     </section>
+
+    <!-- ルート案内パネル -->
+    <div class="route-panel" id="routePanel">
+      <div class="route-info">
+        <span id="destinationName">目的地</span>へのルート
+      </div>
+      <div>
+        <span class="route-distance" id="routeDistance">--</span>
+        <span class="route-time" id="routeTime">徒歩 --分</span>
+      </div>
+      <button id="btnStopRoute" class="btn danger" style="margin-top:10px;width:100%">ルート終了</button>
+    </div>
 
     <div class="fab-stack" id="fabStack">
       <div class="fab" id="btnLocate">現在地</div>
@@ -144,15 +186,16 @@
     const ISSUE_ID = 'idx202511011945';
     const API_KEY = 'AIzaSyBXC6CB2yaUkrJ5UYj3mymAsruQe4MzGPk';
 
-    let map, userMarker;
+    let map, userMarker, directionsService, directionsRenderer;
     let currentPos = null;
-    let currentLocationInfo = null; // 現在地の地名情報を保存
+    let currentLocationInfo = null;
     let pointSearchMode = false;
     let searchPoint = null;
     let searchPointMarker = null;
     let longPressTimer = null;
     let mapInitialized = false;
     let searchMarkers = [];
+    let currentDestination = null; // 現在の目的地
 
     function setUserMarker(lat, lng){
       currentPos = {lat, lng};
@@ -181,6 +224,18 @@
         gestureHandling:'greedy',
         clickableIcons:true,
         disableDefaultUI:true
+      });
+
+      // Directions API初期化
+      directionsService = new google.maps.DirectionsService();
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map: map,
+        suppressMarkers: false,
+        polylineOptions: {
+          strokeColor: '#62b5ff',
+          strokeWeight: 6,
+          strokeOpacity: 0.8
+        }
       });
 
       map.addListener('mousedown', (e) => {
@@ -242,7 +297,57 @@
       map.panTo({lat, lng});
     }
 
-    // ====== 検索（地名込みクエリ） ======
+    // ====== ルート案内開始 ======
+    function startNavigation(destination){
+      if(!currentPos){
+        alert('現在地が取得できていません');
+        return;
+      }
+
+      currentDestination = destination;
+
+      const request = {
+        origin: new google.maps.LatLng(currentPos.lat, currentPos.lng),
+        destination: new google.maps.LatLng(destination.lat, destination.lon),
+        travelMode: google.maps.TravelMode.WALKING
+      };
+
+      directionsService.route(request, (result, status) => {
+        if(status === 'OK'){
+          directionsRenderer.setDirections(result);
+          
+          // ルート情報を取得
+          const route = result.routes[0].legs[0];
+          const distance = route.distance.text;
+          const duration = route.duration.text;
+
+          // ルートパネルを表示
+          document.getElementById('destinationName').textContent = destination.name;
+          document.getElementById('routeDistance').textContent = distance;
+          document.getElementById('routeTime').textContent = `徒歩 ${duration}`;
+          document.getElementById('routePanel').style.display = 'block';
+
+          // 検索パネルと結果を非表示
+          document.getElementById('results').style.display = 'none';
+
+          console.log(`[Navigation] ルート案内開始: ${destination.name}`);
+          console.log(`[Navigation] 距離: ${distance}, 時間: ${duration}`);
+        }else{
+          console.error('[Navigation] ルート取得失敗:', status);
+          alert('ルートを取得できませんでした');
+        }
+      });
+    }
+
+    // ====== ルート案内終了 ======
+    function stopNavigation(){
+      directionsRenderer.setDirections({routes: []});
+      currentDestination = null;
+      document.getElementById('routePanel').style.display = 'none';
+      console.log('[Navigation] ルート案内終了');
+    }
+
+    // ====== 検索 ======
     async function performSearch(query){
       if(!query || query.trim() === ''){
         console.log('[Search] 検索ワードが空です');
@@ -254,13 +359,12 @@
       if(pointSearchMode && searchPoint){
         centerLat = searchPoint.lat;
         centerLng = searchPoint.lng;
-        // 地点検索の場合は、その地点の地名を取得
         locationContext = await getLocationContext(centerLat, centerLng);
         console.log(`[Search] 地点検索: "${query}" at ${centerLat.toFixed(6)}, ${centerLng.toFixed(6)}`);
       }else if(currentPos){
         centerLat = currentPos.lat;
         centerLng = currentPos.lng;
-        locationContext = currentLocationInfo; // 既に取得済みの地名を使用
+        locationContext = currentLocationInfo;
         console.log(`[Search] 現在地検索: "${query}" at ${centerLat.toFixed(6)}, ${centerLng.toFixed(6)}`);
       }else{
         console.log('[Search] 検索の基準地点が不明です');
@@ -272,7 +376,6 @@
       const radiusMeters = radiusKm * 1000;
 
       try {
-        // クエリに地名を追加
         let searchQuery = query;
         if(locationContext){
           const cityName = locationContext.city || locationContext.town || locationContext.village || locationContext.state;
@@ -310,7 +413,6 @@
           return;
         }
 
-        // 中心点からの距離で並べ替え
         const resultsWithDistance = data.map(place => {
           const lat = parseFloat(place.lat);
           const lon = parseFloat(place.lon);
@@ -320,9 +422,8 @@
 
         resultsWithDistance.sort((a, b) => a.distance - b.distance);
 
-        // 最大件数で制限
-        const maxResults = parseInt(document.getElementById('maxResults').textContent);
-        const limitedResults = resultsWithDistance.slice(0, maxResults);
+        // 最大5件に固定
+        const limitedResults = resultsWithDistance.slice(0, 5);
 
         if(limitedResults.length === 0){
           alert(`${radiusKm}km圏内に結果が見つかりませんでした\n\n検索範囲を20kmに変更するか、別のキーワードで試してください`);
@@ -338,7 +439,6 @@
       }
     }
 
-    // 地名コンテキストを取得
     async function getLocationContext(lat, lng){
       try{
         const response = await fetch(
@@ -352,7 +452,6 @@
       }
     }
 
-    // 2点間の距離を計算（メートル単位）
     function calculateDistance(lat1, lon1, lat2, lon2) {
       const R = 6371000;
       const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -390,8 +489,12 @@
         `;
         
         item.onclick = () => {
-          map.panTo({lat, lng: lon});
-          map.setZoom(18);
+          // ルート案内を開始
+          startNavigation({
+            name: name,
+            lat: lat,
+            lon: lon
+          });
         };
 
         resultsDiv.appendChild(item);
@@ -421,13 +524,6 @@
 
         searchMarkers.push(marker);
       });
-
-      if(places[0]){
-        const firstLat = places[0].lat;
-        const firstLon = places[0].lon;
-        map.panTo({lat: firstLat, lng: firstLon});
-        map.setZoom(15);
-      }
 
       console.log(`[Search] ${places.length}件の結果を表示しました`);
     }
@@ -463,7 +559,6 @@
         );
         const data = await response.json();
         
-        // 地名情報を保存
         currentLocationInfo = data.address || null;
         
         const addr = data.address || {};
@@ -533,7 +628,11 @@
       };
       
       document.getElementById('btnReroute').onclick = ()=>{ 
-        console.log('リルートボタンがクリックされました');
+        if(currentDestination){
+          startNavigation(currentDestination);
+        }else{
+          console.log('リルート: 目的地が設定されていません');
+        }
       };
 
       document.getElementById('btnText').onclick = ()=>{
@@ -575,7 +674,15 @@
         btnPointSearch.classList.remove('active');
         btnPointSearch.textContent = '📍 地点検索';
         
+        // ルートもクリア
+        stopNavigation();
+        
         console.log('[WalkNav] リセット完了');
+      };
+
+      // ルート終了ボタン
+      document.getElementById('btnStopRoute').onclick = ()=>{
+        stopNavigation();
       };
 
       console.log('[WalkNav] UI binding complete');
