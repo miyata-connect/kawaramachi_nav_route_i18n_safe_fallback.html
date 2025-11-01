@@ -186,7 +186,7 @@
     const API_KEY = 'AIzaSyBXC6CB2yaUkrJ5UYj3mymAsruQe4MzGPk'; // Maps表示用のみ
     const WORKER_ORIGIN = 'https://ors-proxy.miyata-connect-jp.workers.dev'; // 既存Worker
 
-    let map, userMarker, directionsRenderer, geocoder;
+    let map, userMarker, directionsService, directionsRenderer, geocoder;
     let currentPos = null;
     let pointSearchMode = false;
     let searchPoint = null;
@@ -262,7 +262,8 @@
         disableDefaultUI:true
       });
 
-      // DirectionsRenderer のみ初期化（DirectionsServiceは不要）
+      // DirectionsService を復活
+      directionsService = new google.maps.DirectionsService();
       directionsRenderer = new google.maps.DirectionsRenderer({
         map: map,
         suppressMarkers: false,
@@ -334,7 +335,7 @@
       map.panTo({lat, lng});
     }
 
-    async function startNavigation(destination){
+    function startNavigation(destination){
       if(!currentPos){
         alert('現在地が取得できていません');
         return;
@@ -342,34 +343,16 @@
 
       currentDestination = destination;
 
-      try {
-        // Worker経由でDirections APIを呼び出し
-        const params = new URLSearchParams({
-          origin: `${currentPos.lat},${currentPos.lng}`,
-          destination: `${destination.lat},${destination.lng}`,
-          mode: 'walking',
-          language: 'ja'
-        });
+      // DirectionsService を使用（ブラウザで直接呼び出し）
+      const request = {
+        origin: new google.maps.LatLng(currentPos.lat, currentPos.lng),
+        destination: new google.maps.LatLng(destination.lat, destination.lng),
+        travelMode: google.maps.TravelMode.WALKING
+      };
 
-        const response = await fetch(`${WORKER_ORIGIN}/directions?${params.toString()}`);
-        
-        if(!response.ok){
-          throw new Error(`Directions API Error: ${response.status}`);
-        }
-
-        const result = await response.json();
-
-        if(result.status === 'OK' && result.routes && result.routes.length > 0){
-          // DirectionsRendererにセット（Google形式に整形）
-          const directionsResult = {
-            routes: result.routes,
-            request: {
-              origin: { lat: currentPos.lat, lng: currentPos.lng },
-              destination: { lat: destination.lat, lng: destination.lng },
-              travelMode: 'WALKING'
-            }
-          };
-          directionsRenderer.setDirections(directionsResult);
+      directionsService.route(request, (result, status) => {
+        if(status === 'OK'){
+          directionsRenderer.setDirections(result);
           
           const route = result.routes[0].legs[0];
           const distance = route.distance.text;
@@ -388,13 +371,10 @@
 
           console.log(`[Navigation] ルート案内開始: ${destination.name}`);
         }else{
-          console.error('[Navigation] ルート取得失敗:', result.status);
+          console.error('[Navigation] ルート取得失敗:', status);
           alert('ルートを取得できませんでした');
         }
-      } catch(error) {
-        console.error('[Navigation] Error:', error);
-        alert('ルートを取得できませんでした');
-      }
+      });
     }
 
     function stopNavigation(){
