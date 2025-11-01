@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <!-- ISSUE: das202511012305 -->
+  <!-- ISSUE: das202511012330 -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="x-issue" content="das202511012305">
+  <meta name="x-issue" content="das202511012330">
   <title>WalkNav 監査ダッシュボード</title>
   <style>
     :root{
@@ -39,16 +39,13 @@
     .num{font-size:56px;font-weight:900;letter-spacing:.02em;line-height:1}
     .bar{height:8px;border:1px solid var(--stroke);border-radius:999px;overflow:hidden;background:#0d1626;margin-top:10px}
     .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--bad),var(--warn),var(--ok))}
-    /* セクション内訳のタイル */
     .tile{display:flex;align-items:center;gap:10px;justify-content:space-between;
       background:var(--card);border:1px solid var(--stroke);border-radius:14px;padding:12px}
     .pill{min-width:48px;text-align:center;border-radius:999px;border:1px solid var(--stroke);padding:6px 10px}
-    /* イベントテーブル */
     .tr{display:grid;grid-template-columns:160px 90px 1fr;gap:10px;
       background:var(--card);border:1px solid var(--stroke);border-radius:14px;padding:12px}
     .tr:hover{outline:1px solid var(--pri)}
     .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
-    /* スライドパネル（下から） */
     .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--stroke);
       border-radius:16px 16px 0 0;transform:translateY(110%);transition:transform .28s ease;
       max-height:82vh;overflow:auto;box-shadow:0 -10px 30px rgba(0,0,0,.45);padding:16px}
@@ -60,7 +57,6 @@
   <div class="wrap">
     <h1>WalkNav 監査ダッシュボード</h1>
 
-    <!-- 接続先/発行番号 -->
     <div class="card">
       <div class="row">
         <span class="label">接続先（Worker エンドポイント）</span>
@@ -76,7 +72,6 @@
       </div>
     </div>
 
-    <!-- 総合判定・直近エラー率 -->
     <div class="grid grid2" style="margin-top:12px">
       <div class="scoreBox">
         <div class="label">総合判定（平均スコア）</div>
@@ -92,7 +87,6 @@
       </div>
     </div>
 
-    <!-- 自己診断（バー＋数値） -->
     <div class="card" style="margin-top:12px">
       <div class="label">自己診断</div>
       <div class="grid grid2" style="margin-top:10px">
@@ -119,18 +113,16 @@
       </div>
     </div>
 
-    <!-- セクション内訳（はみ出し抑止） -->
     <div class="card" style="margin-top:12px">
       <div class="label">セクション内訳（リスク比率）</div>
       <div id="riskGrid" class="grid" style="margin-top:10px"></div>
     </div>
 
-    <!-- 最新イベント -->
     <div class="card" style="margin-top:12px">
       <div class="row">
         <span class="label">最新イベント（25）</span>
         <span class="hint" id="evtHint"></span>
-        <button class="btn right" id="btnEvt">イベント再取得</button>
+        <button class="btn" id="btnEvt">イベント再取得</button>
       </div>
       <div id="eventList" class="grid" style="margin-top:10px"></div>
     </div>
@@ -138,20 +130,19 @@
     <div class="sheet" id="sheet">
       <div class="row">
         <strong>イベント詳細</strong>
-        <button class="btn right" id="closeSheet">閉じる</button>
+        <button class="btn" id="closeSheet">閉じる</button>
       </div>
       <pre id="sheetBody" class="mono" style="white-space:pre-wrap"></pre>
     </div>
 
-    <div class="hint" style="text-align:center;margin:16px 0">© WalkNav Dashboard • ISSUE_ID: das202511012305</div>
+    <div class="hint" style="text-align:center;margin:16px 0">© WalkNav Dashboard • ISSUE_ID: das202511012330</div>
   </div>
 
   <script>
-    // ===== State =====
+    // ===== 状態 =====
     const S = {
       endpoint: document.getElementById('ep').value.trim().replace(/\/+$/,''),
       issue: null,
-      timer: null,
       risks: [
         ["Routing (/healthz,/places:searchText,/directions)",2],
         ["CORS/Origin strict",3],
@@ -159,23 +150,22 @@
         ["Secrets (GMAPS_API_KEY)",2],
         ["Error shape/HTTP code diff",2],
         ["Overhead (audit hooks)",1]
-      ]
+      ],
+      cache: { // “前回成功値” を保持
+        overall: null, err: null, entry:null, run:null, exit:null, phase:'-',
+        events: []
+      }
     };
 
-    // ===== Helpers =====
+    // ===== util =====
     const $ = q=>document.querySelector(q);
     const el = (t,p={},c=[])=>{const n=document.createElement(t);Object.assign(n,p);c.forEach(x=>n.append(x));return n;};
-    const clampPct = v => Math.max(0, Math.min(100, (v==null?0:Math.round(v))));
-    const setNum = (id,v,suf='') => { const n=$('#'+id); n.textContent=(v==null?'-':clampPct(v))+suf; };
-    const setBar = (id,v) => { $('#'+id).style.width=clampPct(v)+'%'; };
+    const clamp = v => Math.max(0, Math.min(100, Math.round(+v||0)));
+    const setNum = (id,v,suf='') => $('#'+id).textContent=(v==null?'-':clamp(v))+suf;
+    const setBar = (id,v) => $('#'+id).style.width=clamp(v)+'%';
+    const jget = async (u,i)=>{const r=await fetch(u,i); if(!r.ok) throw new Error('HTTP '+r.status); return r.json();};
 
-    async function jget(url, init){
-      const r = await fetch(url, init);
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      return r.json();
-    }
-
-    // ===== Endpoint & Issue =====
+    // ===== 接続/発行番号 =====
     async function ping(){
       const chip = $('#pingChip'); chip.textContent='...'; chip.className='chip';
       try{
@@ -183,91 +173,95 @@
         S.issue = j.issue || 'unknown';
         setIssueSel([S.issue]);
         chip.textContent='OK'; chip.classList.add('ok');
-      }catch(e){
-        chip.textContent='NG'; chip.classList.add('bad');
-      }
+      }catch(e){ chip.textContent='NG'; chip.classList.add('bad'); }
     }
     function setIssueSel(list){
-      const sel = $('#issueSel'); sel.innerHTML='';
-      list.forEach(x=> sel.append(el('option',{value:x, textContent:x})));
-      sel.value = list[0]||'unknown';
+      const sel=$('#issueSel'); sel.innerHTML=''; list.forEach(x=>sel.append(el('option',{value:x,textContent:x})));
+      sel.value=list[0]||'unknown';
     }
 
-    // ===== Summary / Events =====
-    async function loadSummary(){
-      try{
-        const j = await jget(S.endpoint+'/audit/summary');
-        // 総合・エラー率
-        const avg = clampPct(j.avgScore||0);
-        setNum('overallNum', avg);
-        setBar('overallBar', avg);
-        $('#overallHint').textContent = `集計対象 RUN: ${j.totals?.runs||0} / EVENTS: ${j.totals?.events||0}`;
-        const err = clampPct(j.recentErrorRate||0);
-        setNum('errNum', err, '%'); setBar('errBar', err);
-
-        // 自己診断（バー＋数値）
-        const en = j.entryScore; const rn = j.runScore; const ex = j.exitScore;
-        setNum('entryNum', en); setBar('entryBar', en);
-        setNum('runNum', rn);   setBar('runBar', rn);
-        setNum('exitNum', ex);  setBar('exitBar', ex);
-        $('#phaseChip').textContent = j.phase || '-';
-
-        // リスク（静的）
-        const g = $('#riskGrid'); g.innerHTML='';
-        S.risks.forEach(([name,r])=>{
-          const pill = el('span',{className:'pill '+(r>=4?'bad':r>=3?'warn':'ok'),textContent:r+'%'});
-          g.append(el('div',{className:'tile'},[el('span',{textContent:name,className:'label',style:'overflow:hidden;text-overflow:ellipsis;white-space:nowrap'}), pill]));
-        });
-
-        // イベント
-        renderEvents(j.latestEvents||[]);
-      }catch(e){
-        // 失敗時は値を落として明示
-        ['overallBar','errBar','entryBar','runBar','exitBar'].forEach(id=>setBar(id,0));
-        ['overallNum','errNum','entryNum','runNum','exitNum'].forEach(id=>$('#'+id).textContent=id==='errNum'?'0%':'0');
-        renderEvents([]);
-      }
+    // ===== 描画 =====
+    function renderRisks(){
+      const g=$('#riskGrid'); g.innerHTML='';
+      S.risks.forEach(([name,r])=>{
+        const pill=el('span',{className:'pill '+(r>=4?'bad':r>=3?'warn':'ok'),textContent:r+'%'});
+        g.append(el('div',{className:'tile'},[
+          el('span',{textContent:name,className:'label',style:'overflow:hidden;text-overflow:ellipsis;white-space:nowrap'}),
+          pill
+        ]));
+      });
     }
-
-    async function reloadEvents(){
-      // summary に含まれない場合の保険：/audit/summary を再取得
-      try{
-        const j = await jget(S.endpoint+'/audit/summary');
-        renderEvents(j.latestEvents||[]);
-      }catch(_e){ renderEvents([]); }
-    }
-
     function renderEvents(list){
-      const box = $('#eventList'); box.innerHTML='';
-      $('#evtHint').textContent = `受信: ${list.length} 件`;
+      const box=$('#eventList'); box.innerHTML='';
+      $('#evtHint').textContent=`受信: ${list.length} 件`;
       if(!list.length){ box.append(el('div',{className:'hint',textContent:'データなし'})); return; }
       list.slice(0,25).forEach(e=>{
-        const t = new Date(e.ts||Date.now()).toLocaleString();
-        const row = el('div',{className:'tr'});
-        row.append(el('div',{textContent:t,className:'small'}));
-        row.append(el('div',{textContent:e.kind||'event',className:'chip'}));
-        const msg = (e.message||e.summary||JSON.stringify(e.meta||{},null,0)||'').toString().slice(0,180);
+        const t=new Date(e.ts||Date.now()).toLocaleString();
+        const row=el('div',{className:'tr'});
+        row.append(el('div',{textContent:t}));
+        row.append(el('div',{className:'chip',textContent:e.kind||'event'}));
+        const msg=(e.message||e.summary||JSON.stringify(e.meta||{},null,0)||'').toString().slice(0,180);
         row.append(el('div',{textContent:msg,style:'overflow:hidden;text-overflow:ellipsis'}));
         row.addEventListener('click',()=>openSheet(e));
         box.append(row);
       });
     }
+    function openSheet(e){ $('#sheetBody').textContent=JSON.stringify(e,null,2); $('#sheet').classList.add('show'); }
+    $('#closeSheet').onclick=()=>$('#sheet').classList.remove('show');
 
-    // ===== Sheet =====
-    function openSheet(e){
-      $('#sheetBody').textContent = JSON.stringify(e,null,2);
-      $('#sheet').classList.add('show');
+    // ===== Summary 取得（安定化ロジック） =====
+    async function loadSummary(){
+      try{
+        const j = await jget(S.endpoint+'/audit/summary');
+
+        // runs/events が 0 のときは “データなし” と見做し、前回成功値を維持
+        const hasData = (j?.totals?.runs||0) > 0 || (j?.totals?.events||0) > 0;
+
+        if(hasData){
+          S.cache.overall = clamp(j.avgScore||0);
+          S.cache.err     = clamp(j.recentErrorRate||0);
+          S.cache.entry   = j.entryScore==null?S.cache.entry:clamp(j.entryScore);
+          S.cache.run     = j.runScore  ==null?S.cache.run  :clamp(j.runScore);
+          S.cache.exit    = j.exitScore ==null?S.cache.exit :clamp(j.exitScore);
+          S.cache.phase   = j.phase || S.cache.phase;
+          S.cache.events  = Array.isArray(j.latestEvents)?j.latestEvents:S.cache.events;
+        }
+        // 表示（前回値を用いる）
+        setNum('overallNum', S.cache.overall??0);
+        setBar('overallBar', S.cache.overall??0);
+        $('#overallHint').textContent=`集計対象 RUN: ${j?.totals?.runs||0} / EVENTS: ${j?.totals?.events||0}`;
+        setNum('errNum', S.cache.err??0, '%'); setBar('errBar', S.cache.err??0);
+        setNum('entryNum', S.cache.entry); setBar('entryBar', S.cache.entry??0);
+        setNum('runNum',   S.cache.run);   setBar('runBar',   S.cache.run??0);
+        setNum('exitNum',  S.cache.exit);  setBar('exitBar',  S.cache.exit??0);
+        $('#phaseChip').textContent=S.cache.phase||'-';
+
+        renderEvents(S.cache.events||[]);
+      }catch(e){
+        // 通信失敗時も前回成功値を保持して静かに継続
+      }
     }
-    $('#closeSheet').onclick = ()=> $('#sheet').classList.remove('show');
 
-    // ===== Wiring =====
+    async function reloadEvents(){
+      try{
+        const j = await jget(S.endpoint+'/audit/summary');
+        if(Array.isArray(j.latestEvents)){ S.cache.events=j.latestEvents; }
+        renderEvents(S.cache.events||[]);
+      }catch(_e){ /* 無視 */ }
+    }
+
+    // ===== 配線 =====
     $('#btnPing').onclick = ()=>{ S.endpoint=$('#ep').value.trim().replace(/\/+$/,''); ping(); };
     $('#btnReload').onclick = loadSummary;
     $('#btnEvt').onclick = reloadEvents;
     $('#ep').addEventListener('change',()=>{ S.endpoint=$('#ep').value.trim().replace(/\/+$/,''); });
 
-    // 初期化（ISSUE バッジは存在しない＝非表示対応済み）
-    (async function init(){ await ping(); await loadSummary(); S.timer=setInterval(loadSummary,15000); })();
+    (async function init(){
+      renderRisks();
+      await ping();
+      await loadSummary();
+      setInterval(loadSummary, 5000); // 5秒周期
+    })();
   </script>
 </body>
 </html>
