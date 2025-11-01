@@ -1,269 +1,235 @@
+<!-- ISSUE_ID: das202511011031 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>WalkNav 管理ダッシュボード</title>
-  <!-- 発行番号 -->
-  <meta name="x-issue" content="das202510310725">
+  <meta name="x-issue" content="das202511011031" />
   <style>
+    /* ISSUE_ID css202511011031 */
     :root{
-      --bg:#0b1220;--panel:#131c2b;--ink:#eaf2ff;--muted:#a7b8ce;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;--stroke:#1f2a3d;--accent:#5fb1ff;
+      --bg:#0a1321; --text:#eaf2ff; --muted:#a7b8ce; --glass:rgba(20,28,44,.78);
+      --stroke:rgba(255,255,255,.12); --ok:#25d07a; --warn:#ffb020; --bad:#ff6565; --accent:#5fb1ff;
     }
-    *{box-sizing:border-box} html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
-    .wrap{max-width:1000px;margin:24px auto;padding:0 16px}
-    .card{background:var(--panel);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
-    .row{display:grid;gap:16px}
-    @media(min-width:720px){.row.cols-2{grid-template-columns:1fr 1fr}.row.cols-3{grid-template-columns:1fr 1fr 1fr}}
-    .title{font-size:28px;font-weight:800;margin:0 0 8px}
-    .sub{color:var(--muted);font-size:14px;margin-bottom:12px}
-    .input{width:100%;background:#0f1726;border:1px solid var(--stroke);color:var(--ink);border-radius:12px;padding:12px 14px;font-size:14px}
-    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:#1a2840;border:1px solid var(--stroke);color:var(--ink);padding:10px 14px;border-radius:12px;cursor:pointer}
-    .btn:hover{background:#1e3151}
-    .btn.primary{background:var(--accent);border-color:transparent;color:#06101f;font-weight:700}
-    .btn.ghost{background:transparent}
-    .badge{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid var(--stroke);background:#0e1a2e;color:var(--muted);font-size:12px}
-    .stat{background:#0f1726;border:1px solid var(--stroke);border-radius:14px;padding:14px}
-    .stat .label{color:var(--muted);font-size:12px}
-    .stat .val{font-size:28px;font-weight:800;margin-top:6px}
-    .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
-    .bar{height:12px;background:#0d1526;border:1px solid var(--stroke);border-radius:999px;overflow:hidden}
-    .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ok),#10b981 40%,#f59e0b 60%,#ef4444)}
-    .hint{font-size:12px;color:var(--muted)}
-    .table{width:100%;border-collapse:collapse;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
-    .table th,.table td{border-bottom:1px solid var(--stroke);padding:10px 12px;font-size:13px}
-    .table th{background:#0f1726;color:var(--muted);text-align:left}
-    .pill{padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--stroke)}
-    .pill.ok{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35);color:var(--ok)}
-    .pill.warn{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35);color:var(--warn)}
-    .pill.bad{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35);color:var(--bad)}
-    .footer{margin:24px 0 40px;color:var(--muted);font-size:12px;text-align:center}
-    .status{margin-top:8px;font-size:13px;color:var(--muted)}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+    *{box-sizing:border-box}
+    .wrap{max-width:1100px;margin:24px auto;padding:16px}
+    h1{margin:0 0 16px;font-size:24px}
+    .card{background:var(--glass);border:1px solid var(--stroke);border-radius:16px;padding:16px;margin-bottom:16px;backdrop-filter:blur(6px)}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .grow{flex:1}
+    .btn{padding:10px 14px;border:1px solid var(--stroke);border-radius:10px;background:rgba(255,255,255,.06);color:var(--text);cursor:pointer}
+    .btn:hover{background:rgba(255,255,255,.12)}
+    .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+    .bar{height:12px;background:#20304a;border-radius:8px;overflow:hidden}
+    .bar>span{display:block;height:100%;background:var(--accent);width:0%}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;font-size:12px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border-bottom:1px solid var(--stroke);padding:8px;text-align:left;font-size:14px}
+    small{color:var(--muted)}
+    input,select{background:rgba(255,255,255,.06);border:1px solid var(--stroke);border-radius:8px;color:var(--text);padding:8px}
+    label{font-size:12px;color:var(--muted)}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="card" style="margin-bottom:16px">
-      <div class="title">WalkNav 管理ダッシュボード</div>
-      <div class="sub">自己診断（入り口／実行中／出口）・監視・採点の可視化。発行番号: <span id="ISSUE_ID" class="badge">das202510310725</span></div>
+    <h1>WalkNav 管理ダッシュボード <small>（採点/監視/出口報告）</small></h1>
 
-      <div class="row cols-2" style="margin-top:12px">
-        <div>
-          <div class="hint" style="margin:6px 2px">Worker 基本URL（例: https://ors-proxy-dev.miyata-connect-jp.workers.dev）</div>
-          <input id="baseUrl" class="input" placeholder="https://xxxxx.workers.dev">
-        </div>
-        <div>
-          <div class="hint" style="margin:6px 2px">管理トークン（ADMIN_TOKEN／任意）</div>
-          <input id="adminToken" class="input" placeholder="未設定なら空のまま">
-        </div>
-      </div>
-
-      <div style="display:flex;gap:10px;margin-top:12px">
-        <button id="saveBtn" class="btn">保存</button>
-        <button id="fetchBtn" class="btn primary">最新を取得</button>
-        <span id="inlineStatus" class="status"></span>
-      </div>
-    </div>
-
-    <!-- 指標：入り口／実行中／出口 -->
-    <div class="row cols-3" style="margin-bottom:16px">
-      <div class="card stat">
-        <div class="label">入り口自己診断スコア</div>
-        <div class="val" id="scoreStart">0</div>
-        <div class="hint">テンプレ遵守・差分禁止・鍵直書き検出などの事前チェック結果</div>
-      </div>
-      <div class="card stat">
-        <div class="label">実行中：問題発生率（%）</div>
-        <div class="val" id="errRate">0%</div>
-        <div class="bar" style="margin-top:8px"><i id="errBar"></i></div>
-        <div class="hint">進行中に検出された違反・例外・API失敗の割合</div>
-      </div>
-      <div class="card stat">
-        <div class="label">出口自己診断スコア</div>
-        <div class="val" id="scoreEnd">0</div>
-        <div class="hint">要件充足・UI不変・テスト合格・日本語表記などの総合評価</div>
-      </div>
-    </div>
-
-    <!-- 進行状況と採点推移 -->
-    <div class="row cols-2" style="margin-bottom:16px">
-      <div class="card">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <div class="badge">進行状況</div><span id="phaseText" class="hint">停止中</span>
-        </div>
-        <div class="bar"><i id="progressBar"></i></div>
-        <div class="hint" style="margin-top:8px">フェーズ進捗（0→100）と内部イベントに連動</div>
-      </div>
-      <div class="card">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <div class="badge">採点推移（最新10件）</div><span id="trendNote" class="hint">データなし</span>
-        </div>
-        <table class="table" id="trendTable">
-          <thead><tr><th>時刻</th><th>開始</th><th>終了</th><th>問題率</th><th>判定</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- 最近のイベント -->
     <div class="card">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <div class="badge">最新イベント</div><span class="hint">重大のみを表示（UI上のポップアップは行いません）</span>
+      <div class="row">
+        <div class="grow">
+          <div>接続先 Worker</div>
+          <div class="row" style="gap:8px;margin-top:6px">
+            <input id="base" class="grow" value="https://ors-proxy-dev.miyata-connect-jp.workers.dev" />
+            <button class="btn" id="btnPing">接続テスト</button>
+            <button class="btn" id="btnClear">監査ログのクリア</button>
+          </div>
+          <small class="mono" id="connLog">未接続</small>
+        </div>
       </div>
-      <table class="table" id="evtTable">
-        <thead><tr><th>時刻</th><th>種別</th><th>概要</th></tr></thead>
-        <tbody></tbody>
-      </table>
     </div>
 
-    <div class="footer">
-      © WalkNav Dashboard • 発行番号 <span class="badge">das202510310725</span>
+    <div class="card">
+      <div class="row">
+        <div class="grow">
+          <div class="row" style="justify-content:space-between">
+            <strong>自己診断（入口 / 実行 / 出口）</strong>
+            <small id="issueId">ISSUE:</small>
+          </div>
+          <div class="grid" style="margin-top:10px">
+            <div>
+              <div>入口スコア <span id="inScore" class="ok">--</span>/100</div>
+              <div class="bar"><span id="inBar"></span></div>
+            </div>
+            <div>
+              <div>実行中エラー率 <span id="runErr" class="warn">--</span>%</div>
+              <div class="bar"><span id="runBar"></span></div>
+            </div>
+            <div>
+              <div>出口スコア <span id="outScore" class="ok">--</span>/100</div>
+              <div class="bar"><span id="outBar"></span></div>
+            </div>
+            <div>
+              <div>平均スコア <span id="avgScore">--</span>/100</div>
+              <div class="bar"><span id="avgBar"></span></div>
+            </div>
+          </div>
+        </div>
+        <div style="min-width:260px">
+          <div class="row" style="gap:8px">
+            <label class="grow">手動投稿（テスト用）</label>
+            <select id="phase">
+              <option value="IN">IN（入口）</option>
+              <option value="RUN">RUN（実行）</option>
+              <option value="OUT">OUT（出口）</option>
+            </select>
+          </div>
+          <div class="row" style="gap:8px;margin-top:8px">
+            <input id="score" placeholder="score 0-100" />
+            <input id="err" placeholder="errorRate 0-100%" />
+          </div>
+          <div class="row" style="gap:8px;margin-top:8px">
+            <button class="btn" id="btnIngest">投稿</button>
+            <button class="btn" id="btnRefresh">再取得</button>
+          </div>
+          <small>※ 実運用ではフロント/CIから自動送信</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <strong>セクション内訳（主要コンポーネント別）</strong>
+      <table style="margin-top:8px">
+        <thead><tr><th>項目</th><th>リスク(%)</th></tr></thead>
+        <tbody id="riskBody">
+          <tr><td>ルーティング互換（/healthz, /places:searchText, /directions）</td><td class="warn">--</td></tr>
+          <tr><td>CORS/Origin 厳格化（許可外ブロック誤検出）</td><td class="warn">--</td></tr>
+          <tr><td>FieldMask/Places New パラメータ整合</td><td class="warn">--</td></tr>
+          <tr><td>Secrets 参照（GMAPS_API_KEY 誤環境/未反映）</td><td class="warn">--</td></tr>
+          <tr><td>エラー整形/返却コード差分（呼び出し側期待と差異）</td><td class="warn">--</td></tr>
+          <tr><td>速度劣化（ログ/監査フック増設の影響）</td><td class="warn">--</td></tr>
+        </tbody>
+      </table>
+      <small>※ リスクはPOST /audit/ingest の記録に含めて集計表示</small>
+    </div>
+
+    <div class="card">
+      <strong>最新25件ログ</strong>
+      <div id="log" class="mono" style="margin-top:8px;white-space:pre-wrap"></div>
     </div>
   </div>
 
   <script>
-  // ====== 設定と状態 ======
-  const ISSUE_ID = "das202510310725"; // 画面右上やmetaと一致
-  const els = {
-    baseUrl: document.getElementById('baseUrl'),
-    adminToken: document.getElementById('adminToken'),
-    saveBtn: document.getElementById('saveBtn'),
-    fetchBtn: document.getElementById('fetchBtn'),
-    inlineStatus: document.getElementById('inlineStatus'),
-    scoreStart: document.getElementById('scoreStart'),
-    scoreEnd: document.getElementById('scoreEnd'),
-    errRate: document.getElementById('errRate'),
-    errBar: document.getElementById('errBar'),
-    progressBar: document.getElementById('progressBar'),
-    phaseText: document.getElementById('phaseText'),
-    trendTable: document.querySelector('#trendTable tbody'),
-    trendNote: document.getElementById('trendNote'),
-    evtTable: document.querySelector('#evtTable tbody')
-  };
+    // ISSUE_ID js202511011031
+    const $ = (id)=>document.getElementById(id);
+    const fmt = (n)=> (n==null||isNaN(n)) ? "--" : String(n);
+    const setBar = (el, v)=> el.style.width = Math.max(0, Math.min(100, Number(v)||0)) + "%";
 
-  // 保存/復元
-  (function restore(){
-    const s = JSON.parse(localStorage.getItem('wn_dash')||'{}');
-    if(s.baseUrl) els.baseUrl.value = s.baseUrl;
-    if(s.adminToken) els.adminToken.value = s.adminToken;
-  })();
-
-  els.saveBtn.onclick = () => {
-    localStorage.setItem('wn_dash', JSON.stringify({
-      baseUrl: els.baseUrl.value.trim(),
-      adminToken: els.adminToken.value.trim()
-    }));
-    statusMsg('保存しました。');
-  };
-
-  // ====== データ取得 ======
-  els.fetchBtn.onclick = async () => {
-    const base = (els.baseUrl.value||'').trim().replace(/\/+$/,'');
-    if(!base){ return statusMsg('Worker 基本URLを入力してください。'); }
-    statusMsg('取得中…');
-
-    // /admin/report 仕様（例）
-    // { issue:"idx2025...", start_score:80, end_score:86, err_rate:12,
-    //   phase:{label:"実行中", progress:65},
-    //   trend:[{ts: "...", start:80, end:86, err:12}],
-    //   events:[{ts:"...", level:"warn|bad|ok", message:"..."}] }
-    const headers = {};
-    const token = els.adminToken.value.trim();
-    if(token) headers['Authorization'] = 'Bearer ' + token;
-
-    let res, data;
-    try{
-      res = await fetch(base + '/admin/report', {headers});
-      if(res.status === 404){
-        // Worker が未実装でも画面は壊さない（無言でデータなし）
-        applyReport(null);
-        return statusMsg('レポートAPIが見つかりません（404）。画面は継続します。');
-      }
-      if(!res.ok){
-        applyReport(null);
-        return statusMsg('取得失敗: ' + res.status);
-      }
-      data = await res.json();
-    }catch(e){
-      applyReport(null);
-      return statusMsg('通信エラー。');
-    }
-    applyReport(data);
-    statusMsg('更新しました。');
-  };
-
-  function statusMsg(t){ els.inlineStatus.textContent = t; }
-
-  // ====== 画面反映 ======
-  function applyReport(r){
-    // デフォルト（データなし）
-    let start=0,end=0,err=0,phaseLabel='停止中',progress=0,trend=[],events=[];
-    if(r){
-      start = clamp(num(r.start_score),0,100);
-      end   = clamp(num(r.end_score),0,100);
-      err   = clamp(num(r.err_rate),0,100);
-      if(r.phase){ phaseLabel = String(r.phase.label||''); progress = clamp(num(r.phase.progress),0,100); }
-      if(Array.isArray(r.trend)) trend = r.trend.slice(0,10);
-      if(Array.isArray(r.events)) events = r.events.slice(0,50);
-    }
-
-    els.scoreStart.textContent = start.toFixed(0);
-    els.scoreEnd.textContent = end.toFixed(0);
-    els.errRate.textContent = err.toFixed(0) + '%';
-    els.errBar.style.width = err + '%';
-
-    els.phaseText.textContent = phaseLabel || '停止中';
-    els.progressBar.style.width = progress + '%';
-
-    // 採点推移
-    els.trendTable.innerHTML = '';
-    if(trend.length===0){ els.trendNote.textContent='データなし'; }
-    else{
-      els.trendNote.textContent = '';
-      for(const t of trend){
-        const tr = document.createElement('tr');
-        const ts = fmtTime(t.ts);
-        tr.innerHTML =
-          `<td>${esc(ts)}</td>
-           <td>${esc(nz(t.start))}</td>
-           <td>${esc(nz(t.end))}</td>
-           <td>${esc(nz(t.err))}%</td>
-           <td>${pillFrom(nz(t.err))}</td>`;
-        els.trendTable.appendChild(tr);
+    async function ping() {
+      const base = $("base").value.trim();
+      try{
+        const r = await fetch(base + "/healthz", { method:"GET" });
+        const j = await r.json();
+        $("connLog").textContent = r.ok ? `接続OK ts=${j.ts} issue=${j.issue}` : `NG ${r.status}`;
+        $("issueId").textContent = "ISSUE: " + (j.issue || "n/a");
+      }catch(e){
+        $("connLog").textContent = "接続失敗: " + e.message;
       }
     }
 
-    // イベント
-    els.evtTable.innerHTML='';
-    for(const e of events){
-      const tr = document.createElement('tr');
-      tr.innerHTML =
-        `<td>${esc(fmtTime(e.ts))}</td>
-         <td>${levelPill(e.level)}</td>
-         <td>${esc(String(e.message||''))}</td>`;
-      els.evtTable.appendChild(tr);
+    async function refresh() {
+      const base = $("base").value.trim();
+      try{
+        const r = await fetch(base + "/audit/summary");
+        const j = await r.json();
+        const last = j.last || {};
+        // 平均など
+        $("avgScore").textContent = fmt(j.avgScore);
+        setBar($("avgBar"), j.avgScore);
+
+        // 入口/実行/出口は最新のフェーズ別をざっくり表示（簡易）
+        $("inScore").textContent = fmt(last?.phase==="IN" ? last.score : "--");
+        setBar($("inBar"), last?.phase==="IN" ? last.score : 0);
+
+        $("runErr").textContent = fmt(last?.phase==="RUN" ? last.errorRate : "--");
+        setBar($("runBar"), last?.phase==="RUN" ? last.errorRate : 0);
+
+        $("outScore").textContent = fmt(last?.phase==="OUT" ? last.score : "--");
+        setBar($("outBar"), last?.phase==="OUT" ? last.score : 0);
+
+        // リスク内訳（最新を採用）
+        const risks = last.risks || {};
+        const rows = $("riskBody").querySelectorAll("tr");
+        const keys = [
+          "routingCompat","corsStrict","fieldMaskAlign","secretsRef","errorShape","perfOverhead"
+        ];
+        const fallback = [2,3,2,2,2,1]; // 既定
+        keys.forEach((k, i)=>{
+          const val = risks[k];
+          rows[i].lastElementChild.textContent = fmt(val == null ? fallback[i] : val);
+        });
+
+        // ログ
+        const lines = (j.items||[]).map(it=>{
+          return `[${new Date(it.ts).toISOString()}] phase=${it.phase} score=${it.score} err=${it.errorRate}% risks=${JSON.stringify(it.risks)} notes=${it.notes}`;
+        }).join("\n");
+        $("log").textContent = lines || "(ログなし)";
+      }catch(e){
+        $("log").textContent = "取得失敗: " + e.message;
+      }
     }
-  }
 
-  function pillFrom(err){
-    const lvl = err<10?'ok':(err<30?'warn':'bad');
-    const txt = err<10?'良好':(err<30?'注意':'要改善');
-    return `<span class="pill ${lvl}">${txt}</span>`;
-  }
-  function levelPill(level){
-    const map={ok:'ok',warn:'warn',bad:'bad'};
-    const nm = {ok:'情報',warn:'警告',bad:'重大'}[level]||'情報';
-    const cl = map[level]||'ok';
-    return `<span class="pill ${cl}">${nm}</span>`;
-  }
-  function esc(s){ return String(s).replace(/[&<>"']/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
-  function fmtTime(ts){ try{ return new Date(ts||Date.now()).toLocaleString(); }catch{ return '-'; } }
-  function num(v){ const n = Number(v); return isNaN(n)?0:n; }
-  function nz(v){ return (v==null||v==='')?0:v; }
-  function clamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
+    async function ingest() {
+      const base = $("base").value.trim();
+      const body = {
+        phase: $("phase").value,
+        score: Number($("score").value || 0),
+        errorRate: Number($("err").value || 0),
+        risks: {
+          routingCompat: 2,
+          corsStrict: 3,
+          fieldMaskAlign: 2,
+          secretsRef: 2,
+          errorShape: 2,
+          perfOverhead: 1
+        },
+        notes: "manual submit",
+        sectionScores: {
+          IN: 97, RUN: 95, OUT: 95
+        }
+      };
+      try{
+        const r = await fetch(base + "/audit/ingest", {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body: JSON.stringify(body)
+        });
+        if(!r.ok) throw new Error("HTTP "+r.status);
+        await refresh();
+      }catch(e){
+        alert("投稿失敗: " + e.message);
+      }
+    }
 
-  // 初期描画（保存値で）
-  applyReport(null);
+    async function clearLog() {
+      const base = $("base").value.trim();
+      try{
+        await fetch(base + "/audit/clear", { method:"POST" });
+        await refresh();
+      }catch(e){
+        alert("クリア失敗: " + e.message);
+      }
+    }
+
+    $("btnPing").addEventListener("click", ping);
+    $("btnRefresh").addEventListener("click", refresh);
+    $("btnIngest").addEventListener("click", ingest);
+    $("btnClear").addEventListener("click", clearLog);
+
+    // 初期ロード
+    ping().then(refresh);
   </script>
 </body>
 </html>
