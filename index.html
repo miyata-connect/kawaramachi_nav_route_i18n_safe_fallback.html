@@ -1,10 +1,11 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <!-- ISSUE: idx202511012115（発行番号） -->
+  <!-- ISSUE: idx202511012130（発行番号） -->
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="x-issue" content="idx202511012115">
+  <meta name="x-issue" content="idx202511012130">
+  <meta name="google" content="notranslate">
   <title>WalkNav</title>
   <style>
     :root{
@@ -23,14 +24,10 @@
     *{box-sizing:border-box}
     .app{position:relative;height:100dvh;overflow:hidden}
 
-    /* ---------- レイヤ順序（被り防止の固定表） ---------- */
-    /* 900: トースト/ダイアログ（下部のみ表示） */
-    /* 800: 検索パネル */
-    /* 740: 右側の丸ボタン群（FAB） */
-    /* 100: マップ */
+    /* レイヤ順序 */
     #map{position:absolute;inset:0;z-index:100}
 
-    /* 検索パネル（左上） */
+    /* 検索パネル */
     .panel{
       position:absolute;left:14px;top:14px;right:auto;max-width:min(560px,92vw);
       background:linear-gradient(180deg, var(--glass), var(--glass-strong));
@@ -44,6 +41,7 @@
     .seg .pill{
       padding:10px 16px;border-radius:14px;border:1px solid var(--stroke);
       background:rgba(255,255,255,.08);color:var(--text);font-weight:700;min-width:74px;text-align:center;
+      cursor:pointer;
     }
     .seg .pill.active{background:#5fb1ff;color:#0b1b2f;border-color:transparent}
     .input{
@@ -58,22 +56,37 @@
     }
     .btn.primary{background:#5fb1ff;color:#0b1b2f;border-color:transparent}
     .btn.danger{background:#ff6565;color:#2a0f12;border-color:transparent}
+    .btn:disabled{opacity:0.5;cursor:not-allowed}
     .hint{font-size:14px;color:var(--muted)}
     .coord{
       margin-top:10px;background:rgba(10,19,33,.85);border:1px solid var(--stroke);border-radius:14px;padding:10px 14px
     }
 
-    /* 右側の丸ボタン群（FAB） */
+    /* 検索結果リスト */
+    .results{
+      margin-top:10px;max-height:300px;overflow-y:auto;
+      background:rgba(10,19,33,.85);border:1px solid var(--stroke);border-radius:14px;
+    }
+    .result-item{
+      padding:12px;border-bottom:1px solid var(--stroke);cursor:pointer;
+    }
+    .result-item:last-child{border-bottom:none}
+    .result-item:hover{background:rgba(95,177,255,.2)}
+    .result-name{font-weight:700;font-size:16px;margin-bottom:4px}
+    .result-addr{font-size:14px;color:var(--muted)}
+
+    /* FAB */
     .fab-col{
       position:absolute;right:14px;bottom:14px;display:flex;flex-direction:column;gap:14px;z-index:740
     }
     .fab{
       width:138px;height:64px;border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.06));
       border:1px solid var(--stroke);backdrop-filter: blur(8px);color:var(--text);font-weight:800;box-shadow:var(--shadow);
-      display:flex;align-items:center;justify-content:center
+      display:flex;align-items:center;justify-content:center;cursor:pointer;
     }
+    .fab:disabled{opacity:0.5;cursor:not-allowed}
 
-    /* 下部トースト（画面下＝パネルと干渉しない） */
+    /* トースト */
     .toast{
       position:absolute;left:14px;right:14px;bottom:8px;z-index:900;
       display:flex;align-items:center;gap:12px;
@@ -83,7 +96,7 @@
       display:flex;align-items:center;padding:8px 12px;font-size:14px;color:var(--text)
     }
 
-    /* 現在地マーカー（波紋付き） */
+    /* 現在地マーカー */
     .pulse{
       position:absolute;width:24px;height:24px;border-radius:50%;transform:translate(-50%,-50%);
       background:#2689ff;border:3px solid #fff
@@ -98,13 +111,11 @@
     }
     @keyframes wave{0%{box-shadow:0 0 0 0 rgba(38,137,255,.45)}70%{box-shadow:0 0 0 26px rgba(38,137,255,0)}100%{box-shadow:0 0 0 0 rgba(38,137,255,0)}}
 
-    /* モバイル安全域 */
     @supports (padding: env(safe-area-inset-bottom)){
       .toast{padding-bottom:calc(env(safe-area-inset-bottom))}
       .fab-col{bottom:calc(14px + env(safe-area-inset-bottom))}
     }
 
-    /* 初期ブロッカー（ロード完了で自動解除） */
     .blocker{position:absolute;inset:0;z-index:730;pointer-events:none}
     .hidden{display:none}
   </style>
@@ -112,23 +123,22 @@
 <body>
   <div class="app">
     <div id="map"></div>
-
-    <!-- 透明ブロッカー：mapReadyで確実撤去（被り防止） -->
     <div id="uiBlocker" class="blocker"></div>
 
-    <!-- 検索パネル（点数UIは完全削除済み） -->
+    <!-- 検索パネル -->
     <section class="panel" aria-label="検索パネル">
-      <h1 class="title">近くを検索（10km / 5件）</h1>
+      <h1 class="title">近くを検索</h1>
 
       <div class="row">
         <div class="seg">
-          <button class="pill active" data-radius="10000">10km</button>
-          <button class="pill" data-radius="20000">20km</button>
+          <button class="pill active" data-radius="10">10km</button>
+          <button class="pill" data-radius="20">20km</button>
+          <button class="pill" data-radius="30">30km</button>
         </div>
       </div>
 
       <div class="row">
-        <input id="q" class="input" type="text" inputmode="search" placeholder="店舗名・電話番号・住所・座標など">
+        <input id="q" class="input" type="text" inputmode="search" placeholder="店舗名・住所など">
         <button id="btnText" class="btn primary">入力検索</button>
       </div>
 
@@ -138,33 +148,38 @@
       </div>
 
       <div id="coord" class="coord">現在地： <span id="lat">--</span> / <span id="lng">--</span></div>
-      <div class="hint">※ マップエラーは画面に表示しません（ログのみ）。</div>
+      
+      <!-- 検索結果 -->
+      <div id="results" class="results hidden"></div>
     </section>
 
-    <!-- 右側のボタン群（FAB） -->
+    <!-- FAB -->
     <div class="fab-col" aria-label="操作ボタン">
       <button id="btnHere" class="fab">現在地</button>
-      <button id="btnPause" class="fab">一時停止</button>
-      <button id="btnReroute" class="fab">リルート</button>
+      <button id="btnPause" class="fab" disabled>一時停止</button>
+      <button id="btnReroute" class="fab" disabled>リルート</button>
     </div>
 
-    <!-- 画面下トースト（情報のみ） -->
-    <div class="toast"><div id="toast" class="bubble">現在地取得中です。ご迷惑をお掛けします。現在地表示まで30秒程度お待ちください。</div></div>
+    <!-- トースト -->
+    <div class="toast"><div id="toast" class="bubble">現在地取得中...</div></div>
   </div>
 
   <script>
-  // ===== 発行番号（JS側にも保持） =====
-  const ISSUE_ID = "idx202511012115";
+  // ===== 設定 =====
+  const ISSUE_ID = "idx202511012130";
+  const WORKER_ENDPOINT = "https://ors-proxy-dev.miyata-connect-jp.workers.dev";
 
-  // ====== Google Maps 初期化 ======
-  let map, meMarker, meWave, currentPos=null, distance=10000;
+  // ===== 状態 =====
+  let map, meMarker, currentPos = null, radiusKm = 10;
+  let directionsService, directionsRenderer;
+  let isNavigating = false;
 
-  function logSilent(...args){ try{ console.debug("[WalkNav]", ...args);}catch(_){} }
-
+  // ===== ユーティリティ =====
+  function log(...args){ console.debug("[WalkNav]", ...args); }
+  
   function showToast(msg){
-    const el=document.getElementById('toast');
-    if(!el) return;
-    el.textContent = msg;
+    const el = document.getElementById('toast');
+    if(el) el.textContent = msg;
   }
 
   function setCoords(p){
@@ -173,20 +188,38 @@
   }
 
   function readyUI(){
-    // 透明ブロッカー除去（被り防止の最終保険）
-    const b=document.getElementById('uiBlocker');
-    if(b){ b.remove(); }
+    const b = document.getElementById('uiBlocker');
+    if(b) b.remove();
   }
 
+  // ===== 監査連携 =====
+  async function sendAuditEvent(type, summary, severity = 'info', meta = {}){
+    try{
+      await fetch(`${WORKER_ENDPOINT}/audit/event`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          issue: ISSUE_ID,
+          type,
+          summary,
+          severity,
+          meta
+        })
+      });
+    }catch(e){
+      log("監査イベント送信失敗:", e);
+    }
+  }
+
+  // ===== 現在地マーカー =====
   function placeMeMarker(pos){
     if(!map) return;
     if(!meMarker){
-      const div=document.createElement('div');
-      div.className='pulse';
-      const wave=document.createElement('div');
-      wave.className='wave';
+      const div = document.createElement('div');
+      div.className = 'pulse';
+      const wave = document.createElement('div');
+      wave.className = 'wave';
       div.appendChild(wave);
-      meWave=wave;
       meMarker = new google.maps.marker.AdvancedMarkerElement({
         map, position: pos, content: div, zIndex: 600
       });
@@ -196,99 +229,282 @@
   }
 
   function fitWithBottomPadding(pos){
-    // パネル高さ＋安全余白分だけ下にオフセットして表示（マーカーが隠れない）
-    const panel=document.querySelector('.panel');
-    const px = (panel? panel.getBoundingClientRect().height : 0) + 60; // 60px 余白
+    const panel = document.querySelector('.panel');
+    const px = (panel ? panel.getBoundingClientRect().height : 0) + 60;
     const scale = Math.pow(2, map.getZoom());
     const worldPoint = map.getProjection().fromLatLngToPoint(pos);
-    const pixelOffsetY = px/scale;
+    const pixelOffsetY = px / scale;
     const target = new google.maps.Point(worldPoint.x, worldPoint.y - pixelOffsetY);
     const latlng = map.getProjection().fromPointToLatLng(target);
     map.setZoom(18);
     map.setCenter(latlng);
   }
 
+  // ===== Places検索（Worker経由） =====
+  async function searchPlaces(query){
+    if(!currentPos){
+      showToast('現在地を取得してください');
+      return [];
+    }
+
+    showToast('検索中...');
+    
+    try{
+      const response = await fetch(`${WORKER_ENDPOINT}/places:searchText`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          q: query,
+          lat: currentPos.lat,
+          lng: currentPos.lng,
+          radiusKm
+        })
+      });
+
+      const result = await response.json();
+
+      if(!result.ok){
+        showToast(`検索エラー: ${result.code}`);
+        await sendAuditEvent('search_error', `Places検索失敗: ${result.code}`, 'error', { query, code: result.code });
+        return [];
+      }
+
+      showToast(`${result.places.length}件見つかりました`);
+      await sendAuditEvent('search_success', `Places検索成功: ${result.places.length}件`, 'info', { query, count: result.places.length });
+      
+      return result.places;
+
+    }catch(e){
+      showToast('検索に失敗しました');
+      await sendAuditEvent('search_exception', `Places検索例外: ${e.message}`, 'error', { query, error: e.message });
+      return [];
+    }
+  }
+
+  // ===== 検索結果表示 =====
+  function displayResults(places){
+    const container = document.getElementById('results');
+    container.innerHTML = '';
+
+    if(places.length === 0){
+      container.classList.add('hidden');
+      return;
+    }
+
+    places.forEach(place => {
+      const item = document.createElement('div');
+      item.className = 'result-item';
+      item.innerHTML = `
+        <div class="result-name">${place.displayName?.text || '名称不明'}</div>
+        <div class="result-addr">${place.formattedAddress || '住所不明'}</div>
+      `;
+      item.onclick = () => selectPlace(place);
+      container.appendChild(item);
+    });
+
+    container.classList.remove('hidden');
+  }
+
+  // ===== 場所選択 =====
+  async function selectPlace(place){
+    const dest = {
+      lat: place.location.latitude,
+      lng: place.location.longitude
+    };
+
+    showToast(`${place.displayName?.text || '目的地'}へのルートを計算中...`);
+
+    try{
+      const response = await fetch(`${WORKER_ENDPOINT}/directions/compute`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          o: currentPos,
+          d: dest,
+          mode: 'WALK'
+        })
+      });
+
+      const result = await response.json();
+
+      if(!result.ok){
+        showToast(`ルート計算エラー: ${result.code}`);
+        await sendAuditEvent('route_error', `ルート計算失敗: ${result.code}`, 'error', { code: result.code });
+        return;
+      }
+
+      // ルート描画
+      const route = result.route;
+      if(directionsRenderer){
+        directionsRenderer.setMap(null);
+      }
+      
+      directionsRenderer = new google.maps.DirectionsRenderer({
+        map,
+        suppressMarkers: true
+      });
+
+      // エンコードされたポリラインをデコードして描画
+      const path = google.maps.geometry.encoding.decodePath(route.polyline.encodedPolyline);
+      directionsRenderer.setDirections({
+        routes: [{
+          overview_path: path,
+          legs: [{
+            start_location: currentPos,
+            end_location: dest,
+            distance: { value: route.distanceMeters },
+            duration: { value: parseInt(route.duration.replace('s', '')) }
+          }]
+        }]
+      });
+
+      isNavigating = true;
+      document.getElementById('btnPause').disabled = false;
+      document.getElementById('btnReroute').disabled = false;
+
+      const distKm = (route.distanceMeters / 1000).toFixed(1);
+      const durMin = Math.round(parseInt(route.duration.replace('s', '')) / 60);
+      showToast(`ルート: ${distKm}km, 約${durMin}分`);
+
+      await sendAuditEvent('route_success', `ルート計算成功: ${distKm}km`, 'info', { 
+        distanceMeters: route.distanceMeters,
+        durationSec: parseInt(route.duration.replace('s', ''))
+      });
+
+      // 検索結果を非表示
+      document.getElementById('results').classList.add('hidden');
+
+    }catch(e){
+      showToast('ルート計算に失敗しました');
+      await sendAuditEvent('route_exception', `ルート計算例外: ${e.message}`, 'error', { error: e.message });
+    }
+  }
+
+  // ===== Google Maps初期化 =====
   function initMap(){
     try{
       map = new google.maps.Map(document.getElementById('map'), {
-        center:{lat:35.0,lng:135.0}, zoom:17, mapId:'4504f8b37365c3d0', clickableIcons:true,
-        gestureHandling:'greedy', disableDefaultUI:true
+        center: { lat: 35.0, lng: 135.0 },
+        zoom: 17,
+        mapId: '4504f8b37365c3d0',
+        clickableIcons: true,
+        gestureHandling: 'greedy',
+        disableDefaultUI: true
       });
 
-      // 位置取得（初期値は現在地一択・非表示でも可）
+      directionsService = new google.maps.DirectionsService();
+
       if(navigator.geolocation){
-        const opt={enableHighAccuracy:true,timeout:30000,maximumAge:0};
-        navigator.geolocation.getCurrentPosition((p)=>{
-          currentPos = {lat:p.coords.latitude, lng:p.coords.longitude};
+        const opt = { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 };
+        navigator.geolocation.getCurrentPosition((p) => {
+          currentPos = { lat: p.coords.latitude, lng: p.coords.longitude };
           setCoords(currentPos);
           placeMeMarker(currentPos);
-          // プロジェクション有効化待ち
-          google.maps.event.addListenerOnce(map, 'projection_changed', ()=>{
+          
+          google.maps.event.addListenerOnce(map, 'projection_changed', () => {
             fitWithBottomPadding(currentPos);
           });
-          showToast(`現在地：${currentPos.lat.toFixed(6)}, ${currentPos.lng.toFixed(6)}`);
+
+          showToast(`現在地取得完了`);
+          sendAuditEvent('location_success', '現在地取得成功', 'info', currentPos);
           readyUI();
-        }, (_err)=>{
-          // 画面にエラーは出さない（トーストは情報文言のみ）
-          showToast("現在地の取得に時間がかかっています。");
+        }, (err) => {
+          showToast('現在地の取得に失敗しました');
+          sendAuditEvent('location_error', `現在地取得失敗: ${err.message}`, 'error', { code: err.code });
           readyUI();
         }, opt);
       }else{
-        showToast("現在地取得に対応していない端末です。");
+        showToast('位置情報に対応していません');
         readyUI();
       }
 
     }catch(e){
-      // Google の白い警告は出さない。ここで握りつぶし、画面は静かに維持。
-      logSilent("map init error", e);
-      showToast("地図の準備をしています。しばらくお待ちください。");
+      log("map init error", e);
+      showToast('地図の初期化に失敗しました');
+      sendAuditEvent('map_init_error', `地図初期化エラー: ${e.message}`, 'error', { error: e.message });
       readyUI();
     }
   }
 
-  // ====== UIイベント ======
-  document.addEventListener('click', (ev)=>{
-    const t=ev.target;
+  // ===== UIイベント =====
+  document.addEventListener('click', async (ev) => {
+    const t = ev.target;
+
+    // 距離選択
     if(t.matches('.pill')){
-      document.querySelectorAll('.pill').forEach(p=>p.classList.remove('active'));
+      document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
       t.classList.add('active');
-      distance = Number(t.getAttribute('data-radius'))||10000;
-      logSilent("半径", distance);
+      radiusKm = Number(t.getAttribute('data-radius')) || 10;
+      log("半径変更:", radiusKm);
     }
-    if(t.id==='btnReset'){
-      document.getElementById('q').value='';
-      showToast('入力をリセットしました。');
+
+    // リセット
+    if(t.id === 'btnReset'){
+      document.getElementById('q').value = '';
+      document.getElementById('results').classList.add('hidden');
+      showToast('リセットしました');
     }
-    if(t.id==='btnHere' && currentPos){
+
+    // 現在地へ移動
+    if(t.id === 'btnHere' && currentPos){
       fitWithBottomPadding(currentPos);
-      showToast(`現在地へ移動しました。`);
+      showToast('現在地へ移動しました');
     }
-    if(t.id==='btnText'){
-      const q=document.getElementById('q').value.trim();
-      if(!q){ showToast('検索語を入力してください。'); return; }
-      // ここでは UI 実行のみ（検索システム本線には触れない）
-      logSilent("テキスト検索:", q, "半径:", distance);
-      showToast('検索を実行しました。');
+
+    // テキスト検索
+    if(t.id === 'btnText'){
+      const q = document.getElementById('q').value.trim();
+      if(!q){
+        showToast('検索語を入力してください');
+        return;
+      }
+      const places = await searchPlaces(q);
+      displayResults(places);
     }
-    if(t.id==='btnVoice'){
-      // 画面にエラーは出さない方針。対応端末のみ軽く案内して何もしない。
+
+    // 音声検索
+    if(t.id === 'btnVoice'){
       if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)){
-        showToast('音声検索に対応していない端末です。');
+        showToast('音声検索に対応していません');
         return;
       }
       const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      const rec=new SR(); rec.lang='ja-JP'; rec.interimResults=false; rec.maxAlternatives=1;
-      rec.onresult=(e)=>{ const txt=e.results[0][0].transcript||''; document.getElementById('q').value=txt; showToast('音声をテキスト化しました。'); };
-      rec.onerror=()=>{ showToast('音声の取得に失敗しました。'); };
+      const rec = new SR();
+      rec.lang = 'ja-JP';
+      rec.interimResults = false;
+      rec.maxAlternatives = 1;
+      rec.onresult = (e) => {
+        const txt = e.results[0][0].transcript || '';
+        document.getElementById('q').value = txt;
+        showToast('音声をテキスト化しました');
+      };
+      rec.onerror = () => { showToast('音声取得に失敗しました'); };
       rec.start();
-      showToast('音声入力を開始しました。');
+      showToast('音声入力中...');
     }
-  }, {passive:true});
+
+    // 一時停止
+    if(t.id === 'btnPause' && isNavigating){
+      if(directionsRenderer){
+        directionsRenderer.setMap(null);
+      }
+      isNavigating = false;
+      document.getElementById('btnPause').disabled = true;
+      document.getElementById('btnReroute').disabled = true;
+      showToast('案内を停止しました');
+      await sendAuditEvent('nav_pause', '案内停止', 'info');
+    }
+
+    // リルート
+    if(t.id === 'btnReroute' && isNavigating){
+      showToast('リルート機能は今後実装予定です');
+    }
+  }, { passive: true });
 
   window.addEventListener('DOMContentLoaded', initMap);
   </script>
 
-  <!-- Google Maps（ユーザー指定のブラウザAPIキーを使用） -->
-  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=marker"></script>
+  <!-- Google Maps -->
+  <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBzojEE2142O8dWPd7gmcAj-FyWumYyFy4&libraries=marker,geometry"></script>
 </body>
 </html>
