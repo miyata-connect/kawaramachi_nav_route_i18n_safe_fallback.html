@@ -1,355 +1,412 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <!-- ISSUE: das202511012305 -->
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="x-issue" content="das202511012305" />
+  <!-- ISSUE_ID: das202511012315 -->
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="x-issue" content="das202511012315" />
   <title>WalkNav 監査ダッシュボード</title>
   <style>
     :root{
-      --bg:#0b1220; --panel:#121a2a; --panel-2:#0f1726;
-      --text:#eaf2ff; --muted:#a7b8ce; --ok:#27d07a; --danger:#ff6b6b;
-      --accent:#64d2ff; --chip:#24324a; --stroke:#23314a;
+      --bg:#0b1320;
+      --panel:#121a2b;
+      --panel-soft:#172235;
+      --text:#eaf2ff;
+      --muted:#a4b3c9;
+      --stroke:rgba(255,255,255,.12);
+      --accent:#62b7ff;
+      --ok:#25d07a;
+      --warn:#ffb84d;
+      --danger:#ff6b6b;
+      --chip:#1e2a40;
+      --chip-text:#d7e7ff;
+      --bar:#1b2940;
+      --bar-fill:#2dd4bf;
     }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif}
     *{box-sizing:border-box}
-    .wrap{max-width:980px;margin:24px auto;padding:0 14px}
-    h1{font-size:clamp(20px,3.6vw,36px);margin:0 0 12px 0;letter-spacing:.02em}
-    .card{background:linear-gradient(180deg,var(--panel),var(--panel-2));border:1px solid var(--stroke);border-radius:18px;padding:16px;margin:14px 0;box-shadow:0 8px 20px rgba(0,0,0,.25)}
-    .row{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center}
-    .input{width:100%;padding:14px 16px;border-radius:12px;border:1px solid var(--stroke);background:#0d1524;color:var(--text);outline:none}
-    .btn{padding:12px 16px;border-radius:12px;border:1px solid var(--stroke);background:#0d1524;color:var(--text);cursor:pointer}
-    .btn:disabled{opacity:.5;cursor:not-allowed}
-    .okchip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#0d1f18;border:1px solid #1f3b2f;color:#7ff2b0;font-size:14px}
-    .ngchip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#261416;border:1px solid #4a2329;color:#ff9fa7;font-size:14px}
-    .sub{color:var(--muted);font-size:14px}
-    .sel{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--stroke);background:#0d1524;color:var(--text)}
-    .kpi{display:flex;flex-direction:column;gap:8px;align-items:flex-start}
-    .kpi .big{font-size:68px;line-height:1;font-weight:800;letter-spacing:.02em}
-    .bar{position:relative;width:100%;height:10px;background:#0c1627;border:1px solid var(--stroke);border-radius:999px;overflow:hidden}
-    .bar i{display:block;height:100%;width:0;transition:width .4s ease;background:linear-gradient(90deg,#28d07a,#4be0ff)}
-    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-    @media (max-width:640px){.grid2{grid-template-columns:1fr}}
-    .meter{display:flex;align-items:center;gap:10px}
-    .meter .dot{width:10px;height:10px;border-radius:999px;background:#2d3a53}
-    .meter .val{min-width:34px;text-align:right}
-    .sec{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--stroke);background:#0e1727;border-radius:14px;padding:14px;margin-top:12px}
-    .badge{padding:6px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--stroke);font-size:13px}
-    .badge.warn{background:#2a1e12;border-color:#4b2f17;color:#ffc088}
-    .sheet{position:relative;border:1px solid var(--stroke);background:#0d1523;border-radius:14px;padding:10px;margin-top:12px;max-height:calc(100vh - 160px);overflow:auto}
-    .item{border-bottom:1px dashed #22324a;padding:10px 6px}
-    .item:last-child{border-bottom:none}
-    .item h4{margin:0 0 6px 0;font-size:15px}
-    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:12px;color:#cfe3ff;word-break:break-all;white-space:pre-wrap}
-    .foot{display:flex;justify-content:flex-end;color:var(--muted);font-size:12px;margin-top:8px}
-    .hide{display:none}
+    .wrap{max-width:960px;margin:24px auto;padding:0 16px}
+    h1{font-size:28px;line-height:1.2;margin:0 0 16px 0;letter-spacing:.02em}
+    .card{background:linear-gradient(180deg,var(--panel),var(--panel-soft));border:1px solid var(--stroke);border-radius:16px;padding:16px;box-shadow:0 6px 24px rgba(0,0,0,.25);margin-bottom:16px}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .col{flex:1 1 280px;min-width:260px}
+    label{display:block;font-size:13px;color:var(--muted);margin:0 0 8px 6px}
+    input,select,button{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--stroke);background:#0f1726;color:var(--text);outline:none}
+    input::placeholder{color:#7f8da3}
+    .btn{cursor:pointer;transition:.15s}
+    .btn:hover{filter:brightness(1.08)}
+    .btn:active{transform:translateY(1px)}
+    .btn-accent{background:var(--accent);color:#06213a;border:0}
+    .btn-ghost{background:#0f1726}
+    .inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .ok{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#0f2a1f;color:#b2ffe0;border:1px solid rgba(37,208,122,.4);font-weight:600}
+    .ng{background:#2a1010;color:#ffd1d1;border:1px solid rgba(255,107,107,.4)}
+    .meter{height:12px;border-radius:999px;background:var(--bar);position:relative;overflow:hidden}
+    .meter>.fill{position:absolute;inset:0 100% 0 0;background:linear-gradient(90deg,#27c1ec,#2dd4bf);transition:width .35s ease}
+    .score-big{font-size:64px;font-weight:800;letter-spacing:.02em;margin:6px 0}
+    .muted{color:var(--muted);font-size:13px}
+    .pair{display:flex;justify-content:space-between;gap:8px}
+    .chip{display:inline-flex;align-items:center;gap:8px;background:var(--chip);color:var(--chip-text);padding:10px 12px;border-radius:12px;border:1px solid var(--stroke);min-height:44px}
+    .chip .pct{margin-left:auto;background:#0c1a2e;border:1px solid var(--stroke);padding:4px 8px;border-radius:999px;min-width:44px;text-align:center;font-weight:700}
+    .list{display:grid;gap:10px}
+    .event{background:#0f1726;border:1px solid var(--stroke);border-radius:12px;padding:12px}
+    .event .t{font-size:12px;color:var(--muted)}
+    .event .h{font-weight:700;margin:6px 0 4px}
+    .event .p{font-size:14px;color:#d9e6ff;word-break:break-word}
+    .right{margin-left:auto}
+    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media (max-width:640px){
+      .grid-2{grid-template-columns:1fr}
+      .score-big{font-size:48px}
+    }
+    /* floating footer guard */
+    .footer-pad{height:32px}
   </style>
 </head>
 <body>
   <div class="wrap">
     <h1>WalkNav 監査ダッシュボード</h1>
 
-    <!-- 接続先 -->
     <div class="card">
-      <div class="row" style="gap:8px">
-        <input id="ep" class="input" placeholder="https://ors-proxy-dev.miyata-connect-jp.workers.dev" />
-        <button id="ping" class="btn">接続テスト</button>
-        <div id="pingChip" class="hide"></div>
+      <div class="row">
+        <div class="col">
+          <label>接続先（Worker エンドポイント）</label>
+          <input id="endpoint" type="url" placeholder="https://ors-proxy-dev.miyata-connect-jp.workers.dev">
+        </div>
+        <div class="col" style="max-width:210px">
+          <label style="visibility:hidden">接続テスト</label>
+          <div class="inline">
+            <button id="btnTest" class="btn btn-accent" style="min-width:120px">接続テスト</button>
+            <span id="testBadge" class="ok" style="display:none">OK</span>
+          </div>
+        </div>
       </div>
+
       <div class="row" style="margin-top:10px">
-        <select id="issueSel" class="sel"></select>
-        <button id="reload" class="btn">再取得</button>
+        <div class="col">
+          <label>発行番号（自動取得／手動切替）</label>
+          <select id="issueSel"></select>
+        </div>
+        <div class="col" style="max-width:210px">
+          <label style="visibility:hidden">再取得</label>
+          <button id="btnRefresh" class="btn btn-ghost">再取得</button>
+        </div>
       </div>
-      <div class="sub" style="margin-top:8px">/healthz から issue を自動取得し、/audit/issues が無い場合はイベント履歴から推定します。</div>
+
+      <p class="muted">/healthz から issue を自動取得し、/audit/issues が無い場合はイベント履歴から推定します。</p>
     </div>
 
-    <!-- 総合判定 & 直近エラー率 -->
-    <div class="grid2">
-      <div class="card kpi">
-        <div class="sub">総合判定（平均スコア）</div>
-        <div id="avg" class="big">0</div>
-        <div class="bar"><i id="avgBar"></i></div>
-        <div class="sub" id="aggMeta">集計対象 RUN: 0 / EVENTS: 0</div>
-      </div>
-      <div class="card kpi">
-        <div class="sub">直近 エラー率</div>
-        <div id="err" class="big">0%</div>
-        <div class="bar"><i id="errBar"></i></div>
-        <div class="sub">直近 RUN 記録の失敗割合。</div>
-      </div>
-    </div>
-
-    <!-- 自己診断（入口/実行/出口） -->
     <div class="card">
-      <div class="sub" style="margin-bottom:8px">自己診断</div>
-
-      <div class="meter">
-        <span class="badge">入口（entry）</span>
-        <div class="bar" style="flex:1"><i id="mEntry"></i></div>
-        <span class="val" id="vEntry">0</span>
+      <div class="pair" style="align-items:flex-end">
+        <div>
+          <div class="muted">総合判定（平均スコア）</div>
+          <div id="score" class="score-big">--</div>
+          <div id="scoreBar" class="meter" style="width:100%;max-width:640px"><div class="fill"></div></div>
+          <div id="aggInfo" class="muted" style="margin-top:6px">集計対象 RUN: -- / EVENTS: --</div>
+        </div>
+        <div style="min-width:160px">
+          <div class="muted">直近 エラー率</div>
+          <div class="score-big" id="errPct">--%</div>
+        </div>
       </div>
-      <div class="meter" style="margin-top:10px">
-        <span class="badge">実行中（run）</span>
-        <div class="bar" style="flex:1"><i id="mRun"></i></div>
-        <span class="val" id="vRun">0</span>
-      </div>
-      <div class="meter" style="margin-top:10px">
-        <span class="badge">出口（exit）</span>
-        <div class="bar" style="flex:1"><i id="mExit"></i></div>
-        <span class="val" id="vExit">0</span>
-      </div>
-
-      <div class="sec" style="margin-top:14px">
-        <div class="sub">進行状況</div>
-        <div class="badge" id="phase">-</div>
-      </div>
-      <div class="sub" style="margin-top:8px">※ 手動投稿 UI は撤去。WalkNav 本体または自動化から /audit/run を送信します。</div>
     </div>
 
-    <!-- セクション内訳（リスク比率） -->
     <div class="card">
-      <div class="sub">セクション内訳（リスク比率）</div>
-      <div id="risks"></div>
+      <div class="grid-2">
+        <div>
+          <label>自己診断（入口）</label>
+          <div class="meter"><div id="entryBar" class="fill" style="width:0%"></div></div>
+        </div>
+        <div>
+          <label>自己診断（実行）</label>
+          <div class="meter"><div id="runBar" class="fill" style="width:0%"></div></div>
+        </div>
+        <div>
+          <label>自己診断（出口）</label>
+          <div class="meter"><div id="exitBar" class="fill" style="width:0%"></div></div>
+        </div>
+        <div>
+          <label>進行状況</label>
+          <div class="chip"><span id="phaseText">-</span></div>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:8px">※ 手動投稿 UI は撤去。WalkNav 本体または自動化から /audit/run を送信します。</p>
     </div>
 
-    <!-- 最新イベント -->
     <div class="card">
-      <div class="sub">最新イベント（最大25件）</div>
-      <div id="events" class="sheet"></div>
-      <div class="foot">© WalkNav Dashboard ・ 発行番号 <span id="footIssue">-</span></div>
+      <label>セクション内訳（リスク比率）</label>
+      <div class="list" id="sections">
+        <!-- chips appended -->
+      </div>
     </div>
+
+    <div class="card">
+      <label>最新イベント（最大25件）</label>
+      <div id="events" class="list"></div>
+    </div>
+
+    <div class="footer-pad"></div>
   </div>
 
   <script>
-  // ====== ISSUE ======
-  const DASHBOARD_ISSUE = "das202511012305";
-
-  // ====== State ======
-  const S = {
-    ep: localStorage.getItem("audit_ep") || "https://ors-proxy-dev.miyata-connect-jp.workers.dev",
-    issue: "",
-    issues: [],
-    summary: null
-  };
-
-  // ====== DOM ======
+  // ===== Core state with request lock & monotonic render =====
   const $ = (q)=>document.querySelector(q);
-  const epEl = $("#ep");
-  const pingBtn = $("#ping");
-  const pingChip = $("#pingChip");
-  const issueSel = $("#issueSel");
-  const reloadBtn = $("#reload");
-
-  const avgEl = $("#avg"); const avgBar = $("#avgBar");
-  const errEl = $("#err"); const errBar = $("#errBar");
-  const aggMeta = $("#aggMeta");
-  const vEntry = $("#vEntry"), vRun = $("#vRun"), vExit = $("#vExit");
-  const mEntry = $("#mEntry"), mRun = $("#mRun"), mExit = $("#mExit");
-  const phaseEl = $("#phase");
-  const risksEl = $("#risks");
-  const eventsEl = $("#events");
-  const footIssue = $("#footIssue");
-
-  // ====== Utils ======
-  const toJST = (ts)=>{
-    try{ return new Date(ts).toLocaleString("ja-JP",{timeZone:"Asia/Tokyo"}); }
-    catch{ return String(ts); }
+  const state = {
+    endpoint: "",
+    issue: "",
+    seq: 0,
+    fetching: false,
+    aborter: null,
+    lastRenderSeq: 0
   };
-  const pct = (v)=>Math.max(0,Math.min(100,Math.round(Number(v)||0)));
-  const setBar = (el,val)=>{ el.style.width = pct(val) + "%"; };
-  const trim300 = (s)=>{
-    const t = String(s||"");
-    return t.length>300 ? t.slice(0,300) + "…" : t;
-  };
-  const unique = (arr)=>Array.from(new Set(arr));
 
-  function showChip(ok){
-    pingChip.className = ok ? "okchip" : "ngchip";
-    pingChip.textContent = ok ? "OK" : "NG";
+  const endpointInput = $('#endpoint');
+  const testBtn = $('#btnTest');
+  const testBadge = $('#testBadge');
+  const issueSel = $('#issueSel');
+  const refreshBtn = $('#btnRefresh');
+
+  const scoreEl = $('#score');
+  const scoreBar = $('#scoreBar .fill');
+  const errPctEl = $('#errPct');
+  const aggInfoEl = $('#aggInfo');
+  const phaseText = $('#phaseText');
+
+  const entryBar = $('#entryBar');
+  const runBar = $('#runBar');
+  const exitBar = $('#exitBar');
+
+  const sectionsEl = $('#sections');
+  const eventsEl = $('#events');
+
+  // Default endpoint
+  endpointInput.value = localStorage.getItem('wn_endpoint') || 'https://ors-proxy-dev.miyata-connect-jp.workers.dev';
+
+  endpointInput.addEventListener('change', ()=>{
+    state.endpoint = sanitizeUrl(endpointInput.value);
+    localStorage.setItem('wn_endpoint', state.endpoint);
+  });
+
+  function sanitizeUrl(u){ try{ return String(u||'').replace(/\/+$/,''); }catch{return '';} }
+
+  function lock(){ if(state.fetching) return false; state.fetching = true; return true; }
+  function unlock(){ state.fetching = false; }
+
+  async function fetchJSON(url, opts={}){
+    const ac = new AbortController();
+    state.aborter && state.aborter.abort();
+    state.aborter = ac;
+    const res = await fetch(url, { ...opts, signal: ac.signal, headers: { 'Content-Type':'application/json', ...(opts.headers||{}) }});
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    if(res.status===204) return {ok:true};
+    return await res.json();
   }
 
-  function setDisabled(dis){
-    pingBtn.disabled = dis; reloadBtn.disabled = dis; issueSel.disabled = dis;
+  async function getHealthz(){
+    const url = `${state.endpoint}/healthz`;
+    return await fetchJSON(url);
   }
 
-  // ====== Fetchers ======
-  async function getJSON(url, init){
-    const r = await fetch(url, init);
-    if(!r.ok) throw new Error(r.status+"");
-    return r.json();
-  }
-
-  async function fetchHealthIssue(){
-    const j = await getJSON(`${S.ep.replace(/\/+$/,"")}/healthz`);
-    return j.issue ? String(j.issue) : "";
-  }
-
-  async function fetchIssuesFallbackFromEvents(){
+  async function getIssues(){
+    // Prefer /audit/issues, fallback to healthz.issue
     try{
-      const sum = await getJSON(`${S.ep.replace(/\/+$/,"")}/audit/summary`);
-      const evIssues = (sum.latestEvents||[]).map(e=>e.issue).filter(Boolean);
-      return unique(evIssues).slice(0,20);
-    }catch{ return []; }
+      const o = await fetchJSON(`${state.endpoint}/audit/issues`);
+      if(Array.isArray(o?.issues) && o.issues.length) return o.issues;
+    }catch(e){}
+    const hz = await getHealthz();
+    return [hz.issue].filter(Boolean);
   }
 
-  async function fetchIssues(){
-    try{
-      const j = await getJSON(`${S.ep.replace(/\/+$/,"")}/audit/issues`);
-      if(Array.isArray(j) && j.length) return j.map(String);
-    }catch{/* 404 expected on old worker */}
-    const h = await fetchHealthIssue();
-    const ev = await fetchIssuesFallbackFromEvents();
-    const all = unique([h, ...ev].filter(Boolean));
-    return all.length ? all : [h].filter(Boolean);
-  }
-
-  async function fetchSummary(issue){
-    const url = `${S.ep.replace(/\/+$/,"")}/audit/summary` + (issue?`?issue=${encodeURIComponent(issue)}`:"");
-    return await getJSON(url);
-  }
-
-  // ====== Renderers ======
-  function renderBase(){
-    epEl.value = S.ep;
-    footIssue.textContent = S.issue || "-";
-  }
-
-  function renderIssues(){
-    issueSel.innerHTML = "";
-    if(!S.issues.length){
-      const opt = document.createElement("option");
-      opt.value=""; opt.textContent="発行番号なし";
-      issueSel.appendChild(opt);
-      return;
-    }
-    S.issues.forEach((i)=>{
-      const opt = document.createElement("option");
-      opt.value=i; opt.textContent=i;
+  function renderIssueOptions(issues){
+    issueSel.innerHTML = '';
+    issues.forEach(v=>{
+      const opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = v;
       issueSel.appendChild(opt);
     });
-    if(S.issue){
-      issueSel.value = S.issue;
+    if(state.issue && issues.includes(state.issue)){
+      issueSel.value = state.issue;
     }else{
-      S.issue = S.issues[0];
-      issueSel.value = S.issue;
+      state.issue = issues[0] || '';
+      issueSel.value = state.issue;
     }
-    footIssue.textContent = S.issue || "-";
   }
 
-  function renderSummary(){
-    const sum = S.summary || {avgScore:0,recentErrorRate:0,totals:{runs:0,events:0}, latestRun:{}};
-    const avg = Math.round(Number(sum.avgScore)||0);
-    const err = Math.round(Number(sum.recentErrorRate)||0);
-    avgEl.textContent = String(avg);
-    errEl.textContent = String(err)+"%";
-    setBar(avgBar, avg);
-    setBar(errBar, err);
-    const runs = sum.totals?.runs||0; const events = sum.totals?.events||0;
-    aggMeta.textContent = `集計対象 RUN: ${runs} / EVENTS: ${events}`;
+  async function getSummary(issue){
+    const url = `${state.endpoint}/audit/summary${issue?`?issue=${encodeURIComponent(issue)}`:''}`;
+    return await fetchJSON(url);
+  }
 
-    // self-check (entry/run/exit)
-    const r = sum.latestRun || {};
-    const e = pct(r.entry||0), rn = pct(r.run||0), ex = pct(r.exit||0);
-    vEntry.textContent = e; vRun.textContent = rn; vExit.textContent = ex;
-    setBar(mEntry, e); setBar(mRun, rn); setBar(mExit, ex);
-    phaseEl.textContent = (r.phase||"-");
+  async function getEvents(issue){
+    const url1 = `${state.endpoint}/audit/summary${issue?`?issue=${encodeURIComponent(issue)}`:''}`;
+    try{
+      const s = await fetchJSON(url1);
+      if(Array.isArray(s.latestEvents) && s.latestEvents.length) return s.latestEvents;
+    }catch(e){}
+    const url2 = `${state.endpoint}/audit/events?limit=25${issue?`&issue=${encodeURIComponent(issue)}`:''}`;
+    try{
+      const e = await fetchJSON(url2);
+      if(Array.isArray(e.events)) return e.events;
+    }catch(_){}
+    return [];
+  }
 
-    // risks (fixed buckets)
-    const buckets = [
-      ["Routing (/healthz,/places:searchText,/directions)",2],
-      ["CORS/Origin strict",3],
-      ["FieldMask/Places New params",2],
-      ["Secrets (GMAPS_API_KEY)",2],
-      ["Error shape/HTTP code diff",2]
+  function monotonicRender(seq, fn){
+    if(seq < state.lastRenderSeq) return; // older response: ignore
+    state.lastRenderSeq = seq;
+    fn();
+  }
+
+  function setMeter(el, pct){ el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
+  function setScore(v){
+    if (v==null) { scoreEl.textContent = '--'; setMeter(scoreBar, 0); return; }
+    const n = Math.max(0, Math.min(100, Math.round(v)));
+    scoreEl.textContent = String(n);
+    setMeter(scoreBar, n);
+  }
+  function setErrPct(v){
+    if (v==null) { errPctEl.textContent = '--%'; return; }
+    const n = Math.max(0, Math.min(100, Math.round(v)));
+    errPctEl.textContent = `${n}%`;
+  }
+
+  function renderSections(risks){
+    sectionsEl.innerHTML = '';
+    const defaults = [
+      {label:'Routing (/healthz,/places:searchText,/directions)', pct:2},
+      {label:'CORS/Origin strict', pct:3},
+      {label:'FieldMask/Places New params', pct:2},
+      {label:'Secrets (GMAPS_API_KEY)', pct:2},
+      {label:'Error shape/HTTP code diff', pct:2},
     ];
-    risksEl.innerHTML = "";
-    buckets.forEach(([label,score])=>{
-      const div = document.createElement("div");
-      div.className = "sec";
-      const b = document.createElement("span"); b.className="badge"; b.textContent=label;
-      const s = document.createElement("span"); s.className="badge"+(score>=3?" warn": ""); s.textContent=score+"%";
-      div.appendChild(b); div.appendChild(s);
-      risksEl.appendChild(div);
-    });
-
-    // events
-    renderEvents(sum.latestEvents||[]);
+    const items = Array.isArray(risks)&&risks.length ? risks : defaults;
+    for(const it of items){
+      const div = document.createElement('div');
+      div.className='chip';
+      div.innerHTML = `<span>${escapeHtml(it.label||'')}</span><span class="pct">${Math.round(it.pct||0)}%</span>`;
+      sectionsEl.appendChild(div);
+    }
   }
+
+  function escapeHtml(s){ return String(s).replace(/[&<>"']/g,(m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 
   function renderEvents(list){
-    eventsEl.innerHTML = "";
-    if(!list.length){
-      const p = document.createElement("div");
-      p.className="sub"; p.textContent="データなし";
-      eventsEl.appendChild(p);
+    eventsEl.innerHTML = '';
+    if(!list || !list.length){
+      const empty = document.createElement('div');
+      empty.className='muted';
+      empty.textContent='データなし';
+      eventsEl.appendChild(empty);
       return;
     }
-    // sort desc by ts
-    list.sort((a,b)=> (b.ts||0) - (a.ts||0));
-    list.slice(0,25).forEach(ev=>{
-      const div = document.createElement("div"); div.className="item";
-      const h = document.createElement("h4");
-      const t = `[${toJST(ev.ts)}] ${ev.type||"event"} · ${ev.severity||"info"}`;
-      h.textContent = t;
-      const body = document.createElement("div");
-      const text = ev.title || ev.message || (ev.meta && (ev.meta.text || ev.meta.msg)) || JSON.stringify(ev.meta||{});
-      body.className="mono";
-      body.textContent = trim300(text);
-      div.appendChild(h); div.appendChild(body);
-      eventsEl.appendChild(div);
-    });
-  }
-
-  // ====== Flow ======
-  async function ping(){
-    setDisabled(true);
-    try{
-      await fetchHealthIssue();
-      showChip(true);
-    }catch(e){
-      showChip(false);
-    }finally{
-      setDisabled(false);
+    for(const ev of list){
+      const box = document.createElement('div');
+      box.className='event';
+      const ts = ev.ts ? new Date(ev.ts).toLocaleString('ja-JP') : '-';
+      const title = ev.title || ev.type || 'event';
+      let body = JSON.stringify({ ts: ev.ts||0, type:ev.type||'', title:ev.title||'', severity:ev.severity||'', meta:ev.meta||{} });
+      if(body.length>300) body = body.slice(0,297)+'...';
+      box.innerHTML = `<div class="t">${escapeHtml(ts)}</div>
+                       <div class="h">${escapeHtml(title)}</div>
+                       <div class="p">${escapeHtml(body)}</div>`;
+      eventsEl.appendChild(box);
     }
   }
 
-  async function reload(){
-    setDisabled(true);
+  async function refreshAll(manual=false){
+    state.endpoint = sanitizeUrl(endpointInput.value);
+    if(!state.endpoint){ alert('エンドポイントが未設定です'); return; }
+
+    if(!lock()) return; // prevent parallel
+    const mySeq = ++state.seq;
     try{
-      S.issues = await fetchIssues();
-      renderIssues();
-      S.summary = await fetchSummary(S.issue);
-      renderSummary();
-    }catch(e){
-      console.error(e);
-      alert("取得に失敗しました。接続先を確認してください。");
+      // 1) healthz → issue 決定
+      const hz = await getHealthz();
+      const issues = await getIssues();
+      renderIssueOptions(issues);
+      if(hz?.issue && issues.includes(hz.issue)) {
+        state.issue = hz.issue;
+        issueSel.value = hz.issue;
+      }
+
+      // 2) summary 取得（安定化のため一度だけ軽リトライ）
+      let sum;
+      try{
+        sum = await getSummary(state.issue);
+      }catch(e){
+        await new Promise(r=>setTimeout(r, 600));
+        sum = await getSummary(state.issue);
+      }
+
+      // 3) events 取得（フォールバック内蔵）
+      const evs = await getEvents(state.issue);
+
+      // 4) レンダー（モノトニック）
+      monotonicRender(mySeq, ()=>{
+        const runs = sum?.totals?.runs ?? 0;
+        const events = sum?.totals?.events ?? 0;
+        setScore(sum?.avgScore ?? null);
+        setErrPct(sum?.recentErrorRate ?? null);
+        aggInfoEl.textContent = `集計対象 RUN: ${runs} / EVENTS: ${events}`;
+        setMeter(entryBar, Number(sum?.entryScore)||0);
+        setMeter(runBar, Number(sum?.runScore)||0);
+        setMeter(exitBar, Number(sum?.exitScore)||0);
+        phaseText.textContent = sum?.phase || '-';
+        renderSections(sum?.risks);
+        renderEvents(evs);
+      });
+
+      if(manual){
+        // small toast
+        testBadge.textContent='OK';
+        testBadge.style.display='inline-flex';
+        setTimeout(()=>testBadge.style.display='none', 1200);
+      }
+    }catch(err){
+      console.error(err);
+      alert('取得に失敗しました。接続先とCORS設定をご確認ください。');
     }finally{
-      setDisabled(false);
+      unlock();
     }
   }
 
-  // ====== Bind ======
-  epEl.addEventListener("change", ()=>{
-    S.ep = epEl.value.trim();
-    localStorage.setItem("audit_ep", S.ep);
-  });
-  pingBtn.addEventListener("click", ping);
-  reloadBtn.addEventListener("click", reload);
-  issueSel.addEventListener("change", async (e)=>{
-    S.issue = String(e.target.value||"");
-    footIssue.textContent = S.issue || "-";
+  // UI events
+  testBtn.addEventListener('click', async ()=>{
+    state.endpoint = sanitizeUrl(endpointInput.value);
+    if(!state.endpoint){ alert('エンドポイントが未設定です'); return; }
     try{
-      S.summary = await fetchSummary(S.issue);
-      renderSummary();
-    }catch(err){ console.error(err); }
+      const hz = await getHealthz();
+      testBadge.textContent = 'OK';
+      testBadge.className = 'ok';
+      testBadge.style.display='inline-flex';
+      // issue スロット更新
+      const issues = await getIssues();
+      renderIssueOptions(issues);
+    }catch(e){
+      testBadge.textContent = 'NG';
+      testBadge.className = 'ok ng';
+      testBadge.style.display='inline-flex';
+    }
   });
 
-  // ====== Boot ======
+  issueSel.addEventListener('change', ()=>{
+    state.issue = issueSel.value||'';
+    // 手動切替時は即座に再取得
+    refreshAll(true);
+  });
+
+  let debTimer=null;
+  refreshBtn.addEventListener('click', ()=>{
+    clearTimeout(debTimer);
+    debTimer = setTimeout(()=>refreshAll(true), 250);
+  });
+
+  // first load
   (async function boot(){
-    renderBase();
-    await ping();
-    await reload();
+    await refreshAll(false);
+    // optional: background gentle refresh every 60s (no UI jump)
+    setInterval(()=>{ if(!state.fetching) refreshAll(false); }, 60000);
   })();
   </script>
 </body>
