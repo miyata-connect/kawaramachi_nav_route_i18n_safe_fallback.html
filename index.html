@@ -39,6 +39,7 @@
       background:var(--glass-strong);border:1px solid var(--stroke);
       border-radius:var(--radius);box-shadow:var(--shadow);
       padding:14px 14px 12px;backdrop-filter:blur(10px);
+      z-index:2500;
     }
     .panel h2{margin:0 0 10px;font-size:20px;letter-spacing:.5px}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
@@ -52,21 +53,18 @@
     .btn{
       padding:10px 14px;border-radius:12px;border:1px solid var(--stroke);
       background:rgba(255,255,255,.06);color:var(--text);
-      cursor:pointer;user-select:none
+      cursor:pointer;user-select:none;border:none;
     }
     .btn.primary{background:var(--primary);color:#051a2a;border-color:transparent}
     .btn.danger{background:var(--danger);color:#240808;border-color:transparent}
     .btn:disabled{opacity:.5;pointer-events:none}
 
     /* 右側のフローティングボタン群（常に表示） */
-    .fab-stack{
-      position:fixed;right:16px;bottom:96px;display:flex;flex-direction:column;gap:12px;
-      z-index:2600;
-    }
     .fab{
       min-width:112px; height:56px; display:flex;align-items:center;justify-content:center;
       background:var(--glass-strong); border:1px solid var(--stroke); border-radius:18px;
       color:var(--text); box-shadow:var(--shadow); cursor:pointer; user-select:none;
+      font-size:14px;
     }
     .fab:active{transform:translateY(1px)}
 
@@ -129,6 +127,8 @@
     let pointSearchMode = false; // 地点検索モード
     let searchPoint = null; // 検索地点
     let searchPointMarker = null; // 検索地点マーカー
+    let longPressTimer = null; // 長押しタイマー
+    let mapInitialized = false; // 地図初期化フラグ
 
     // AdvancedMarkerElement を使った波紋付き現在地マーカー
     function setUserMarker(lat, lng){
@@ -154,35 +154,95 @@
     function initMap(center){
       map = new google.maps.Map(document.getElementById('map'),{
         center,
-        zoom: 17,           // 拡大（初期は大きめ）
-        mapId: 'DEMO_MAP',  // 任意のID
+        zoom: 17,
+        mapId: 'DEMO_MAP',
         gestureHandling:'greedy',
         clickableIcons:true,
         disableDefaultUI:true
       });
+
+      // 地図上の長押しイベント
+      map.addListener('mousedown', (e) => {
+        if(!pointSearchMode) return;
+        longPressTimer = setTimeout(() => {
+          setSearchPoint(e.latLng.lat(), e.latLng.lng());
+        }, 1000);
+      });
+
+      map.addListener('mouseup', () => {
+        if(longPressTimer){
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+      });
+
+      // タッチデバイス用
+      map.addListener('touchstart', (e) => {
+        if(!pointSearchMode || !e.latLng) return;
+        longPressTimer = setTimeout(() => {
+          setSearchPoint(e.latLng.lat(), e.latLng.lng());
+        }, 1000);
+      });
+
+      map.addListener('touchend', () => {
+        if(longPressTimer){
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
+      });
+
+      mapInitialized = true;
+      console.log('[WalkNav] Map initialized');
+    }
+
+    // 検索地点を設定
+    function setSearchPoint(lat, lng){
+      searchPoint = {lat, lng};
+      
+      // 既存のマーカーを削除
+      if(searchPointMarker){
+        searchPointMarker.map = null;
+      }
+
+      // 新しいマーカーを作成（赤いピン）
+      const pin = document.createElement('div');
+      pin.style.width='30px';
+      pin.style.height='30px';
+      pin.style.borderRadius='50% 50% 50% 0';
+      pin.style.background='#ff6565';
+      pin.style.border='3px solid #fff';
+      pin.style.transform='rotate(-45deg)';
+      pin.style.boxShadow='0 4px 8px rgba(0,0,0,.3)';
+
+      searchPointMarker = new google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: {lat, lng},
+        content: pin,
+        zIndex: 999
+      });
+
+      console.log(`[WalkNav] 検索地点設定: ${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+      
+      // 地図を検索地点に移動
+      map.panTo({lat, lng});
     }
 
     // ====== 現在地の取得（初期値=現在地一択・失敗時は地図非表示のまま） ======
     function acquireLocation(){
       const onOk = (pos)=>{
         const {latitude, longitude} = pos.coords;
-        document.getElementById('loading')?.remove(); // ローディングを消す
+        document.getElementById('loading')?.remove();
         if(!map) initMap({lat:latitude, lng:longitude});
         map.setCenter({lat:latitude,lng:longitude});
         setUserMarker(latitude, longitude);
 
-        // ラベル更新（座標のみ一旦表示）
         document.getElementById('locLabel').textContent = `緯度 ${latitude.toFixed(6)} / 経度 ${longitude.toFixed(6)}`;
         
-        // 地名を取得（Nominatim Reverse Geocoding）
         fetchLocationName(latitude, longitude);
       };
       const onErr = (_e)=>{
-        // 画面へのエラー表示は禁止：コンソールのみに出す
         console.log('[WalkNav] geolocation error', _e?.message||_e);
-        // ローディングは残す（ユーザーの方針に合わせて非表示でも可）
-        // ただし地図は最低限表示しておく（現在地不明）
-        if(!map) initMap({lat:35.0,lng:135.0}); // 参照用：即座にユーザーの現在地取得で上書きされる
+        if(!map) initMap({lat:35.0,lng:135.0});
       };
       try{
         navigator.geolocation.getCurrentPosition(onOk,onErr,{enableHighAccuracy:true,timeout:30000,maximumAge:0});
@@ -199,43 +259,68 @@
         );
         const data = await response.json();
         
-        // 地名を構築
         const addr = data.address || {};
         let locationName = '';
         
-        // 優先順位: 市町村 > 郡 > 都道府県
         if(addr.city) locationName = addr.city;
         else if(addr.town) locationName = addr.town;
         else if(addr.village) locationName = addr.village;
         else if(addr.county) locationName = addr.county;
         else if(addr.state) locationName = addr.state;
         
-        // 地区名があれば追加
         if(addr.suburb) locationName += addr.suburb;
         else if(addr.hamlet) locationName += addr.hamlet;
         
         if(locationName) locationName += '付近';
         else locationName = '位置情報取得完了';
         
-        // ラベルを更新
         document.getElementById('locLabel').textContent = locationName;
         
       }catch(e){
         console.log('[WalkNav] location name fetch error', e);
-        // エラー時は座標表示のまま
       }
     }
 
     // ====== UI（最小限。機能本体は触らない） ======
     function bindUI(){
+      console.log('[WalkNav] Binding UI...');
+      
       const radiusLabel = document.getElementById('radiusLabel');
       const r10 = document.getElementById('r10');
       const r20 = document.getElementById('r20');
-      r10.onclick = ()=>{ r10.classList.add('active'); r20.classList.remove('active'); radiusLabel.textContent='10km'; };
-      r20.onclick = ()=>{ r20.classList.add('active'); r10.classList.remove('active'); radiusLabel.textContent='20km'; };
+      const btnPointSearch = document.getElementById('btnPointSearch');
+      
+      r10.onclick = ()=>{ 
+        console.log('10km clicked');
+        r10.classList.add('active'); 
+        r20.classList.remove('active'); 
+        radiusLabel.textContent='10km'; 
+      };
+      
+      r20.onclick = ()=>{ 
+        console.log('20km clicked');
+        r20.classList.add('active'); 
+        r10.classList.remove('active'); 
+        radiusLabel.textContent='20km'; 
+      };
+
+      // 地点検索ボタン
+      btnPointSearch.onclick = ()=>{
+        pointSearchMode = !pointSearchMode;
+        if(pointSearchMode){
+          btnPointSearch.classList.add('active');
+          btnPointSearch.textContent = '📍 地点検索中...';
+          console.log('[WalkNav] 地点検索モードON - 地図を長押ししてください');
+        }else{
+          btnPointSearch.classList.remove('active');
+          btnPointSearch.textContent = '📍 地点検索';
+          console.log('[WalkNav] 地点検索モードOFF');
+        }
+      };
 
       // 右サイド FAB - すべて有効化
       document.getElementById('btnLocate').onclick = ()=>{
+        console.log('現在地ボタン clicked');
         if(currentPos && map) {
           map.panTo(currentPos);
           map.setZoom(17);
@@ -250,30 +335,75 @@
         console.log('リルートボタンがクリックされました');
       };
 
-      // 検索ボタン - すべて有効化
+      // 検索ボタン
       document.getElementById('btnText').onclick = ()=>{
         const q = document.getElementById('q').value.trim();
-        if(q) console.log('テキスト検索:', q);
+        if(!q){
+          console.log('検索ワードを入力してください');
+          return;
+        }
+        
+        if(pointSearchMode && searchPoint){
+          console.log(`[地点検索] "${q}" at ${searchPoint.lat.toFixed(6)}, ${searchPoint.lng.toFixed(6)}`);
+        }else if(currentPos){
+          console.log(`[現在地検索] "${q}" at ${currentPos.lat.toFixed(6)}, ${currentPos.lng.toFixed(6)}`);
+        }else{
+          console.log(`[検索] "${q}"`);
+        }
       };
       
       document.getElementById('btnVoice').onclick = ()=>{
         console.log('音声検索ボタンがクリックされました');
+        const q = '音声入力テスト'; // 実際には音声認識APIを使用
+        
+        if(pointSearchMode && searchPoint){
+          console.log(`[地点検索/音声] "${q}" at ${searchPoint.lat.toFixed(6)}, ${searchPoint.lng.toFixed(6)}`);
+        }else if(currentPos){
+          console.log(`[現在地検索/音声] "${q}"`);
+        }
       };
       
       document.getElementById('btnReset').onclick = ()=>{
         document.getElementById('q').value = '';
-        console.log('リセットしました');
+        
+        // 検索地点とマーカーをクリア
+        searchPoint = null;
+        if(searchPointMarker){
+          searchPointMarker.map = null;
+          searchPointMarker = null;
+        }
+        
+        // 地点検索モードをOFF
+        pointSearchMode = false;
+        const btnPointSearch = document.getElementById('btnPointSearch');
+        btnPointSearch.classList.remove('active');
+        btnPointSearch.textContent = '📍 地点検索';
+        
+        console.log('[WalkNav] リセット完了');
       };
+
+      console.log('[WalkNav] UI binding complete');
     }
 
     // ====== 起動 ======
-    window.addEventListener('DOMContentLoaded', function(){
-      // UIは日本語を初期値（強制）
+    function startApp(){
+      console.log('[WalkNav] Starting app...');
       document.documentElement.lang = 'ja';
       bindUI();
       acquireLocation();
       console.log('[WalkNav] ISSUE', ISSUE_ID, 'boot');
-    });
+    }
+
+    // Google Maps API読み込み完了を待つ
+    function initializeWhenReady(){
+      if(typeof google !== 'undefined' && google.maps && google.maps.Map){
+        startApp();
+      }else{
+        setTimeout(initializeWhenReady, 100);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', initializeWhenReady);
   </script>
 
   <!-- Google Maps JS API（AdvancedMarkerElement 利用） -->
