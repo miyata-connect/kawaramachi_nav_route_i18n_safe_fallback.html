@@ -184,7 +184,7 @@
   <script>
     const ISSUE_ID = 'idx202511011945';
     const API_KEY = 'AIzaSyBXC6CB2yaUkrJ5UYj3mymAsruQe4MzGPk'; // Maps表示用のみ
-    const WORKER_ORIGIN = 'https://YOUR-WORKER-DOMAIN.workers.dev'; // TODO: 実際のWorker URLに置き換え
+    const WORKER_ORIGIN = 'https://ors-proxy.miyata-connect-jp.workers.dev'; // 既存Worker
 
     let map, userMarker, directionsService, directionsRenderer, geocoder;
     let currentPos = null;
@@ -201,7 +201,7 @@
 
     // Cloudflare Worker経由 - Text Search
     async function placesTextSearch(payload, fieldMask) {
-      const resp = await fetch(`${WORKER_ORIGIN}/places/text`, {
+      const resp = await fetch(`${WORKER_ORIGIN}/places:searchText`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -218,7 +218,7 @@
 
     // Cloudflare Worker経由 - Nearby Search
     async function placesNearby(payload, fieldMask) {
-      const resp = await fetch(`${WORKER_ORIGIN}/places/nearby`, {
+      const resp = await fetch(`${WORKER_ORIGIN}/places:searchNearby`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -446,7 +446,6 @@
       }
     }
 
-    // タイプマッピング
     const TYPE_MAP = {
       "コンビニ":"convenience_store",
       "スーパー":"supermarket",
