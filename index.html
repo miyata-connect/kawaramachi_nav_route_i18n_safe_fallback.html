@@ -146,7 +146,7 @@
       <div class="row" style="margin-bottom:8px">
         <input id="q" class="input" placeholder="店舗名・電話番号・住所・座標など" />
         <button id="btnText" class="btn primary">入力検索</button>
-        <button id="btnVoice" class="btn">音声検索</button>
+        <button id="btnVoice" class="btn">🎤 音声検索</button>
         <button id="btnReset" class="btn danger">リセット</button>
       </div>
       <div class="row" style="font-size:13px;color:var(--muted)">
@@ -195,7 +195,8 @@
     let longPressTimer = null;
     let mapInitialized = false;
     let searchMarkers = [];
-    let currentDestination = null; // 現在の目的地
+    let currentDestination = null;
+    let recognition = null; // 音声認識
 
     function setUserMarker(lat, lng){
       currentPos = {lat, lng};
@@ -226,7 +227,6 @@
         disableDefaultUI:true
       });
 
-      // Directions API初期化
       directionsService = new google.maps.DirectionsService();
       directionsRenderer = new google.maps.DirectionsRenderer({
         map: map,
@@ -316,19 +316,22 @@
         if(status === 'OK'){
           directionsRenderer.setDirections(result);
           
-          // ルート情報を取得
           const route = result.routes[0].legs[0];
           const distance = route.distance.text;
           const duration = route.duration.text;
 
-          // ルートパネルを表示
           document.getElementById('destinationName').textContent = destination.name;
           document.getElementById('routeDistance').textContent = distance;
           document.getElementById('routeTime').textContent = `徒歩 ${duration}`;
           document.getElementById('routePanel').style.display = 'block';
 
-          // 検索パネルと結果を非表示
+          // 操作パネルと検索結果を非表示
+          document.getElementById('searchPanel').style.display = 'none';
           document.getElementById('results').style.display = 'none';
+
+          // 目的地を拡大表示（ズーム18）
+          map.panTo({lat: destination.lat, lng: destination.lon});
+          map.setZoom(18);
 
           console.log(`[Navigation] ルート案内開始: ${destination.name}`);
           console.log(`[Navigation] 距離: ${distance}, 時間: ${duration}`);
@@ -344,7 +347,75 @@
       directionsRenderer.setDirections({routes: []});
       currentDestination = null;
       document.getElementById('routePanel').style.display = 'none';
+      document.getElementById('searchPanel').style.display = 'block';
       console.log('[Navigation] ルート案内終了');
+    }
+
+    // ====== 音声認識初期化 ======
+    function initSpeechRecognition(){
+      if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)){
+        console.log('[Voice] 音声認識は非対応です');
+        return false;
+      }
+
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.lang = 'ja-JP';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        console.log('[Voice] 音声認識開始');
+        document.getElementById('btnVoice').textContent = '🎤 聞いています...';
+        document.getElementById('btnVoice').style.background = 'var(--ok)';
+      };
+
+      recognition.onresult = (event) => {
+        const transcript = event.results[0][0].transcript;
+        console.log('[Voice] 認識結果:', transcript);
+        document.getElementById('q').value = transcript;
+        performSearch(transcript);
+      };
+
+      recognition.onerror = (event) => {
+        console.error('[Voice] エラー:', event.error);
+        alert(`音声認識エラー: ${event.error}`);
+        document.getElementById('btnVoice').textContent = '🎤 音声検索';
+        document.getElementById('btnVoice').style.background = '';
+      };
+
+      recognition.onend = () => {
+        console.log('[Voice] 音声認識終了');
+        document.getElementById('btnVoice').textContent = '🎤 音声検索';
+        document.getElementById('btnVoice').style.background = '';
+      };
+
+      return true;
+    }
+
+    // ====== 音声検索開始 ======
+    function startVoiceSearch(){
+      if(!recognition){
+        if(!initSpeechRecognition()){
+          alert('お使いのブラウザは音声認識に対応していません');
+          return;
+        }
+      }
+
+      try{
+        recognition.start();
+      }catch(e){
+        console.error('[Voice] 開始エラー:', e);
+        // 既に開始している場合は停止してから再開
+        recognition.stop();
+        setTimeout(() => {
+          try{
+            recognition.start();
+          }catch(e2){
+            console.error('[Voice] 再開エラー:', e2);
+          }
+        }, 100);
+      }
     }
 
     // ====== 検索 ======
@@ -422,7 +493,6 @@
 
         resultsWithDistance.sort((a, b) => a.distance - b.distance);
 
-        // 最大5件に固定
         const limitedResults = resultsWithDistance.slice(0, 5);
 
         if(limitedResults.length === 0){
@@ -489,7 +559,6 @@
         `;
         
         item.onclick = () => {
-          // ルート案内を開始
           startNavigation({
             name: name,
             lat: lat,
@@ -651,8 +720,9 @@
         }
       });
       
+      // 音声検索ボタン
       document.getElementById('btnVoice').onclick = ()=>{
-        alert('音声検索機能は今後実装予定です');
+        startVoiceSearch();
       };
       
       document.getElementById('btnReset').onclick = ()=>{
@@ -674,13 +744,11 @@
         btnPointSearch.classList.remove('active');
         btnPointSearch.textContent = '📍 地点検索';
         
-        // ルートもクリア
         stopNavigation();
         
         console.log('[WalkNav] リセット完了');
       };
 
-      // ルート終了ボタン
       document.getElementById('btnStopRoute').onclick = ()=>{
         stopNavigation();
       };
@@ -693,6 +761,7 @@
       document.documentElement.lang = 'ja';
       bindUI();
       acquireLocation();
+      initSpeechRecognition();
       console.log('[WalkNav] ISSUE', ISSUE_ID, 'boot');
     }
 
