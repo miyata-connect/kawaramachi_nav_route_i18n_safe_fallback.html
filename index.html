@@ -42,7 +42,7 @@
     }
     .panel h2{margin:0 0 10px;font-size:20px;letter-spacing:.5px}
     .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .chip{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--stroke);color:var(--text);font-size:14px}
+    .chip{padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--stroke);color:var(--text);font-size:14px;cursor:pointer;user-select:none}
     .chip.active{background:var(--primary);color:#05233a;border-color:transparent}
     .input{
       flex:1;min-width:220px;
@@ -90,6 +90,7 @@
       <div class="row" style="margin-bottom:8px">
         <button class="chip active" id="r10">10km</button>
         <button class="chip" id="r20">20km</button>
+        <button class="chip" id="btnPointSearch" style="margin-left:auto">📍 地点検索</button>
       </div>
       <div class="row" style="margin-bottom:8px">
         <input id="q" class="input" placeholder="店舗名・電話番号・住所・座標など" />
@@ -110,7 +111,12 @@
     </div>
 
     <!-- 初期ローディング（現在地取得完了まで表示） -->
-    <div class="loading" id="loading">現在地取得中です。ご迷惑をお掛けします。<br/>現在地表示まで <b>30秒</b> 程度お待ちください。</div>
+    <div class="loading" id="loading">
+      <div style="text-align:center">
+        <div style="font-size:24px;margin-bottom:16px">📍 現在地取得中</div>
+        <div style="font-size:16px;opacity:0.8">しばらくお待ちください...</div>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -120,6 +126,9 @@
     // ====== Google Maps 初期化 ======
     let map, userMarker;
     let currentPos = null;
+    let pointSearchMode = false; // 地点検索モード
+    let searchPoint = null; // 検索地点
+    let searchPointMarker = null; // 検索地点マーカー
 
     // AdvancedMarkerElement を使った波紋付き現在地マーカー
     function setUserMarker(lat, lng){
@@ -162,12 +171,15 @@
         map.setCenter({lat:latitude,lng:longitude});
         setUserMarker(latitude, longitude);
 
-        // ラベル更新
+        // ラベル更新（座標のみ一旦表示）
         document.getElementById('locLabel').textContent = `緯度 ${latitude.toFixed(6)} / 経度 ${longitude.toFixed(6)}`;
+        
+        // 地名を取得（Nominatim Reverse Geocoding）
+        fetchLocationName(latitude, longitude);
       };
       const onErr = (_e)=>{
         // 画面へのエラー表示は禁止：コンソールのみに出す
-        console.debug('[WalkNav] geolocation error', _e?.message||_e);
+        console.log('[WalkNav] geolocation error', _e?.message||_e);
         // ローディングは残す（ユーザーの方針に合わせて非表示でも可）
         // ただし地図は最低限表示しておく（現在地不明）
         if(!map) initMap({lat:35.0,lng:135.0}); // 参照用：即座にユーザーの現在地取得で上書きされる
@@ -175,7 +187,42 @@
       try{
         navigator.geolocation.getCurrentPosition(onOk,onErr,{enableHighAccuracy:true,timeout:30000,maximumAge:0});
       }catch(e){
-        console.debug('[WalkNav] geolocation exception', e);
+        console.log('[WalkNav] geolocation exception', e);
+      }
+    }
+
+    // ====== 地名取得 ======
+    async function fetchLocationName(lat, lng){
+      try{
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ja`
+        );
+        const data = await response.json();
+        
+        // 地名を構築
+        const addr = data.address || {};
+        let locationName = '';
+        
+        // 優先順位: 市町村 > 郡 > 都道府県
+        if(addr.city) locationName = addr.city;
+        else if(addr.town) locationName = addr.town;
+        else if(addr.village) locationName = addr.village;
+        else if(addr.county) locationName = addr.county;
+        else if(addr.state) locationName = addr.state;
+        
+        // 地区名があれば追加
+        if(addr.suburb) locationName += addr.suburb;
+        else if(addr.hamlet) locationName += addr.hamlet;
+        
+        if(locationName) locationName += '付近';
+        else locationName = '位置情報取得完了';
+        
+        // ラベルを更新
+        document.getElementById('locLabel').textContent = locationName;
+        
+      }catch(e){
+        console.log('[WalkNav] location name fetch error', e);
+        // エラー時は座標表示のまま
       }
     }
 
@@ -220,13 +267,13 @@
     }
 
     // ====== 起動 ======
-    (function start(){
+    window.addEventListener('DOMContentLoaded', function(){
       // UIは日本語を初期値（強制）
       document.documentElement.lang = 'ja';
       bindUI();
       acquireLocation();
-      console.debug('[WalkNav] ISSUE', ISSUE_ID, 'boot');
-    })();
+      console.log('[WalkNav] ISSUE', ISSUE_ID, 'boot');
+    });
   </script>
 
   <!-- Google Maps JS API（AdvancedMarkerElement 利用） -->
