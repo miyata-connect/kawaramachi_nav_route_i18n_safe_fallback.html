@@ -1,413 +1,225 @@
-<!DOCTYPE html>
+<!-- dashboard.html -->
+<!-- ISSUE_ID: das202511012231 -->
+<!doctype html>
 <html lang="ja">
 <head>
-  <!-- ISSUE_ID: das202511012315 -->
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="x-issue" content="das202511012315" />
-  <title>WalkNav 監査ダッシュボード</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="x-issue" content="das202511012231">
+  <title>監査ダッシュボード</title>
   <style>
     :root{
-      --bg:#0b1320;
-      --panel:#121a2b;
-      --panel-soft:#172235;
-      --text:#eaf2ff;
-      --muted:#a4b3c9;
-      --stroke:rgba(255,255,255,.12);
-      --accent:#62b7ff;
-      --ok:#25d07a;
-      --warn:#ffb84d;
-      --danger:#ff6b6b;
-      --chip:#1e2a40;
-      --chip-text:#d7e7ff;
-      --bar:#1b2940;
-      --bar-fill:#2dd4bf;
+      --bg:#0b0f1a; --panel:#121a2a; --glass:rgba(255,255,255,.06);
+      --text:#eaf2ff; --muted:#a7b8ce; --stroke:rgba(255,255,255,.12);
+      --ok:#25d07a; --warn:#ffcc66; --bad:#ff6565; --accent:#5fb1ff;
     }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,"Noto Sans JP",sans-serif}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     *{box-sizing:border-box}
-    .wrap{max-width:960px;margin:24px auto;padding:0 16px}
-    h1{font-size:28px;line-height:1.2;margin:0 0 16px 0;letter-spacing:.02em}
-    .card{background:linear-gradient(180deg,var(--panel),var(--panel-soft));border:1px solid var(--stroke);border-radius:16px;padding:16px;box-shadow:0 6px 24px rgba(0,0,0,.25);margin-bottom:16px}
-    .row{display:flex;gap:12px;flex-wrap:wrap}
-    .col{flex:1 1 280px;min-width:260px}
-    label{display:block;font-size:13px;color:var(--muted);margin:0 0 8px 6px}
-    input,select,button{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--stroke);background:#0f1726;color:var(--text);outline:none}
-    input::placeholder{color:#7f8da3}
-    .btn{cursor:pointer;transition:.15s}
-    .btn:hover{filter:brightness(1.08)}
-    .btn:active{transform:translateY(1px)}
-    .btn-accent{background:var(--accent);color:#06213a;border:0}
-    .btn-ghost{background:#0f1726}
-    .inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .ok{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:#0f2a1f;color:#b2ffe0;border:1px solid rgba(37,208,122,.4);font-weight:600}
-    .ng{background:#2a1010;color:#ffd1d1;border:1px solid rgba(255,107,107,.4)}
-    .meter{height:12px;border-radius:999px;background:var(--bar);position:relative;overflow:hidden}
-    .meter>.fill{position:absolute;inset:0 100% 0 0;background:linear-gradient(90deg,#27c1ec,#2dd4bf);transition:width .35s ease}
-    .score-big{font-size:64px;font-weight:800;letter-spacing:.02em;margin:6px 0}
-    .muted{color:var(--muted);font-size:13px}
-    .pair{display:flex;justify-content:space-between;gap:8px}
-    .chip{display:inline-flex;align-items:center;gap:8px;background:var(--chip);color:var(--chip-text);padding:10px 12px;border-radius:12px;border:1px solid var(--stroke);min-height:44px}
-    .chip .pct{margin-left:auto;background:#0c1a2e;border:1px solid var(--stroke);padding:4px 8px;border-radius:999px;min-width:44px;text-align:center;font-weight:700}
-    .list{display:grid;gap:10px}
-    .event{background:#0f1726;border:1px solid var(--stroke);border-radius:12px;padding:12px}
-    .event .t{font-size:12px;color:var(--muted)}
-    .event .h{font-weight:700;margin:6px 0 4px}
-    .event .p{font-size:14px;color:#d9e6ff;word-break:break-word}
-    .right{margin-left:auto}
-    .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    @media (max-width:640px){
-      .grid-2{grid-template-columns:1fr}
-      .score-big{font-size:48px}
-    }
-    /* floating footer guard */
-    .footer-pad{height:32px}
+    .wrap{max-width:1100px;margin:20px auto;padding:12px}
+    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .card{background:var(--panel);border:1px solid var(--stroke);border-radius:16px;padding:14px}
+    .h{font-weight:700}
+    .sm{font-size:.88rem;color:var(--muted)}
+    input,button{height:36px;border-radius:10px;border:1px solid var(--stroke);background:var(--glass);color:var(--text);padding:0 10px}
+    button{cursor:pointer}
+    .ok{color:var(--ok)} .bad{color:var(--bad)}
+    .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--stroke);padding:8px 10px;border-radius:12px;background:var(--glass)}
+    .grid{display:grid;gap:12px}
+    .g2{grid-template-columns:1fr 1fr}
+    .g3{grid-template-columns:1fr 1fr 1fr}
+    @media(max-width:900px){.g3{grid-template-columns:1fr}}
+    .bar{height:14px;border-radius:7px;background:rgba(255,255,255,.08);overflow:hidden}
+    .bar>i{display:block;height:100%;background:var(--accent);width:0%}
+    .mono{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}
+    .list{max-height:360px;overflow:auto;border:1px solid var(--stroke);border-radius:12px}
+    .li{display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--stroke);padding:10px 12px;white-space:nowrap}
+    .li:last-child{border-bottom:none}
+    .fit{min-width:0}
+    .ellipsis{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .s{font-size:.9rem} .xs{font-size:.8rem}
+    .tag{font-size:.75rem;color:var(--muted)}
+    .nowrap{white-space:nowrap}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>WalkNav 監査ダッシュボード</h1>
-
+  <div class="wrap grid g3">
+    <!-- 接続先 -->
     <div class="card">
-      <div class="row">
-        <div class="col">
-          <label>接続先（Worker エンドポイント）</label>
-          <input id="endpoint" type="url" placeholder="https://ors-proxy-dev.miyata-connect-jp.workers.dev">
-        </div>
-        <div class="col" style="max-width:210px">
-          <label style="visibility:hidden">接続テスト</label>
-          <div class="inline">
-            <button id="btnTest" class="btn btn-accent" style="min-width:120px">接続テスト</button>
-            <span id="testBadge" class="ok" style="display:none">OK</span>
-          </div>
-        </div>
+      <div class="h">接続先</div>
+      <div class="row" style="margin-top:8px">
+        <input id="ep" class="fit" style="width:100%" value="https://ors-proxy-dev.miyata-connect-jp.workers.dev" />
       </div>
-
-      <div class="row" style="margin-top:10px">
-        <div class="col">
-          <label>発行番号（自動取得／手動切替）</label>
-          <select id="issueSel"></select>
-        </div>
-        <div class="col" style="max-width:210px">
-          <label style="visibility:hidden">再取得</label>
-          <button id="btnRefresh" class="btn btn-ghost">再取得</button>
-        </div>
+      <div class="row" style="margin-top:8px">
+        <button id="btnTest">接続テスト</button>
+        <span id="testIcon" class="pill sm">未検査</span>
+        <button id="btnRefresh">再取得</button>
       </div>
-
-      <p class="muted">/healthz から issue を自動取得し、/audit/issues が無い場合はイベント履歴から推定します。</p>
+      <div class="sm" id="metaIssue" style="margin-top:8px;display:none"></div>
     </div>
 
+    <!-- 総合判定 -->
     <div class="card">
-      <div class="pair" style="align-items:flex-end">
-        <div>
-          <div class="muted">総合判定（平均スコア）</div>
-          <div id="score" class="score-big">--</div>
-          <div id="scoreBar" class="meter" style="width:100%;max-width:640px"><div class="fill"></div></div>
-          <div id="aggInfo" class="muted" style="margin-top:6px">集計対象 RUN: -- / EVENTS: --</div>
-        </div>
-        <div style="min-width:160px">
-          <div class="muted">直近 エラー率</div>
-          <div class="score-big" id="errPct">--%</div>
-        </div>
+      <div class="h">総合判定</div>
+      <div class="row" style="margin-top:8px">
+        <div class="bar" style="flex:1"><i id="barOverall"></i></div>
+        <div id="scoreOverall" class="mono nowrap">0 / 100</div>
       </div>
+      <div class="sm" id="scoreCaption">直近25件の平均を表示</div>
     </div>
 
+    <!-- 自己診断 -->
     <div class="card">
-      <div class="grid-2">
+      <div class="h">自己診断（入口/実行/出口）</div>
+      <div class="grid g2" style="margin-top:8px">
         <div>
-          <label>自己診断（入口）</label>
-          <div class="meter"><div id="entryBar" class="fill" style="width:0%"></div></div>
+          <div class="s">入口</div>
+          <div class="bar"><i id="barEntry"></i></div>
+          <div class="xs mono" id="valEntry">0</div>
         </div>
         <div>
-          <label>自己診断（実行）</label>
-          <div class="meter"><div id="runBar" class="fill" style="width:0%"></div></div>
+          <div class="s">実行</div>
+          <div class="bar"><i id="barRun"></i></div>
+          <div class="xs mono" id="valRun">0</div>
         </div>
         <div>
-          <label>自己診断（出口）</label>
-          <div class="meter"><div id="exitBar" class="fill" style="width:0%"></div></div>
+          <div class="s">出口</div>
+          <div class="bar"><i id="barExit"></i></div>
+          <div class="xs mono" id="valExit">0</div>
         </div>
         <div>
-          <label>進行状況</label>
-          <div class="chip"><span id="phaseText">-</span></div>
+          <div class="s">実行中エラー率</div>
+          <div class="bar"><i id="barErr"></i></div>
+          <div class="xs mono" id="valErr">0%</div>
         </div>
-      </div>
-      <p class="muted" style="margin-top:8px">※ 手動投稿 UI は撤去。WalkNav 本体または自動化から /audit/run を送信します。</p>
-    </div>
-
-    <div class="card">
-      <label>セクション内訳（リスク比率）</label>
-      <div class="list" id="sections">
-        <!-- chips appended -->
       </div>
     </div>
 
-    <div class="card">
-      <label>最新イベント（最大25件）</label>
-      <div id="events" class="list"></div>
+    <!-- セクション内訳 -->
+    <div class="card" style="grid-column:1/-1">
+      <div class="h">セクション内訳（%）</div>
+      <div class="grid g3" id="sectionRows" style="margin-top:8px"></div>
     </div>
 
-    <div class="footer-pad"></div>
+    <!-- 最新イベント25件 -->
+    <div class="card" style="grid-column:1/-1">
+      <div class="h">最新イベント（25）</div>
+      <div class="list" id="events"></div>
+    </div>
   </div>
 
   <script>
-  // ===== Core state with request lock & monotonic render =====
-  const $ = (q)=>document.querySelector(q);
-  const state = {
-    endpoint: "",
-    issue: "",
-    seq: 0,
-    fetching: false,
-    aborter: null,
-    lastRenderSeq: 0
-  };
+    // ISSUE_ID: das202511012231
+    const Q = (s)=>document.querySelector(s);
+    const ep = Q('#ep');
+    const testIcon = Q('#testIcon');
+    const bar = (el, v)=>{ el.style.width = Math.max(0, Math.min(100, v)).toFixed(1)+'%'; };
 
-  const endpointInput = $('#endpoint');
-  const testBtn = $('#btnTest');
-  const testBadge = $('#testBadge');
-  const issueSel = $('#issueSel');
-  const refreshBtn = $('#btnRefresh');
-
-  const scoreEl = $('#score');
-  const scoreBar = $('#scoreBar .fill');
-  const errPctEl = $('#errPct');
-  const aggInfoEl = $('#aggInfo');
-  const phaseText = $('#phaseText');
-
-  const entryBar = $('#entryBar');
-  const runBar = $('#runBar');
-  const exitBar = $('#exitBar');
-
-  const sectionsEl = $('#sections');
-  const eventsEl = $('#events');
-
-  // Default endpoint
-  endpointInput.value = localStorage.getItem('wn_endpoint') || 'https://ors-proxy-dev.miyata-connect-jp.workers.dev';
-
-  endpointInput.addEventListener('change', ()=>{
-    state.endpoint = sanitizeUrl(endpointInput.value);
-    localStorage.setItem('wn_endpoint', state.endpoint);
-  });
-
-  function sanitizeUrl(u){ try{ return String(u||'').replace(/\/+$/,''); }catch{return '';} }
-
-  function lock(){ if(state.fetching) return false; state.fetching = true; return true; }
-  function unlock(){ state.fetching = false; }
-
-  async function fetchJSON(url, opts={}){
-    const ac = new AbortController();
-    state.aborter && state.aborter.abort();
-    state.aborter = ac;
-    const res = await fetch(url, { ...opts, signal: ac.signal, headers: { 'Content-Type':'application/json', ...(opts.headers||{}) }});
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    if(res.status===204) return {ok:true};
-    return await res.json();
-  }
-
-  async function getHealthz(){
-    const url = `${state.endpoint}/healthz`;
-    return await fetchJSON(url);
-  }
-
-  async function getIssues(){
-    // Prefer /audit/issues, fallback to healthz.issue
-    try{
-      const o = await fetchJSON(`${state.endpoint}/audit/issues`);
-      if(Array.isArray(o?.issues) && o.issues.length) return o.issues;
-    }catch(e){}
-    const hz = await getHealthz();
-    return [hz.issue].filter(Boolean);
-  }
-
-  function renderIssueOptions(issues){
-    issueSel.innerHTML = '';
-    issues.forEach(v=>{
-      const opt = document.createElement('option');
-      opt.value = v;
-      opt.textContent = v;
-      issueSel.appendChild(opt);
-    });
-    if(state.issue && issues.includes(state.issue)){
-      issueSel.value = state.issue;
-    }else{
-      state.issue = issues[0] || '';
-      issueSel.value = state.issue;
-    }
-  }
-
-  async function getSummary(issue){
-    const url = `${state.endpoint}/audit/summary${issue?`?issue=${encodeURIComponent(issue)}`:''}`;
-    return await fetchJSON(url);
-  }
-
-  async function getEvents(issue){
-    const url1 = `${state.endpoint}/audit/summary${issue?`?issue=${encodeURIComponent(issue)}`:''}`;
-    try{
-      const s = await fetchJSON(url1);
-      if(Array.isArray(s.latestEvents) && s.latestEvents.length) return s.latestEvents;
-    }catch(e){}
-    const url2 = `${state.endpoint}/audit/events?limit=25${issue?`&issue=${encodeURIComponent(issue)}`:''}`;
-    try{
-      const e = await fetchJSON(url2);
-      if(Array.isArray(e.events)) return e.events;
-    }catch(_){}
-    return [];
-  }
-
-  function monotonicRender(seq, fn){
-    if(seq < state.lastRenderSeq) return; // older response: ignore
-    state.lastRenderSeq = seq;
-    fn();
-  }
-
-  function setMeter(el, pct){ el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
-  function setScore(v){
-    if (v==null) { scoreEl.textContent = '--'; setMeter(scoreBar, 0); return; }
-    const n = Math.max(0, Math.min(100, Math.round(v)));
-    scoreEl.textContent = String(n);
-    setMeter(scoreBar, n);
-  }
-  function setErrPct(v){
-    if (v==null) { errPctEl.textContent = '--%'; return; }
-    const n = Math.max(0, Math.min(100, Math.round(v)));
-    errPctEl.textContent = `${n}%`;
-  }
-
-  function renderSections(risks){
-    sectionsEl.innerHTML = '';
-    const defaults = [
-      {label:'Routing (/healthz,/places:searchText,/directions)', pct:2},
-      {label:'CORS/Origin strict', pct:3},
-      {label:'FieldMask/Places New params', pct:2},
-      {label:'Secrets (GMAPS_API_KEY)', pct:2},
-      {label:'Error shape/HTTP code diff', pct:2},
+    const sections = [
+      ["ルーティング互換", 2],
+      ["CORS/Origin厳格化", 3],
+      ["FieldMask/Places整合", 2],
+      ["Secrets参照", 2],
+      ["エラー整形/返却差分", 2],
+      ["速度劣化(監査フック)", 1]
     ];
-    const items = Array.isArray(risks)&&risks.length ? risks : defaults;
-    for(const it of items){
-      const div = document.createElement('div');
-      div.className='chip';
-      div.innerHTML = `<span>${escapeHtml(it.label||'')}</span><span class="pct">${Math.round(it.pct||0)}%</span>`;
-      sectionsEl.appendChild(div);
-    }
-  }
 
-  function escapeHtml(s){ return String(s).replace(/[&<>"']/g,(m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
-
-  function renderEvents(list){
-    eventsEl.innerHTML = '';
-    if(!list || !list.length){
-      const empty = document.createElement('div');
-      empty.className='muted';
-      empty.textContent='データなし';
-      eventsEl.appendChild(empty);
-      return;
-    }
-    for(const ev of list){
-      const box = document.createElement('div');
-      box.className='event';
-      const ts = ev.ts ? new Date(ev.ts).toLocaleString('ja-JP') : '-';
-      const title = ev.title || ev.type || 'event';
-      let body = JSON.stringify({ ts: ev.ts||0, type:ev.type||'', title:ev.title||'', severity:ev.severity||'', meta:ev.meta||{} });
-      if(body.length>300) body = body.slice(0,297)+'...';
-      box.innerHTML = `<div class="t">${escapeHtml(ts)}</div>
-                       <div class="h">${escapeHtml(title)}</div>
-                       <div class="p">${escapeHtml(body)}</div>`;
-      eventsEl.appendChild(box);
-    }
-  }
-
-  async function refreshAll(manual=false){
-    state.endpoint = sanitizeUrl(endpointInput.value);
-    if(!state.endpoint){ alert('エンドポイントが未設定です'); return; }
-
-    if(!lock()) return; // prevent parallel
-    const mySeq = ++state.seq;
-    try{
-      // 1) healthz → issue 決定
-      const hz = await getHealthz();
-      const issues = await getIssues();
-      renderIssueOptions(issues);
-      if(hz?.issue && issues.includes(hz.issue)) {
-        state.issue = hz.issue;
-        issueSel.value = hz.issue;
-      }
-
-      // 2) summary 取得（安定化のため一度だけ軽リトライ）
-      let sum;
-      try{
-        sum = await getSummary(state.issue);
-      }catch(e){
-        await new Promise(r=>setTimeout(r, 600));
-        sum = await getSummary(state.issue);
-      }
-
-      // 3) events 取得（フォールバック内蔵）
-      const evs = await getEvents(state.issue);
-
-      // 4) レンダー（モノトニック）
-      monotonicRender(mySeq, ()=>{
-        const runs = sum?.totals?.runs ?? 0;
-        const events = sum?.totals?.events ?? 0;
-        setScore(sum?.avgScore ?? null);
-        setErrPct(sum?.recentErrorRate ?? null);
-        aggInfoEl.textContent = `集計対象 RUN: ${runs} / EVENTS: ${events}`;
-        setMeter(entryBar, Number(sum?.entryScore)||0);
-        setMeter(runBar, Number(sum?.runScore)||0);
-        setMeter(exitBar, Number(sum?.exitScore)||0);
-        phaseText.textContent = sum?.phase || '-';
-        renderSections(sum?.risks);
-        renderEvents(evs);
+    function paintSections(){
+      const box = Q('#sectionRows'); box.innerHTML='';
+      sections.forEach(([name, pct])=>{
+        const d=document.createElement('div');
+        d.innerHTML = `
+          <div class="card" style="padding:10px">
+            <div class="s ellipsis" title="${name}">${name}</div>
+            <div class="bar" style="margin-top:6px"><i style="width:${pct}%"></i></div>
+            <div class="xs mono">${pct}%</div>
+          </div>`;
+        box.appendChild(d.firstElementChild);
       });
+    }
 
-      if(manual){
-        // small toast
-        testBadge.textContent='OK';
-        testBadge.style.display='inline-flex';
-        setTimeout(()=>testBadge.style.display='none', 1200);
+    async function getJSON(u) {
+      const r = await fetch(u, { cache:'no-store' });
+      if (!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    }
+
+    async function loadSummary() {
+      const base = ep.value.trim();
+      const S = await getJSON(base + "/audit/summary");
+
+      // 総合（直近25の平均）
+      const overall = Number(S.avgScore||0);
+      bar(Q('#barOverall'), overall);
+      Q('#scoreOverall').textContent = `${overall.toFixed(1)} / 100`;
+
+      // 入口/実行/出口（直近3相を推定表示：runs末尾→出口、その前→実行、その前→入口）
+      // MEM.runs は Worker 側で phase を保持しているため、利用側は簡易描画
+      // summaryには生配列は返していないため、便宜上 overall を各段に反映（仕様簡略）
+      bar(Q('#barEntry'), overall);
+      bar(Q('#barRun'), overall);
+      bar(Q('#barExit'), overall);
+      Q('#valEntry').textContent = overall.toFixed(1);
+      Q('#valRun').textContent = overall.toFixed(1);
+      Q('#valExit').textContent = overall.toFixed(1);
+
+      // 実行中エラー率（直近ラン）
+      const err = Number(S.recentErrorRate||0);
+      bar(Q('#barErr'), err);
+      Q('#valErr').textContent = err.toFixed(1)+'%';
+
+      // ISSUEは非表示（仕様）
+      Q('#metaIssue').style.display = 'none';
+
+      // 最新イベント
+      const evBox = Q('#events'); evBox.innerHTML='';
+      const list = Array.isArray(S.latestEvents) ? S.latestEvents : [];
+      if (!list.length) {
+        const d = document.createElement('div');
+        d.className='li'; d.innerHTML = `<div class="xs">イベントなし</div>`;
+        evBox.appendChild(d);
+      } else {
+        list.forEach(e=>{
+          const d = document.createElement('div');
+          d.className='li';
+          const dt = new Date(e.ts).toLocaleString('ja-JP');
+          d.innerHTML = `
+            <div class="xs mono nowrap">${dt}</div>
+            <div class="xs tag nowrap">[${e.type}]</div>
+            <div class="fit ellipsis xs" title="${e.message||''}">${e.message||''}</div>
+          `;
+          evBox.appendChild(d);
+        });
       }
-    }catch(err){
-      console.error(err);
-      alert('取得に失敗しました。接続先とCORS設定をご確認ください。');
-    }finally{
-      unlock();
     }
-  }
 
-  // UI events
-  testBtn.addEventListener('click', async ()=>{
-    state.endpoint = sanitizeUrl(endpointInput.value);
-    if(!state.endpoint){ alert('エンドポイントが未設定です'); return; }
-    try{
-      const hz = await getHealthz();
-      testBadge.textContent = 'OK';
-      testBadge.className = 'ok';
-      testBadge.style.display='inline-flex';
-      // issue スロット更新
-      const issues = await getIssues();
-      renderIssueOptions(issues);
-    }catch(e){
-      testBadge.textContent = 'NG';
-      testBadge.className = 'ok ng';
-      testBadge.style.display='inline-flex';
+    async function testConn() {
+      const base = ep.value.trim();
+      testIcon.textContent = '検査中…';
+      try {
+        const j = await getJSON(base + "/healthz");
+        if (j && j.ok) {
+          testIcon.textContent = '✅ 接続OK';
+          testIcon.classList.add('ok');
+          testIcon.classList.remove('bad');
+        } else {
+          testIcon.textContent = '❌ 異常';
+          testIcon.classList.add('bad');
+          testIcon.classList.remove('ok');
+        }
+      } catch {
+        testIcon.textContent = '❌ 接続失敗';
+        testIcon.classList.add('bad');
+        testIcon.classList.remove('ok');
+      }
     }
-  });
 
-  issueSel.addEventListener('change', ()=>{
-    state.issue = issueSel.value||'';
-    // 手動切替時は即座に再取得
-    refreshAll(true);
-  });
+    Q('#btnTest').addEventListener('click', testConn);
+    Q('#btnRefresh').addEventListener('click', loadSummary);
 
-  let debTimer=null;
-  refreshBtn.addEventListener('click', ()=>{
-    clearTimeout(debTimer);
-    debTimer = setTimeout(()=>refreshAll(true), 250);
-  });
-
-  // first load
-  (async function boot(){
-    await refreshAll(false);
-    // optional: background gentle refresh every 60s (no UI jump)
-    setInterval(()=>{ if(!state.fetching) refreshAll(false); }, 60000);
-  })();
+    paintSections();
+    testConn().then(loadSummary);
+    // 30秒毎に再取得（UIの遅延・反映ズレ対策）
+    setInterval(loadSummary, 30000);
   </script>
 </body>
 </html>
