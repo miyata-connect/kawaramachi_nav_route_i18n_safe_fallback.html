@@ -186,7 +186,7 @@
     const API_KEY = 'AIzaSyBXC6CB2yaUkrJ5UYj3mymAsruQe4MzGPk'; // Maps表示用のみ
     const WORKER_ORIGIN = 'https://ors-proxy.miyata-connect-jp.workers.dev'; // 既存Worker
 
-    let map, userMarker, directionsService, directionsRenderer, geocoder;
+    let map, userMarker, geocoder;
     let currentPos = null;
     let pointSearchMode = false;
     let searchPoint = null;
@@ -262,18 +262,6 @@
         disableDefaultUI:true
       });
 
-      // DirectionsService を復活
-      directionsService = new google.maps.DirectionsService();
-      directionsRenderer = new google.maps.DirectionsRenderer({
-        map: map,
-        suppressMarkers: false,
-        polylineOptions: {
-          strokeColor: '#62b5ff',
-          strokeWeight: 6,
-          strokeOpacity: 0.8
-        }
-      });
-
       geocoder = new google.maps.Geocoder();
 
       map.addListener('mousedown', (e) => {
@@ -335,7 +323,7 @@
       map.panTo({lat, lng});
     }
 
-    function startNavigation(destination){
+    async function startNavigation(destination){
       if(!currentPos){
         alert('現在地が取得できていません');
         return;
@@ -343,21 +331,30 @@
 
       currentDestination = destination;
 
-      // DirectionsService を使用（ブラウザで直接呼び出し）
-      const request = {
-        origin: new google.maps.LatLng(currentPos.lat, currentPos.lng),
-        destination: new google.maps.LatLng(destination.lat, destination.lng),
-        travelMode: google.maps.TravelMode.WALKING
-      };
+      try {
+        // Worker経由でDirections APIを呼び出し
+        const params = new URLSearchParams({
+          origin: `${currentPos.lat},${currentPos.lng}`,
+          destination: `${destination.lat},${destination.lng}`,
+          mode: 'walking',
+          language: 'ja'
+        });
 
-      directionsService.route(request, (result, status) => {
-        if(status === 'OK'){
-          directionsRenderer.setDirections(result);
-          
+        const response = await fetch(`${WORKER_ORIGIN}/directions?${params.toString()}`);
+        
+        if(!response.ok){
+          throw new Error(`Directions API Error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log('[Navigation] Directions Response:', result);
+
+        if(result.status === 'OK' && result.routes && result.routes.length > 0){
           const route = result.routes[0].legs[0];
           const distance = route.distance.text;
           const duration = route.duration.text;
 
+          // ルート情報を表示
           document.getElementById('destinationName').textContent = destination.name;
           document.getElementById('routeDistance').textContent = distance;
           document.getElementById('routeTime').textContent = `徒歩 ${duration}`;
@@ -366,19 +363,55 @@
           document.getElementById('searchPanel').style.display = 'none';
           document.getElementById('results').style.display = 'none';
 
+          // Polylineを描画（DirectionsRendererは使わない）
+          drawRoutePolyline(result.routes[0]);
+
           map.panTo({lat: destination.lat, lng: destination.lng});
-          map.setZoom(18);
+          map.setZoom(15);
 
           console.log(`[Navigation] ルート案内開始: ${destination.name}`);
         }else{
-          console.error('[Navigation] ルート取得失敗:', status);
+          console.error('[Navigation] ルート取得失敗:', result.status);
           alert('ルートを取得できませんでした');
         }
+      } catch(error) {
+        console.error('[Navigation] Error:', error);
+        alert('ルートを取得できませんでした');
+      }
+    }
+
+    let currentPolyline = null;
+
+    // Polylineを手動描画
+    function drawRoutePolyline(route){
+      // 既存のPolylineを削除
+      if(currentPolyline){
+        currentPolyline.setMap(null);
+      }
+
+      // overview_polyline から経路を取得
+      const encodedPath = route.overview_polyline.points;
+      const path = google.maps.geometry.encoding.decodePath(encodedPath);
+
+      currentPolyline = new google.maps.Polyline({
+        path: path,
+        geodesic: true,
+        strokeColor: '#62b5ff',
+        strokeOpacity: 0.8,
+        strokeWeight: 6,
+        map: map
       });
+
+      console.log('[Navigation] Polyline drawn');
     }
 
     function stopNavigation(){
-      directionsRenderer.setDirections({routes: []});
+      // Polylineを削除
+      if(currentPolyline){
+        currentPolyline.setMap(null);
+        currentPolyline = null;
+      }
+      
       currentDestination = null;
       document.getElementById('routePanel').style.display = 'none';
       document.getElementById('searchPanel').style.display = 'block';
