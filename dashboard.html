@@ -1,276 +1,269 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>WalkNav 管理ダッシュボード</title>
-  <meta name="color-scheme" content="dark light" />
+  <!-- 発行番号 -->
+  <meta name="x-issue" content="das202510310725">
   <style>
     :root{
-      --glass: rgba(20,28,44,.72);
-      --glass-strong: rgba(16,22,36,.88);
-      --stroke: rgba(255,255,255,.12);
-      --text: #eaf2ff;
-      --muted:#a7b8ce;
-      --accent:#64d2ff;
-      --ok:#22c55e;
-      --warn:#f59e0b;
-      --danger:#ef4444;
+      --bg:#0b1220;--panel:#131c2b;--ink:#eaf2ff;--muted:#a7b8ce;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;--stroke:#1f2a3d;--accent:#5fb1ff;
     }
-    html,body{height:100%;margin:0;background:#0b1220;color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    *{box-sizing:border-box}
-    .wrap{max-width:1000px;margin:32px auto;padding:0 16px}
-    .card{background:var(--glass);border:1px solid var(--stroke);border-radius:18px;box-shadow:0 6px 30px rgba(0,0,0,.35)}
-    .head{padding:20px 24px;border-bottom:1px solid var(--stroke)}
-    .title{font-size:28px;font-weight:800;letter-spacing:.02em}
-    .body{padding:20px 24px}
-    .row{display:flex;gap:14px;flex-wrap:wrap}
-    .input, .btn{
-      height:44px;border-radius:12px;border:1px solid var(--stroke);
-      background:var(--glass-strong);color:var(--text);padding:0 14px;font-size:14px;outline:none
-    }
-    .input::placeholder{color:var(--muted)}
-    .btn{cursor:pointer}
-    .btn:disabled{opacity:.55;cursor:not-allowed}
-    .btn-accent{background:linear-gradient(180deg,#87c7ff,#4aa8ff);color:#071524;border:none}
-    .btn-ghost{background:transparent}
-    .kpi{flex:1 1 180px;min-width:180px;padding:16px;border-radius:14px;border:1px solid var(--stroke);background:rgba(255,255,255,.02)}
-    .kpi .n{font-size:28px;font-weight:800}
-    .kpi .l{font-size:12px;color:var(--muted)}
-    .grid{display:grid;grid-template-columns:1fr;gap:14px}
-    @media (min-width:860px){.grid{grid-template-columns:1fr 1fr}}
+    *{box-sizing:border-box} html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif}
+    .wrap{max-width:1000px;margin:24px auto;padding:0 16px}
+    .card{background:var(--panel);border:1px solid var(--stroke);border-radius:16px;padding:20px;box-shadow:0 6px 24px rgba(0,0,0,.25)}
+    .row{display:grid;gap:16px}
+    @media(min-width:720px){.row.cols-2{grid-template-columns:1fr 1fr}.row.cols-3{grid-template-columns:1fr 1fr 1fr}}
+    .title{font-size:28px;font-weight:800;margin:0 0 8px}
+    .sub{color:var(--muted);font-size:14px;margin-bottom:12px}
+    .input{width:100%;background:#0f1726;border:1px solid var(--stroke);color:var(--ink);border-radius:12px;padding:12px 14px;font-size:14px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;background:#1a2840;border:1px solid var(--stroke);color:var(--ink);padding:10px 14px;border-radius:12px;cursor:pointer}
+    .btn:hover{background:#1e3151}
+    .btn.primary{background:var(--accent);border-color:transparent;color:#06101f;font-weight:700}
+    .btn.ghost{background:transparent}
+    .badge{display:inline-block;padding:4px 10px;border-radius:999px;border:1px solid var(--stroke);background:#0e1a2e;color:var(--muted);font-size:12px}
+    .stat{background:#0f1726;border:1px solid var(--stroke);border-radius:14px;padding:14px}
+    .stat .label{color:var(--muted);font-size:12px}
+    .stat .val{font-size:28px;font-weight:800;margin-top:6px}
+    .ok{color:var(--ok)} .warn{color:var(--warn)} .bad{color:var(--bad)}
+    .bar{height:12px;background:#0d1526;border:1px solid var(--stroke);border-radius:999px;overflow:hidden}
+    .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ok),#10b981 40%,#f59e0b 60%,#ef4444)}
+    .hint{font-size:12px;color:var(--muted)}
     .table{width:100%;border-collapse:collapse;border:1px solid var(--stroke);border-radius:12px;overflow:hidden}
-    .table th,.table td{border-bottom:1px solid var(--stroke);padding:10px 12px;text-align:left;font-size:13px}
-    .table th{background:rgba(255,255,255,.04);color:var(--muted);font-weight:600}
-    .badge{padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--stroke);background:rgba(255,255,255,.06)}
-    .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
-    .ok{background:var(--ok)} .warn{background:var(--warn)} .danger{background:var(--danger)}
-    .muted{color:var(--muted)}
+    .table th,.table td{border-bottom:1px solid var(--stroke);padding:10px 12px;font-size:13px}
+    .table th{background:#0f1726;color:var(--muted);text-align:left}
+    .pill{padding:2px 8px;border-radius:999px;font-size:12px;border:1px solid var(--stroke)}
+    .pill.ok{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.35);color:var(--ok)}
+    .pill.warn{background:rgba(245,158,11,.12);border-color:rgba(245,158,11,.35);color:var(--warn)}
+    .pill.bad{background:rgba(239,68,68,.12);border-color:rgba(239,68,68,.35);color:var(--bad)}
+    .footer{margin:24px 0 40px;color:var(--muted);font-size:12px;text-align:center}
+    .status{margin-top:8px;font-size:13px;color:var(--muted)}
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 </head>
 <body>
   <div class="wrap">
+    <div class="card" style="margin-bottom:16px">
+      <div class="title">WalkNav 管理ダッシュボード</div>
+      <div class="sub">自己診断（入り口／実行中／出口）・監視・採点の可視化。発行番号: <span id="ISSUE_ID" class="badge">das202510310725</span></div>
+
+      <div class="row cols-2" style="margin-top:12px">
+        <div>
+          <div class="hint" style="margin:6px 2px">Worker 基本URL（例: https://ors-proxy-dev.miyata-connect-jp.workers.dev）</div>
+          <input id="baseUrl" class="input" placeholder="https://xxxxx.workers.dev">
+        </div>
+        <div>
+          <div class="hint" style="margin:6px 2px">管理トークン（ADMIN_TOKEN／任意）</div>
+          <input id="adminToken" class="input" placeholder="未設定なら空のまま">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:12px">
+        <button id="saveBtn" class="btn">保存</button>
+        <button id="fetchBtn" class="btn primary">最新を取得</button>
+        <span id="inlineStatus" class="status"></span>
+      </div>
+    </div>
+
+    <!-- 指標：入り口／実行中／出口 -->
+    <div class="row cols-3" style="margin-bottom:16px">
+      <div class="card stat">
+        <div class="label">入り口自己診断スコア</div>
+        <div class="val" id="scoreStart">0</div>
+        <div class="hint">テンプレ遵守・差分禁止・鍵直書き検出などの事前チェック結果</div>
+      </div>
+      <div class="card stat">
+        <div class="label">実行中：問題発生率（%）</div>
+        <div class="val" id="errRate">0%</div>
+        <div class="bar" style="margin-top:8px"><i id="errBar"></i></div>
+        <div class="hint">進行中に検出された違反・例外・API失敗の割合</div>
+      </div>
+      <div class="card stat">
+        <div class="label">出口自己診断スコア</div>
+        <div class="val" id="scoreEnd">0</div>
+        <div class="hint">要件充足・UI不変・テスト合格・日本語表記などの総合評価</div>
+      </div>
+    </div>
+
+    <!-- 進行状況と採点推移 -->
+    <div class="row cols-2" style="margin-bottom:16px">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div class="badge">進行状況</div><span id="phaseText" class="hint">停止中</span>
+        </div>
+        <div class="bar"><i id="progressBar"></i></div>
+        <div class="hint" style="margin-top:8px">フェーズ進捗（0→100）と内部イベントに連動</div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div class="badge">採点推移（最新10件）</div><span id="trendNote" class="hint">データなし</span>
+        </div>
+        <table class="table" id="trendTable">
+          <thead><tr><th>時刻</th><th>開始</th><th>終了</th><th>問題率</th><th>判定</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 最近のイベント -->
     <div class="card">
-      <div class="head">
-        <div class="title">WalkNav 管理ダッシュボード</div>
-        <div class="muted" style="margin-top:6px">自己診断・監視・採点の可視化</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <div class="badge">最新イベント</div><span class="hint">重大のみを表示（UI上のポップアップは行いません）</span>
       </div>
-      <div class="body">
-        <div class="row" style="margin-bottom:12px">
-          <input id="baseUrl" class="input" style="flex:1 1 520px" placeholder="Worker 基本URL（例: https://ors-proxy-dev.miyata-connect-jp.workers.dev）">
-          <input id="adminToken" class="input" style="width:240px" placeholder="管理者トークン（任意）">
-          <button id="saveCfg" class="btn btn-accent">保存</button>
-        </div>
-        <div class="row" style="margin-bottom:8px">
-          <button id="reloadBtn" class="btn">最新を取得</button>
-          <span id="statusLine" class="muted" style="align-self:center"></span>
-        </div>
+      <table class="table" id="evtTable">
+        <thead><tr><th>時刻</th><th>種別</th><th>概要</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
 
-        <div class="row" style="margin:14px 0 18px">
-          <div class="kpi">
-            <div class="l">レポート総数</div>
-            <div id="kpiTotal" class="n">0</div>
-          </div>
-          <div class="kpi">
-            <div class="l">直近エラー率</div>
-            <div id="kpiErr" class="n">0%</div>
-          </div>
-          <div class="kpi">
-            <div class="l">開始スコア（平均）</div>
-            <div id="kpiEntry" class="n">0</div>
-          </div>
-          <div class="kpi">
-            <div class="l">終了スコア（平均）</div>
-            <div id="kpiExit" class="n">0</div>
-          </div>
-        </div>
-
-        <div class="grid" style="margin-bottom:16px">
-          <div class="card">
-            <div class="head"><b>スコア推移</b></div>
-            <div class="body"><canvas id="scoreChart" height="180"></canvas></div>
-          </div>
-          <div class="card">
-            <div class="head"><b>エラー率推移</b></div>
-            <div class="body"><canvas id="errorChart" height="180"></canvas></div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="head">
-            <b>最新ログ</b>
-            <span id="logHint" class="badge" style="margin-left:8px">データがありません</span>
-          </div>
-          <div class="body" style="overflow:auto">
-            <table class="table" id="logTable">
-              <thead>
-                <tr>
-                  <th>時刻</th>
-                  <th>フェーズ</th>
-                  <th>開始</th>
-                  <th>終了</th>
-                  <th>エラー率</th>
-                  <th>件数</th>
-                  <th>メタ</th>
-                </tr>
-              </thead>
-              <tbody id="logBody"></tbody>
-            </table>
-          </div>
-        </div>
-
-      </div>
+    <div class="footer">
+      © WalkNav Dashboard • 発行番号 <span class="badge">das202510310725</span>
     </div>
   </div>
 
-<script>
-(function(){
-  const qs = s => document.querySelector(s);
-  const baseUrlEl = qs('#baseUrl');
-  const adminEl   = qs('#adminToken');
-  const saveBtn   = qs('#saveCfg');
-  const reloadBtn = qs('#reloadBtn');
-  const statusLine= qs('#statusLine');
-
-  // init config from localStorage
-  const store = {
-    get k(){ return localStorage.getItem('wn_base') || ''; },
-    set k(v){ localStorage.setItem('wn_base', v); },
-    get t(){ return localStorage.getItem('wn_token') || ''; },
-    set t(v){ localStorage.setItem('wn_token', v); }
+  <script>
+  // ====== 設定と状態 ======
+  const ISSUE_ID = "das202510310725"; // 画面右上やmetaと一致
+  const els = {
+    baseUrl: document.getElementById('baseUrl'),
+    adminToken: document.getElementById('adminToken'),
+    saveBtn: document.getElementById('saveBtn'),
+    fetchBtn: document.getElementById('fetchBtn'),
+    inlineStatus: document.getElementById('inlineStatus'),
+    scoreStart: document.getElementById('scoreStart'),
+    scoreEnd: document.getElementById('scoreEnd'),
+    errRate: document.getElementById('errRate'),
+    errBar: document.getElementById('errBar'),
+    progressBar: document.getElementById('progressBar'),
+    phaseText: document.getElementById('phaseText'),
+    trendTable: document.querySelector('#trendTable tbody'),
+    trendNote: document.getElementById('trendNote'),
+    evtTable: document.querySelector('#evtTable tbody')
   };
-  baseUrlEl.value = store.k || location.origin.replace(/\/$/, '');
-  adminEl.value   = store.t;
 
-  saveBtn.addEventListener('click', ()=>{
-    store.k = baseUrlEl.value.trim().replace(/\/$/,'');
-    store.t = adminEl.value.trim();
-    toast('設定を保存しました');
-  });
+  // 保存/復元
+  (function restore(){
+    const s = JSON.parse(localStorage.getItem('wn_dash')||'{}');
+    if(s.baseUrl) els.baseUrl.value = s.baseUrl;
+    if(s.adminToken) els.adminToken.value = s.adminToken;
+  })();
 
-  reloadBtn.addEventListener('click', () => loadAll());
+  els.saveBtn.onclick = () => {
+    localStorage.setItem('wn_dash', JSON.stringify({
+      baseUrl: els.baseUrl.value.trim(),
+      adminToken: els.adminToken.value.trim()
+    }));
+    statusMsg('保存しました。');
+  };
 
-  let scoreChart, errorChart;
+  // ====== データ取得 ======
+  els.fetchBtn.onclick = async () => {
+    const base = (els.baseUrl.value||'').trim().replace(/\/+$/,'');
+    if(!base){ return statusMsg('Worker 基本URLを入力してください。'); }
+    statusMsg('取得中…');
 
-  function toast(msg){
-    statusLine.textContent = msg;
-    setTimeout(()=> statusLine.textContent='', 4000);
-  }
-
-  async function getJson(path){
-    const base = (baseUrlEl.value || '').trim().replace(/\/$/,'');
-    if(!base){ toast('基本URLを設定してください'); return null; }
-    const url = `${base}${path}`;
+    // /admin/report 仕様（例）
+    // { issue:"idx2025...", start_score:80, end_score:86, err_rate:12,
+    //   phase:{label:"実行中", progress:65},
+    //   trend:[{ts: "...", start:80, end:86, err:12}],
+    //   events:[{ts:"...", level:"warn|bad|ok", message:"..."}] }
     const headers = {};
-    if (adminEl.value.trim()) headers['x-admin-token'] = adminEl.value.trim();
+    const token = els.adminToken.value.trim();
+    if(token) headers['Authorization'] = 'Bearer ' + token;
 
+    let res, data;
     try{
-      const res = await fetch(url, { headers });
-      if (res.status === 404){
-        // Treat 404 as empty (silent)
-        console.warn('404 (treated as empty):', url);
-        return { empty: true, items: [] };
+      res = await fetch(base + '/admin/report', {headers});
+      if(res.status === 404){
+        // Worker が未実装でも画面は壊さない（無言でデータなし）
+        applyReport(null);
+        return statusMsg('レポートAPIが見つかりません（404）。画面は継続します。');
       }
-      if (!res.ok){
-        console.warn('Fetch failed:', res.status, url);
-        return { empty: true, items: [] };
+      if(!res.ok){
+        applyReport(null);
+        return statusMsg('取得失敗: ' + res.status);
       }
-      return await res.json();
-    }catch(err){
-      console.warn('Network error:', err);
-      return { empty: true, items: [] };
+      data = await res.json();
+    }catch(e){
+      applyReport(null);
+      return statusMsg('通信エラー。');
     }
-  }
+    applyReport(data);
+    statusMsg('更新しました。');
+  };
 
-  function num(n, d=0){
-    if (n === null || n === undefined || isNaN(n)) return '0';
-    return Number(n).toFixed(d);
-  }
+  function statusMsg(t){ els.inlineStatus.textContent = t; }
 
-  function renderKPI(items){
-    const total = items.length;
-    const last  = items[0];
-    const avgEntry = total ? items.reduce((s,x)=>s+(x.scoreEntry||0),0)/total : 0;
-    const avgExit  = total ? items.reduce((s,x)=>s+(x.scoreExit||0),0)/total : 0;
-    const errRate  = last ? (last.errorRate||0) : 0;
-
-    qs('#kpiTotal').textContent = total;
-    qs('#kpiEntry').textContent = num(avgEntry,1);
-    qs('#kpiExit').textContent  = num(avgExit,1);
-    qs('#kpiErr').textContent   = `${num(errRate,1)}%`;
-  }
-
-  function renderCharts(items){
-    const labels = items.map(x=> new Date(x.ts||Date.now()).toLocaleTimeString()).reverse();
-    const entry  = items.map(x=> x.scoreEntry||0).reverse();
-    const exit   = items.map(x=> x.scoreExit||0).reverse();
-    const err    = items.map(x=> x.errorRate||0).reverse();
-
-    const sc = qs('#scoreChart').getContext('2d');
-    const ec = qs('#errorChart').getContext('2d');
-
-    if (scoreChart) scoreChart.destroy();
-    if (errorChart) errorChart.destroy();
-
-    scoreChart = new Chart(sc, {
-      type:'line',
-      data:{ labels, datasets:[
-        { label:'開始スコア', data:entry, tension:.3 },
-        { label:'終了スコア', data:exit, tension:.3 }
-      ]},
-      options:{ responsive:true, plugins:{legend:{labels:{color:'#cbd5e1'}}}, scales:{x:{ticks:{color:'#94a3b8'}},y:{min:0,max:100,ticks:{color:'#94a3b8'}}}}
-    });
-
-    errorChart = new Chart(ec, {
-      type:'line',
-      data:{ labels, datasets:[ { label:'エラー率(%)', data:err, tension:.3 } ] },
-      options:{ responsive:true, plugins:{legend:{labels:{color:'#cbd5e1'}}}, scales:{x:{ticks:{color:'#94a3b8'}},y:{min:0,max:100,ticks:{color:'#94a3b8'}}}}
-    });
-  }
-
-  function renderTable(items){
-    const body = qs('#logBody');
-    const hint = qs('#logHint');
-    body.innerHTML = '';
-    if (!items.length){
-      hint.textContent = 'データがありません';
-      return;
+  // ====== 画面反映 ======
+  function applyReport(r){
+    // デフォルト（データなし）
+    let start=0,end=0,err=0,phaseLabel='停止中',progress=0,trend=[],events=[];
+    if(r){
+      start = clamp(num(r.start_score),0,100);
+      end   = clamp(num(r.end_score),0,100);
+      err   = clamp(num(r.err_rate),0,100);
+      if(r.phase){ phaseLabel = String(r.phase.label||''); progress = clamp(num(r.phase.progress),0,100); }
+      if(Array.isArray(r.trend)) trend = r.trend.slice(0,10);
+      if(Array.isArray(r.events)) events = r.events.slice(0,50);
     }
-    hint.textContent = `表示件数: ${items.length}`;
-    for (const it of items){
+
+    els.scoreStart.textContent = start.toFixed(0);
+    els.scoreEnd.textContent = end.toFixed(0);
+    els.errRate.textContent = err.toFixed(0) + '%';
+    els.errBar.style.width = err + '%';
+
+    els.phaseText.textContent = phaseLabel || '停止中';
+    els.progressBar.style.width = progress + '%';
+
+    // 採点推移
+    els.trendTable.innerHTML = '';
+    if(trend.length===0){ els.trendNote.textContent='データなし'; }
+    else{
+      els.trendNote.textContent = '';
+      for(const t of trend){
+        const tr = document.createElement('tr');
+        const ts = fmtTime(t.ts);
+        tr.innerHTML =
+          `<td>${esc(ts)}</td>
+           <td>${esc(nz(t.start))}</td>
+           <td>${esc(nz(t.end))}</td>
+           <td>${esc(nz(t.err))}%</td>
+           <td>${pillFrom(nz(t.err))}</td>`;
+        els.trendTable.appendChild(tr);
+      }
+    }
+
+    // イベント
+    els.evtTable.innerHTML='';
+    for(const e of events){
       const tr = document.createElement('tr');
-      const ts = new Date(it.ts||Date.now()).toLocaleString();
-      const errBadge = `<span class="badge"><span class="status-dot ${ it.errorRate>20?'danger':(it.errorRate>5?'warn':'ok') }"></span>${num(it.errorRate,1)}%</span>`;
-      tr.innerHTML = `
-        <td>${ts}</td>
-        <td>${it.phase||'-'}</td>
-        <td>${num(it.scoreEntry,1)}</td>
-        <td>${num(it.scoreExit,1)}</td>
-        <td>${errBadge}</td>
-        <td>${(it.errors||[]).length}</td>
-        <td class="muted">${escapeHtml(JSON.stringify(it.meta||{}))}</td>
-      `;
-      body.appendChild(tr);
+      tr.innerHTML =
+        `<td>${esc(fmtTime(e.ts))}</td>
+         <td>${levelPill(e.level)}</td>
+         <td>${esc(String(e.message||''))}</td>`;
+      els.evtTable.appendChild(tr);
     }
   }
 
-  function escapeHtml(s){
-    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  function pillFrom(err){
+    const lvl = err<10?'ok':(err<30?'warn':'bad');
+    const txt = err<10?'良好':(err<30?'注意':'要改善');
+    return `<span class="pill ${lvl}">${txt}</span>`;
   }
-
-  async function loadAll(){
-    const res = await getJson('/report-log?limit=100');
-    const items = Array.isArray(res?.items) ? res.items : [];
-    renderKPI(items);
-    renderCharts(items);
-    renderTable(items);
-    toast('更新しました');
+  function levelPill(level){
+    const map={ok:'ok',warn:'warn',bad:'bad'};
+    const nm = {ok:'情報',warn:'警告',bad:'重大'}[level]||'情報';
+    const cl = map[level]||'ok';
+    return `<span class="pill ${cl}">${nm}</span>`;
   }
+  function esc(s){ return String(s).replace(/[&<>"']/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+  function fmtTime(ts){ try{ return new Date(ts||Date.now()).toLocaleString(); }catch{ return '-'; } }
+  function num(v){ const n = Number(v); return isNaN(n)?0:n; }
+  function nz(v){ return (v==null||v==='')?0:v; }
+  function clamp(n,min,max){ return Math.max(min,Math.min(max,n)); }
 
-  // first load
-  loadAll();
-})();
-</script>
+  // 初期描画（保存値で）
+  applyReport(null);
+  </script>
 </body>
 </html>
