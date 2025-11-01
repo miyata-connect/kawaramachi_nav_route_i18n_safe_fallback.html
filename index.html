@@ -100,7 +100,6 @@
       color:var(--muted);
     }
 
-    /* ルート案内パネル */
     .route-panel{
       position:absolute;
       left:16px;
@@ -157,7 +156,6 @@
       <div id="results" class="results" style="display:none"></div>
     </section>
 
-    <!-- ルート案内パネル -->
     <div class="route-panel" id="routePanel">
       <div class="route-info">
         <span id="destinationName">目的地</span>へのルート
@@ -185,9 +183,10 @@
 
   <script>
     const ISSUE_ID = 'idx202511011945';
-    const API_KEY = 'AIzaSyBXC6CB2yaUkrJ5UYj3mymAsruQe4MzGPk';
+    const API_KEY = 'AIzaSyBXC6CB2yaUkrJ5UYj3mymAsruQe4MzGPk'; // Maps表示用のみ
+    const WORKER_ORIGIN = 'https://YOUR-WORKER-DOMAIN.workers.dev'; // TODO: 実際のWorker URLに置き換え
 
-    let map, userMarker, directionsService, directionsRenderer, geocoder, placesService;
+    let map, userMarker, directionsService, directionsRenderer, geocoder;
     let currentPos = null;
     let pointSearchMode = false;
     let searchPoint = null;
@@ -197,6 +196,42 @@
     let searchMarkers = [];
     let currentDestination = null;
     let recognition = null;
+
+    const DEFAULT_MASK = 'places.displayName,places.formattedAddress,places.location,places.id,places.types';
+
+    // Cloudflare Worker経由 - Text Search
+    async function placesTextSearch(payload, fieldMask) {
+      const resp = await fetch(`${WORKER_ORIGIN}/places/text`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(fieldMask ? { 'X-Goog-FieldMask': fieldMask } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(`TextSearch ${resp.status}: ${t}`);
+      }
+      return resp.json();
+    }
+
+    // Cloudflare Worker経由 - Nearby Search
+    async function placesNearby(payload, fieldMask) {
+      const resp = await fetch(`${WORKER_ORIGIN}/places/nearby`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(fieldMask ? { 'X-Goog-FieldMask': fieldMask } : {})
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!resp.ok) {
+        const t = await resp.text();
+        throw new Error(`Nearby ${resp.status}: ${t}`);
+      }
+      return resp.json();
+    }
 
     function setUserMarker(lat, lng){
       currentPos = {lat, lng};
@@ -239,9 +274,6 @@
       });
 
       geocoder = new google.maps.Geocoder();
-      
-      // PlacesService初期化（JavaScript Library使用）
-      placesService = new google.maps.places.PlacesService(map);
 
       map.addListener('mousedown', (e) => {
         if(!pointSearchMode) return;
@@ -302,7 +334,6 @@
       map.panTo({lat, lng});
     }
 
-    // ====== ルート案内開始 ======
     function startNavigation(destination){
       if(!currentPos){
         alert('現在地が取得できていません');
@@ -344,7 +375,6 @@
       });
     }
 
-    // ====== ルート案内終了 ======
     function stopNavigation(){
       directionsRenderer.setDirections({routes: []});
       currentDestination = null;
@@ -353,7 +383,6 @@
       console.log('[Navigation] ルート案内終了');
     }
 
-    // ====== 音声認識初期化 ======
     function initSpeechRecognition(){
       if(!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)){
         console.log('[Voice] 音声認識は非対応です');
@@ -417,15 +446,23 @@
       }
     }
 
-    // ====== Google Places Library - textSearch ======
-    function performSearch(query){
-      if(!query || query.trim() === ''){
-        console.log('[Search] 検索ワードが空です');
-        return;
-      }
+    // タイプマッピング
+    const TYPE_MAP = {
+      "コンビニ":"convenience_store",
+      "スーパー":"supermarket",
+      "レストラン":"restaurant",
+      "カフェ":"cafe",
+      "ホテル":"lodging",
+      "病院":"hospital",
+      "薬局":"pharmacy",
+      "ガソリンスタンド":"gas_station",
+      "駐車場":"parking",
+      "銀行":"bank"
+    };
 
-      if(!placesService){
-        console.log('[Search] PlacesServiceが初期化されていません');
+    async function performSearch(query){
+      if(!query || !query.trim()) {
+        console.log('[Search] 検索ワードが空です');
         return;
       }
 
@@ -444,34 +481,53 @@
         return;
       }
 
-      const radiusLabel = document.getElementById('radiusLabel').textContent;
-      const radiusKm = parseInt(radiusLabel);
+      const radiusKm = parseInt(document.getElementById('radiusLabel').textContent);
       const radiusMeters = radiusKm * 1000;
 
-      // textSearch を使用（JavaScript Library）
-      const request = {
-        query: query,
-        location: new google.maps.LatLng(centerLat, centerLng),
-        radius: radiusMeters,
-        language: 'ja'
-      };
+      // Text Search優先
+      try {
+        const data = await placesTextSearch({
+          textQuery: query.trim(),
+          locationBias: {
+            circle: { center: { latitude: centerLat, longitude: centerLng }, radius: radiusMeters }
+          },
+          maxResultCount: 20,
+          languageCode: 'ja'
+        }, DEFAULT_MASK);
 
-      console.log('[Search] textSearch リクエスト:', request);
-
-      placesService.textSearch(request, (results, status) => {
-        console.log('[Search] Status:', status);
-        console.log('[Search] Results:', results);
-
-        if(status === google.maps.places.PlacesServiceStatus.OK && results){
-          displayResults(results, centerLat, centerLng);
-        }else if(status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS){
-          alert('検索結果が見つかりませんでした');
-          document.getElementById('results').style.display = 'none';
-        }else{
-          console.error('[Search] Error:', status);
-          alert(`検索エラー: ${status}`);
+        if (data.places?.length) {
+          displayResults(data.places, centerLat, centerLng);
+          return;
         }
-      });
+      } catch (e) {
+        console.error('[Search] Text Search Error:', e);
+      }
+
+      // Nearby Search（タイプが一致する場合のみ）
+      const typeKey = TYPE_MAP[query.trim()] || TYPE_MAP[query.trim().replace(/\s/g,'')];
+
+      if (typeKey) {
+        try {
+          const data = await placesNearby({
+            includedTypes: [typeKey],
+            maxResultCount: 20,
+            locationRestriction: {
+              circle: { center: { latitude: centerLat, longitude: centerLng }, radius: radiusMeters }
+            },
+            languageCode: 'ja'
+          }, DEFAULT_MASK);
+
+          if (data.places?.length) {
+            displayResults(data.places, centerLat, centerLng);
+            return;
+          }
+        } catch (e) {
+          console.error('[Search] Nearby Error:', e);
+        }
+      }
+
+      alert('検索結果が見つかりませんでした');
+      document.getElementById('results').style.display = 'none';
     }
 
     function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -489,17 +545,15 @@
       searchMarkers.forEach(marker => marker.map = null);
       searchMarkers = [];
 
-      // 距離を計算してソート
       const placesWithDistance = places.map(place => {
-        const lat = place.geometry.location.lat();
-        const lng = place.geometry.location.lng();
+        const lat = place.location.latitude;
+        const lng = place.location.longitude;
         const distance = calculateDistance(centerLat, centerLng, lat, lng);
-        return {...place, distance, lat, lng};
+        return {...place, distance};
       });
 
       placesWithDistance.sort((a, b) => a.distance - b.distance);
 
-      // 最大5件
       const limitedResults = placesWithDistance.slice(0, 5);
 
       const resultsDiv = document.getElementById('results');
@@ -507,10 +561,10 @@
       resultsDiv.style.display = 'block';
 
       limitedResults.forEach((place, index) => {
-        const name = place.name || '名称不明';
-        const address = place.formatted_address || place.vicinity || '住所不明';
-        const lat = place.lat;
-        const lng = place.lng;
+        const name = place.displayName?.text || place.displayName || '名称不明';
+        const address = place.formattedAddress || '住所不明';
+        const lat = place.location.latitude;
+        const lng = place.location.longitude;
         const distanceKm = (place.distance / 1000).toFixed(2);
 
         const item = document.createElement('div');
@@ -707,7 +761,7 @@
     }
 
     function initializeWhenReady(){
-      if(typeof google !== 'undefined' && google.maps && google.maps.Map && google.maps.places){
+      if(typeof google !== 'undefined' && google.maps && google.maps.Map){
         startApp();
       }else{
         setTimeout(initializeWhenReady, 100);
@@ -717,9 +771,8 @@
     window.addEventListener('DOMContentLoaded', initializeWhenReady);
   </script>
 
-  <!-- places ライブラリを追加 -->
   <script
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXC6CB2yaUkrJ5UYj3mymAsruQe4MzGPk&v=weekly&libraries=marker,places"
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBXC6CB2yaUkrJ5UYj3mymAsruQe4MzGPk&v=weekly&libraries=marker"
     async defer></script>
 </body>
 </html>
