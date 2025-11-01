@@ -1,254 +1,343 @@
-<!-- dashboard.html  ISSUE: das202511011930 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>監査ダッシュボード</title>
-  <meta name="x-issue" content="das202511011930" />
-  <style>
-    :root{
-      --bg:#0b1220; --panel:#101a2e; --glass:rgba(16,26,46,.85);
-      --stroke:rgba(255,255,255,.12); --text:#eaf2ff; --muted:#a7b8ce;
-      --accent:#5fb1ff; --ok:#2ad07a; --warn:#ffb020; --bad:#ff6565;
-    }
-    html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
-    *{box-sizing:border-box}
-    .wrap{max-width:1100px;margin:16px auto;padding:0 12px}
-    .grid{display:grid;gap:12px;grid-template-columns:1fr}
-    @media(min-width:900px){.grid{grid-template-columns:1fr 1fr}}
-    .card{
-      background:var(--glass);border:1px solid var(--stroke);border-radius:16px;padding:14px 16px;
-      backdrop-filter: blur(6px);
-    }
-    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .row.nowrap{flex-wrap:nowrap}
-    .small{font-size:12px;color:var(--muted)}
-    .muted{color:var(--muted)}
-    input,button{
-      height:36px;border-radius:10px;border:1px solid var(--stroke);background:#0f1830;color:var(--text);
-      padding:0 10px
-    }
-    input[readonly]{opacity:.8}
-    button{cursor:pointer}
-    button.primary{background:var(--accent);border-color:transparent;color:#00101c}
-    button.ghost{background:transparent}
-    h1{font-size:18px;margin:4px 0 8px}
-    h2{font-size:14px;margin:0 0 8px}
-    .scoreBox{display:flex;align-items:center;gap:12px}
-    .scoreNum{font-size:36px;font-weight:700;min-width:88px;text-align:center}
-    .bar{flex:1;height:14px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
-    .bar>i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--ok),#32b3ff)}
-    .list{display:flex;flex-direction:column;gap:8px;max-height:420px;overflow:auto}
-    .item{border:1px solid var(--stroke);border-radius:12px;padding:10px;background:#0e172b}
-    .kv{display:grid;grid-template-columns:120px 1fr;gap:6px}
-    .pill{padding:4px 8px;border-radius:999px;background:#0a1426;border:1px solid var(--stroke);font-size:12px}
-    .risk{display:grid;gap:8px}
-    .risk .r{display:grid;grid-template-columns:1fr 60px;gap:8px;align-items:center}
-    .risk .meter{height:10px;background:#0a1426;border:1px solid var(--stroke);border-radius:8px;overflow:hidden}
-    .risk .meter>i{display:block;height:100%;width:0%}
-    .ok i{background:var(--ok)}
-    .mid i{background:var(--warn)}
-    .bad i{background:var(--bad)}
-    .tight *{font-size:12px;line-height:1.2}
-    .foot{margin-top:8px;text-align:right;color:var(--muted);font-size:11px}
-    .nowrap{white-space:nowrap}
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>WalkNav 監査ダッシュボード</title>
+<meta name="x-issue" content="das202511010905" />
+<style>
+  :root{
+    --bg:#0b1220;
+    --panel:#141c2c;
+    --muted:#9db0c8;
+    --text:#eaf2ff;
+    --accent:#5fb1ff;
+    --ok:#25d07a;
+    --warn:#ffb84d;
+    --danger:#ff6565;
+    --stroke:rgba(255,255,255,.14);
+    --glass:rgba(20,28,44,.7);
+  }
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,sans-serif}
+  *{box-sizing:border-box}
+  .wrap{max-width:900px;margin:0 auto;padding:20px 14px}
+  .title{font-size:28px;font-weight:800;letter-spacing:.02em;margin:6px 0 16px}
+
+  /* connection row (centered) */
+  .conn{background:var(--panel);border:1px solid var(--stroke);border-radius:16px;padding:16px;margin:16px 0}
+  .conn-row{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
+  .conn-url{flex:1 1 560px;min-width:280px}
+  input[type="text"],select{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--stroke);background:#0f1726;color:var(--text);font-size:16px}
+  .btn{padding:12px 16px;border-radius:12px;border:1px solid var(--stroke);background:#15233a;color:var(--text);cursor:pointer;font-weight:700}
+  .btn:hover{filter:brightness(1.08)}
+  .badge{display:inline-flex;align-items:center;gap:8px;padding:10px 12px;border-radius:999px;background:#0f1726;border:1px solid var(--stroke);font-size:14px;color:var(--muted)}
+
+  .section{background:var(--panel);border:1px solid var(--stroke);border-radius:16px;padding:16px;margin:18px 0}
+  .sec-title{font-size:18px;font-weight:800;margin:0 0 10px}
+  .score-big{font-size:64px;font-weight:900;letter-spacing:.02em;margin:10px 0}
+  .bar{height:12px;background:#0f1726;border:1px solid var(--stroke);border-radius:999px;overflow:hidden}
+  .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#3ad1ff,#37e59e);transition:width .5s ease}
+
+  /* breakdown pills */
+  .chips{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .chip{background:#0f1726;border:1px solid var(--stroke);border-radius:14px;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;font-weight:700}
+  .pct{min-width:48px;text-align:right;padding:6px 10px;border-radius:999px;background:#0c1a2a;border:1px solid var(--stroke)}
+  .pct.warn{background:#261a05;border-color:#5c3c00;color:#ffcc66}
+
+  /* events list */
+  .events{display:flex;flex-direction:column;gap:10px}
+  .evt{background:#0f1726;border:1px solid var(--stroke);border-radius:12px;padding:12px;cursor:pointer}
+  .evt:hover{filter:brightness(1.08)}
+  .evt h4{margin:0 0 6px;font-size:16px}
+  .evt small{color:var(--muted)}
+
+  /* drawer (detail) */
+  .drawer{position:fixed;inset:auto 0 0 0;background:rgba(10,19,33,.9);backdrop-filter:blur(6px);border-top:1px solid var(--stroke);transform:translateY(105%);transition:transform .35s ease;z-index:50}
+  .drawer.show{transform:translateY(0)}
+  .drawer .box{max-width:900px;margin:0 auto;padding:16px}
+  .drawer pre{background:#0a1321;border:1px solid var(--stroke);border-radius:12px;padding:12px;overflow:auto;color:#cde3ff}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+  /* footer */
+  .foot{margin:20px 0 40px;text-align:center;color:var(--muted);font-size:13px}
+  .tag{display:inline-block;border:1px dashed var(--stroke);border-radius:999px;padding:6px 10px;margin-top:6px}
+
+  @media (max-width:560px){
+    .title{font-size:24px}
+    .chips{grid-template-columns:1fr}
+  }
+</style>
 </head>
 <body>
-  <div class="wrap">
-    <!-- ヘッダ -->
-    <div class="card">
-      <div class="row nowrap" style="gap:10px;">
-        <div class="small">接続先</div>
-        <input id="endpoint" value="https://ors-proxy-dev.miyata-connect-jp.workers.dev" class="nowrap" style="min-width:320px;flex:1" readonly />
-        <!-- 接続テストボタンは仕様により廃止 -->
-        <button id="btn-refresh" class="primary">再取得</button>
-        <span id="conn-mark" class="pill">未検証</span>
+<div class="wrap">
+  <div class="title" id="t-title">WalkNav 監査ダッシュボード</div>
+
+  <!-- connection centered row -->
+  <div class="conn">
+    <div class="conn-row" style="margin-bottom:10px;">
+      <div class="badge" id="b-issue">ISSUE: -</div>
+    </div>
+    <div class="conn-row">
+      <div class="conn-url">
+        <input id="inp-endpoint" type="text" placeholder="https://ors-proxy-dev.miyata-connect-jp.workers.dev" />
       </div>
     </div>
-
-    <!-- 総合判定 -->
-    <div class="card">
-      <h1>総合判定（100点満点・厳格）</h1>
-      <div class="scoreBox">
-        <div id="score" class="scoreNum">0</div>
-        <div class="bar"><i id="score-bar"></i></div>
-      </div>
-      <div class="small muted" id="score-note">条件未充足：イベント0件 / recentErrorRate≠0 / avgScore&lt;90 のいずれか</div>
+    <div class="conn-row" style="margin-top:10px;">
+      <button class="btn" id="btn-refresh">再取得</button>
+      <span class="badge" id="badge-conn">接続OK</span>
     </div>
-
-    <div class="grid">
-      <!-- 自己診断 -->
-      <div class="card tight">
-        <h2>自己診断（入口 / 実行中 / 出口）</h2>
-        <div class="kv">
-          <div>入口</div><div id="diag-entry" class="pill">--</div>
-          <div>実行中エラー率</div><div id="diag-run" class="pill">--</div>
-          <div>出口</div><div id="diag-exit" class="pill">--</div>
-        </div>
-      </div>
-
-      <!-- セクション内訳 -->
-      <div class="card tight">
-        <h2>セクション内訳（主要コンポーネント別）</h2>
-        <div class="risk" id="risk">
-          <!-- 動的生成 -->
-        </div>
-      </div>
-    </div>
-
-    <!-- 最新イベント -->
-    <div class="card">
-      <h2>最新イベント（25件）</h2>
-      <div class="list" id="events"></div>
-    </div>
-
-    <!-- 接続情報（表示のみ） -->
-    <div class="card tight">
-      <h2>接続情報</h2>
-      <div class="kv">
-        <div>発行番号</div><div id="issue" class="pill">（非表示仕様）</div>
-        <div>平均スコア</div><div id="avgScore" class="pill">--</div>
-        <div>直近エラー率</div><div id="recentErr" class="pill">--</div>
-        <div>ラン数</div><div id="runs" class="pill">--</div>
-        <div>イベント数</div><div id="evs" class="pill">--</div>
-      </div>
-      <div class="foot">© WalkNav / Dashboard ISSUE: das202511011930</div>
+    <div class="conn-row" style="margin-top:6px;">
+      <select id="sel-issue" class="conn-url"></select>
     </div>
   </div>
 
-  <script>
-  const ISSUE_ID = "das202511011930";
-  const el = (id)=>document.getElementById(id);
+  <!-- overall judgement only -->
+  <div class="section">
+    <div class="sec-title" id="t-overall">総合判定（平均スコア）</div>
+    <div class="score-big" id="overall-score">0</div>
+    <div class="bar"><i id="overall-bar"></i></div>
+    <div style="margin-top:10px;color:var(--muted)" id="overall-note">集計対象 RUN: 0 / EVENTS: 0</div>
+  </div>
 
-  // 厳格採点：条件満たせば100、それ以外0
-  function strictScore(summary, events){
-    const hasEvents = Array.isArray(events) && events.length > 0;
-    const avg = Number(summary?.avgScore||0);
-    const recent = Number(summary?.recentErrorRate||0);
-    const ok = hasEvents && recent === 0 && avg >= 90;
-    return {score: ok?100:0, reason: ok?"条件充足で100点":"条件未充足で0点"};
+  <!-- recent error -->
+  <div class="section">
+    <div class="sec-title" id="t-recent">直近 エラー率</div>
+    <div class="score-big" id="err-score">0%</div>
+    <div class="bar"><i id="err-bar"></i></div>
+    <div style="margin-top:10px;color:var(--muted)" id="err-note">直近 RUN 記録の失敗割合。</div>
+  </div>
+
+  <!-- self check (bars only, no manual inputs) -->
+  <div class="section">
+    <div class="sec-title" id="t-self">自己診断（入口／実行中／出口）</div>
+    <div class="row" style="gap:14px">
+      <div style="flex:1">
+        <div style="font-weight:800;margin:0 0 6px" id="t-entry">入口（entry）</div>
+        <div class="bar"><i id="bar-entry"></i></div>
+      </div>
+      <div style="flex:1">
+        <div style="font-weight:800;margin:0 0 6px" id="t-run">実行中（run）</div>
+        <div class="bar"><i id="bar-run"></i></div>
+      </div>
+      <div style="flex:1">
+        <div style="font-weight:800;margin:0 0 6px" id="t-exit">出口（exit）</div>
+        <div class="bar"><i id="bar-exit"></i></div>
+      </div>
+    </div>
+    <div class="row" style="justify-content:space-between;margin-top:10px">
+      <div class="badge" id="phase-badge">-</div>
+      <div style="color:var(--muted);font-size:14px">※ 手動投稿UIは撤去。WalkNav 本体から /audit/run を送信します。</div>
+    </div>
+  </div>
+
+  <!-- section breakdown -->
+  <div class="section">
+    <div class="sec-title" id="t-break">セクション内訳（リスク比率）</div>
+    <div class="chips">
+      <div class="chip"><span>Routing (/healthz,/places:searchText,/directions)</span><span class="pct" id="pct-routing">2%</span></div>
+      <div class="chip"><span>CORS/Origin strict</span><span class="pct warn" id="pct-cors">3%</span></div>
+      <div class="chip"><span>FieldMask/Places New params</span><span class="pct" id="pct-field">2%</span></div>
+      <div class="chip"><span>Secrets (GMAPS_API_KEY)</span><span class="pct" id="pct-secret">2%</span></div>
+      <div class="chip"><span>Error shape/HTTP code diff</span><span class="pct" id="pct-error">2%</span></div>
+      <div class="chip"><span>Overhead (logging hooks)</span><span class="pct" id="pct-over">1%</span></div>
+    </div>
+  </div>
+
+  <!-- latest events -->
+  <div class="section">
+    <div class="sec-title" id="t-events">最新イベント（最大25件）</div>
+    <div class="events" id="event-list"></div>
+    <div style="color:var(--muted)" id="event-empty">データなし</div>
+  </div>
+
+  <div class="foot">
+    © WalkNav Dashboard ・ <span class="tag">ISSUE_ID: das202511010905</span>
+  </div>
+</div>
+
+<!-- drawer -->
+<div class="drawer" id="drawer">
+  <div class="box">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <div style="font-weight:800">イベント詳細</div>
+      <button class="btn" id="btn-close">閉じる</button>
+    </div>
+    <pre id="pre-json">{}</pre>
+  </div>
+</div>
+
+<script>
+  // ===== ISSUE TAG =====
+  const ISSUE_ID = "das202511010905";
+
+  // ===== i18n (Japanese strings loaded from base64 to keep code ASCII-only) =====
+  const JP = JSON.parse(atob("eyJ0aXRsZSI6IldhbGtOYXYg6YCA5ZCN44Oq44Oz44OU44Oz44OX44Op44Oz44K444OjIiwib2t0ZXN0Ijoi5Luj5oCBT0siLCJyZWZldGNoIjoi6YCA5Yqg6IO95Y+W6LGhIiwiaXNzdWUiOiJJU1NVRU86ICIsIm92ZXJhbGwiOiLlhYPjg5HjgqTjg7Pjgq/jgqTjg7MiLCJlcnIiOiLjgqLjg6rjg7zjg7Pjg6siLCJzZWxmIjoi5LqV5pa55oCn77yPICDoq5bjgqTjg7wiLCJicmVhayI6IuacrOmCruWZjOe0ou+8miIsImV2ZW50cyI6IuWQjeW4g+WQjeW4g+OCt+ODvOODqyIsIm5vZGF0YSI6IuODqeODvOODq+ODvOW3peOCi+OBryIsInBhc3NlIjoi44KS44G+44GoIn0="));
+  function t(){ // minimal mapping
+    document.getElementById('t-title').textContent = JP.title;
+    document.getElementById('btn-refresh').textContent = JP.refetch;
+    document.getElementById('t-overall').textContent = JP.overall;
+    document.getElementById('t-recent').textContent = JP.err;
+    document.getElementById('t-self').textContent = JP.self;
+    document.getElementById('t-break').textContent = JP.break;
+    document.getElementById('t-events').textContent = JP.events;
+    document.getElementById('event-empty').textContent = JP.nodata;
   }
 
-  // セクション内訳（固定仕様）
-  const SECTION_RISKS = [
-    {label:"ルーティング互換（/healthz, /places:searchText, /directions）", pct:2},
-    {label:"CORS/Origin 厳格化（許可外ブロック誤検出）", pct:3},
-    {label:"FieldMask/Places New パラメータ整合", pct:2},
-    {label:"Secrets 参照（GMAPS_API_KEY 誤環境/未反映）", pct:2},
-    {label:"エラー整形 / 返却コード差分（呼び出し側期待と差異）", pct:2},
-    {label:"速度劣化（監査フック増設の影響）", pct:1},
-  ];
+  // ===== state =====
+  const S = {
+    endpoint: "",
+    issue: "",
+    issues: [],
+    summary: null,
+    events: [],
+  };
 
-  function renderRisks(){
-    const box = el('risk'); box.innerHTML = '';
-    SECTION_RISKS.forEach(r=>{
-      const wrap = document.createElement('div'); wrap.className='r';
-      const name = document.createElement('div'); name.textContent = `${r.label}`;
-      const meter = document.createElement('div'); meter.className='meter';
-      const i = document.createElement('i');
-      const klass = r.pct<=2?'ok':(r.pct<=5?'mid':'bad');
-      meter.appendChild(i); wrap.appendChild(name); wrap.appendChild(meter);
-      box.appendChild(wrap); meter.classList.add(klass);
-      requestAnimationFrame(()=>{ i.style.width = `${Math.min(100, r.pct)}%`; });
+  // ===== helpers =====
+  const $ = (id)=>document.getElementById(id);
+  const setBar = (el, v)=>{ el.style.width = Math.max(0, Math.min(100, v)) + "%"; };
+
+  function saveEndpoint(u){ try{ localStorage.setItem("audit:endpoint", u);}catch{} }
+  function loadEndpoint(){ try{ return localStorage.getItem("audit:endpoint")||"";}catch{ return "";} }
+
+  function fmtTs(ts){
+    try{
+      const d = new Date(Number(ts));
+      const p = (n)=>String(n).padStart(2,"0");
+      return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+    }catch{ return String(ts); }
+  }
+
+  async function jget(url){
+    const r = await fetch(url,{credentials:"omit",mode:"cors"});
+    if(!r.ok) throw new Error("HTTP "+r.status);
+    return await r.json().catch(()=> ({}));
+  }
+
+  // ===== rendering =====
+  function renderConnOK(ok){
+    const b = $('badge-conn');
+    b.textContent = ok ? "接続OK" : "接続NG";
+    b.style.color = ok ? "#a7f3ce" : "#ffb3b3";
+    b.style.borderColor = ok ? "rgba(37,208,122,.4)" : "rgba(255,101,101,.4)";
+    b.style.background = ok ? "#0f1f19" : "#241111";
+  }
+
+  function renderSummary(sum){
+    const avg = Math.round(sum.avgScore||0);
+    const err = Math.round(sum.recentErrorRate||0);
+    $('overall-score').textContent = String(avg);
+    setBar($('overall-bar'), avg);
+    $('overall-note').textContent = `集計対象 RUN: ${sum.totals?.runs||0} / EVENTS: ${sum.totals?.events||0}`;
+    $('err-score').textContent = `${err}%`;
+    setBar($('err-bar'), err);
+
+    // self-check bars from phases (fallback to 0)
+    setBar($('bar-entry'), Math.round(sum.phases?.entry||0));
+    setBar($('bar-run'),   Math.round(sum.phases?.run||0));
+    setBar($('bar-exit'),  Math.round(sum.phases?.exit||0));
+    $('phase-badge').textContent = sum.phase||"-";
+  }
+
+  function renderEvents(list){
+    const box = $('event-list');
+    box.innerHTML = "";
+    if(!list || !list.length){ $('event-empty').style.display="block"; return; }
+    $('event-empty').style.display="none";
+    list.slice(0,25).forEach(ev=>{
+      const d = document.createElement("div");
+      d.className = "evt";
+      d.innerHTML = `<h4>${ev.title||ev.type||"event"}</h4><small>${fmtTs(ev.ts)} ・ ${ev.severity||"info"}</small>`;
+      d.onclick = ()=> openDrawer(ev);
+      box.appendChild(d);
     });
   }
 
-  function trim300(s){
-    if(!s) return '';
-    const t = s.toString();
-    return t.length>300 ? t.slice(0,300)+'…' : t;
+  function openDrawer(obj){
+    $('pre-json').textContent = JSON.stringify(obj, null, 2);
+    $('drawer').classList.add('show');
+  }
+  $('btn-close').onclick = ()=>$('drawer').classList.remove('show');
+
+  function renderIssues(issues, current){
+    const sel = $('sel-issue'); sel.innerHTML = "";
+    issues.forEach(x=>{
+      const opt = document.createElement('option');
+      opt.value = x; opt.textContent = x;
+      if(x===current) opt.selected = true;
+      sel.appendChild(opt);
+    });
   }
 
-  async function fetchJSON(u, opt){
-    const r = await fetch(u, opt);
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    return r.json();
+  // ===== fetchers =====
+  async function fetchIssueFromHealthz(){
+    const u = S.endpoint.replace(/\/+$/,"") + "/healthz";
+    const j = await jget(u);
+    const iss = String(j.issue || "").trim();
+    return iss || "";
   }
-
-  async function loadAll(){
-    const base = el('endpoint').value.trim();
-    // 接続状態は summary の成否で判定（ボタン廃止方針）
-    let summary = null, events = null, okMark = '❌ 失敗';
+  async function fetchIssuesList(){
+    // optional endpoint; fallback to only current
     try{
-      summary = await fetchJSON(`${base}/audit/summary`, {cache:'no-store'});
-      okMark = '✅ 接続OK';
+      const u = S.endpoint.replace(/\/+$/,"") + "/audit/issues";
+      const j = await jget(u);
+      if(Array.isArray(j.issues) && j.issues.length) return j.issues;
+    }catch{}
+    return S.issue ? [S.issue] : [];
+  }
+  async function fetchSummary(){
+    const u = S.endpoint.replace(/\/+$/,"") + "/audit/summary";
+    return await jget(u).catch(()=>({ok:false,avgScore:0,recentErrorRate:0,totals:{runs:0,events:0}}));
+  }
+  async function fetchEvents(limit=25){
+    try{
+      const u = S.endpoint.replace(/\/+$/,"") + "/audit/events?limit="+limit;
+      const j = await jget(u);
+      if(Array.isArray(j.events)) return j.events;
+      if(Array.isArray(j.latestEvents)) return j.latestEvents;
+    }catch{}
+    return [];
+  }
+
+  // ===== refresh all =====
+  async function refreshAll(){
+    const ep = $('inp-endpoint').value.trim();
+    S.endpoint = ep; saveEndpoint(ep);
+    renderConnOK(false);
+    try{
+      // 1) issue
+      S.issue = await fetchIssueFromHealthz();
+      $('b-issue').textContent = "ISSUE: " + (S.issue || "-");
+      renderConnOK(!!S.issue);
+
+      // 2) issues list (dropdown)
+      S.issues = await fetchIssuesList();
+      if(!S.issues.length && S.issue) S.issues = [S.issue];
+      renderIssues(S.issues, S.issue);
+
+      // 3) summary + events
+      S.summary = await fetchSummary();
+      renderSummary(S.summary||{});
+      S.events  = await fetchEvents(25);
+      renderEvents(S.events);
+
     }catch(e){
-      // summary落ちでも events が取れる可能性に賭ける
-      try{
-        events = await fetchJSON(`${base}/audit/events?limit=25`, {cache:'no-store'});
-        okMark = '✅ 接続OK（eventsのみ）';
-      }catch(e2){
-        okMark = '❌ 失敗';
-      }
-    }
-
-    // events優先取得（なければ summary.latestEvents フォールバック）
-    if(!events){
-      try{
-        events = await fetchJSON(`${base}/audit/events?limit=25`, {cache:'no-store'});
-      }catch{}
-    }
-    if((!events || !Array.isArray(events)) && summary && Array.isArray(summary.latestEvents)){
-      events = summary.latestEvents;
-    }
-    if(!events) events = [];
-
-    // summaryがなければゼロで埋める
-    if(!summary) summary = { ok:false, avgScore:0, recentErrorRate:0, totals:{runs:0, events:0} };
-
-    // 表示反映
-    el('conn-mark').textContent = okMark;
-    el('avgScore').textContent = `${Number(summary.avgScore||0).toFixed(1)}`;
-    el('recentErr').textContent = `${Number(summary.recentErrorRate||0).toFixed(1)}%`;
-    el('runs').textContent = `${Number(summary.totals?.runs||0)}`;
-    el('evs').textContent = `${Number(summary.totals?.events||0)}`;
-
-    // 厳格スコア
-    const ss = strictScore(summary, events);
-    el('score').textContent = String(ss.score);
-    el('score-bar').style.width = ss.score+'%';
-    el('score-note').textContent = ss.score===100 ? '条件充足：イベント≥1 / recentErrorRate=0 / avgScore≥90 → 100点' : '条件未充足：イベント0件 / recentErrorRate≠0 / avgScore<90 のいずれか';
-
-    // 自己診断（入口/実行/出口）… summaryから近似。未提供時は "--"
-    el('diag-entry').textContent = summary.entryScore!=null ? `${summary.entryScore}` : '--';
-    el('diag-run').textContent   = summary.recentErrorRate!=null ? `${Number(summary.recentErrorRate).toFixed(1)}%` : '--';
-    el('diag-exit').textContent  = summary.exitScore!=null ? `${summary.exitScore}` : '--';
-
-    // イベント描画
-    const list = el('events'); list.innerHTML='';
-    if(events.length===0){
-      const it = document.createElement('div');
-      it.className='item'; it.textContent='（イベントがありません）';
-      list.appendChild(it);
-    }else{
-      events.slice(0,25).forEach(ev=>{
-        const it = document.createElement('div'); it.className='item';
-        const when = new Date(ev.ts || Date.now());
-        const head = document.createElement('div'); head.className='row'; head.style.justifyContent='space-between';
-        const left = document.createElement('div'); left.className='row';
-        const t1 = document.createElement('span'); t1.className='pill'; t1.textContent = ev.type || 'event';
-        const t2 = document.createElement('span'); t2.className='small muted'; t2.textContent = when.toLocaleString();
-        left.appendChild(t1); left.appendChild(t2);
-        const right = document.createElement('span'); right.className='pill'; right.textContent = (ev.severity||'info');
-        head.appendChild(left); head.appendChild(right);
-
-        const body = document.createElement('div'); body.className='small'; body.style.marginTop='6px';
-        body.textContent = trim300(ev.summary || ev.message || '');
-
-        it.appendChild(head); it.appendChild(body);
-        list.appendChild(it);
-      });
+      renderConnOK(false);
+      $('overall-note').textContent = "接続エラー: " + (e?.message||"");
+      $('event-empty').style.display="block";
     }
   }
 
-  // 初期化
-  renderRisks();
-  loadAll();
+  $('btn-refresh').onclick = refreshAll;
+  $('sel-issue').onchange = (e)=>{ S.issue = e.target.value; refreshAll(); };
 
-  // 再取得
-  el('btn-refresh').addEventListener('click', ()=>loadAll());
-  </script>
+  // ===== boot =====
+  (function boot(){
+    t(); // localize
+    const cached = loadEndpoint() || "https://ors-proxy-dev.miyata-connect-jp.workers.dev";
+    $('inp-endpoint').value = cached;
+    $('b-issue').textContent = "ISSUE: -";
+    refreshAll();
+  })();
+</script>
 </body>
 </html>
