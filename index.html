@@ -342,8 +342,13 @@
 
         const response = await fetch(`${WORKER_ORIGIN}/directions?${params.toString()}`);
         
+        console.log('[Navigation] Response status:', response.status);
+        console.log('[Navigation] Response headers:', Object.fromEntries(response.headers.entries()));
+        
         if(!response.ok){
-          throw new Error(`Directions API Error: ${response.status}`);
+          const errorText = await response.text();
+          console.error('[Navigation] Error response:', errorText);
+          throw new Error(`Directions API Error: ${response.status} - ${errorText}`);
         }
 
         const result = await response.json();
