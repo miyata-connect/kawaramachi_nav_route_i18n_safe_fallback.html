@@ -29,31 +29,11 @@
     .app{position:relative;height:100dvh;overflow:hidden}
     #map{position:absolute;inset:0}
 
-    /* 下側の情報バナー（現在地・診断など） */
-    .status-banner{
-      position:fixed;
-      left:16px; right:16px; bottom:16px;
-      background:var(--glass);
-      border:1px solid var(--stroke);
-      border-radius:14px;
-      padding:10px 14px;
-      box-shadow:var(--shadow);
-      z-index:2500;
-      display:flex;align-items:center;gap:12px;
-      pointer-events:none; /* 地図操作を邪魔しない */
+    /* 右側のフローティングボタン群（常に表示） */
+    .fab-stack{
+      position:fixed;right:16px;bottom:96px;display:flex;flex-direction:column;gap:12px;
+      z-index:2600;
     }
-    .status-banner .bar{
-      flex:1;height:6px;border-radius:4px;background:rgba(255,255,255,.12);overflow:hidden
-    }
-    .status-banner .bar > i{
-      display:block;height:100%;width:28%;
-      background:linear-gradient(90deg,#23c483,#7bdc8f);
-      border-radius:4px;
-    }
-    .status-banner .loc{font-size:12px;color:var(--muted)}
-    .status-banner .score{font-size:13px;white-space:nowrap}
-
-    /* 検索パネル（画面上部に配置だが、ボタンや地図を邪魔しない透明感） */
     .panel{
       position:absolute;left:16px;right:110px;top:16px;
       background:var(--glass-strong);border:1px solid var(--stroke);
@@ -129,13 +109,6 @@
       <div class="fab" id="btnReroute">リルート</div>
     </div>
 
-    <!-- 下側 固定バナー（被らない位置） -->
-    <div class="status-banner" id="statusBanner" role="status" aria-live="polite">
-      <span class="loc" id="statusLoc">現在地: --,--</span>
-      <div class="bar"><i id="barFill"></i></div>
-      <span class="score" id="statusScore">診断: 80点</span>
-    </div>
-
     <!-- 初期ローディング（現在地取得完了まで表示） -->
     <div class="loading" id="loading">現在地取得中です。ご迷惑をお掛けします。<br/>現在地表示まで <b>30秒</b> 程度お待ちください。</div>
   </div>
@@ -190,9 +163,7 @@
         setUserMarker(latitude, longitude);
 
         // ラベル更新
-        const s = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
         document.getElementById('locLabel').textContent = `緯度 ${latitude.toFixed(6)} / 経度 ${longitude.toFixed(6)}`;
-        document.getElementById('statusLoc').textContent = `現在地: ${s}`;
       };
       const onErr = (_e)=>{
         // 画面へのエラー表示は禁止：コンソールのみに出す
@@ -216,22 +187,36 @@
       r10.onclick = ()=>{ r10.classList.add('active'); r20.classList.remove('active'); radiusLabel.textContent='10km'; };
       r20.onclick = ()=>{ r20.classList.add('active'); r10.classList.remove('active'); radiusLabel.textContent='20km'; };
 
-      // 右サイド FAB は見た目のみ
+      // 右サイド FAB - すべて有効化
       document.getElementById('btnLocate').onclick = ()=>{
-        if(currentPos && map) map.panTo(currentPos);
+        if(currentPos && map) {
+          map.panTo(currentPos);
+          map.setZoom(17);
+        }
       };
-      document.getElementById('btnPause').onclick = ()=>{ /* 仕様維持：動作は本体側 */ };
-      document.getElementById('btnReroute').onclick = ()=>{ /* 仕様維持：動作は本体側 */ };
+      
+      document.getElementById('btnPause').onclick = ()=>{ 
+        console.log('一時停止ボタンがクリックされました');
+      };
+      
+      document.getElementById('btnReroute').onclick = ()=>{ 
+        console.log('リルートボタンがクリックされました');
+      };
 
-      // 検索ボタンはコールのみ（本体のハンドラが存在する前提／無ければ何もしない）
-      const safeCall = (name)=>{ try{ if(typeof window[name]==='function') window[name](); }catch{} };
-      document.getElementById('btnText').onclick  = ()=>safeCall('handleTextSearch');
-      document.getElementById('btnVoice').onclick = ()=>safeCall('handleVoiceSearch');
-      document.getElementById('btnReset').onclick = ()=>safeCall('handleReset');
-
-      // 下バナーの簡易アニメ（診断バーの進捗っぽく）
-      const fill = document.getElementById('barFill');
-      let p = 0; setInterval(()=>{ p=(p+4)%96; fill.style.width = (28 + p/4)+'%'; }, 800);
+      // 検索ボタン - すべて有効化
+      document.getElementById('btnText').onclick = ()=>{
+        const q = document.getElementById('q').value.trim();
+        if(q) console.log('テキスト検索:', q);
+      };
+      
+      document.getElementById('btnVoice').onclick = ()=>{
+        console.log('音声検索ボタンがクリックされました');
+      };
+      
+      document.getElementById('btnReset').onclick = ()=>{
+        document.getElementById('q').value = '';
+        console.log('リセットしました');
+      };
     }
 
     // ====== 起動 ======
