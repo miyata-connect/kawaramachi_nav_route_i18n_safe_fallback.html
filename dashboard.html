@@ -1,175 +1,155 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <!-- ISSUE: das202511012210 -->
+  <!-- ISSUE: das202511012305 -->
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="x-issue" content="das202511012210">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="x-issue" content="das202511012305">
   <title>WalkNav 監査ダッシュボード</title>
   <style>
     :root{
-      --bg:#0b1220;--card:#121a2b;--glass:rgba(255,255,255,.06);
-      --text:#e8f1ff;--muted:#9fb1c9;--ok:#2ad38a;--warn:#ffbb55;--bad:#ff6b6b;
-      --primary:#66aaff;--stroke:rgba(255,255,255,.14);
-      --shadow:0 10px 30px rgba(0,0,0,.35);
-      --radius:20px
+      --bg:#0b1220;--text:#e8f1ff;--muted:#9fb1c9;
+      --card:#121a2b;--stroke:rgba(255,255,255,.14);
+      --ok:#2ad38a;--warn:#ffbb55;--bad:#ff6b6b;--pri:#66aaff;
+      --shadow:0 10px 30px rgba(0,0,0,.35);--r:20px
     }
     *{box-sizing:border-box}
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);
       font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-    .wrap{max-width:980px;margin:28px auto;padding:0 16px}
-    h1{font-size:28px;letter-spacing:.02em;margin:0 0 18px;font-weight:800;line-height:1.05}
-    .row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+    .wrap{max-width:980px;margin:24px auto;padding:0 14px}
+    h1{margin:0 0 12px;font-size:28px;line-height:1.05;font-weight:800;letter-spacing:.02em;white-space:nowrap}
     .card{background:linear-gradient(180deg,rgba(255,255,255,.06),rgba(255,255,255,.03));
-      border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);
-      padding:16px 16px}
-    .field{display:flex;gap:8px;align-items:center;margin:12px 0}
-    .label{font-size:14px;color:var(--muted);min-width:220px;white-space:nowrap}
-    input[type=text],select{
-      background:#0f1726;border:1px solid var(--stroke);color:var(--text);border-radius:14px;
-      padding:12px 14px;min-width:260px;max-width:100%;outline:none
-    }
-    .btn{appearance:none;border:0;border-radius:14px;padding:10px 14px;font-weight:700;
-      background:#18243a;color:#dbe8ff;border:1px solid var(--stroke);cursor:pointer}
-    .btn:hover{filter:brightness(1.07)}
-    .btn.primary{background:var(--primary);color:#071120;border-color:transparent}
-    .badge{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--stroke);
-      background:#0e1728;border-radius:14px;padding:8px 10px;color:var(--muted);font-size:12px}
-    .ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
-    .scoreWrap{display:flex;gap:14px;flex-wrap:wrap}
-    .bigScore{flex:1 1 280px;min-width:280px}
-    .big{background:var(--card)}
-    .num{font-size:64px;font-weight:900;letter-spacing:.02em}
-    .bar{height:8px;background:#0e1626;border-radius:999px;overflow:hidden;margin-top:10px;border:1px solid var(--stroke)}
-    .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--bad),var(--warn),var(--ok))}
-    .grid{display:grid;gap:12px}
-    .grid.cols2{grid-template-columns:1fr 1fr}
-    .table{width:100%;border-collapse:separate;border-spacing:0 10px}
-    .tr{background:var(--card);border:1px solid var(--stroke);border-radius:14px;padding:12px;display:grid;grid-template-columns:130px 90px 1fr;gap:8px}
-    .tr:hover{outline:1px solid var(--primary)}
-    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace}
+      border:1px solid var(--stroke);border-radius:var(--r);box-shadow:var(--shadow);padding:14px}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .label{color:var(--muted);font-size:13px;white-space:nowrap}
     .hint{color:var(--muted);font-size:12px}
-    .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--stroke);padding:6px 10px;border-radius:999px;font-size:12px;background:#0e1728}
-    .right{margin-left:auto}
-    /* slide panel */
-    .sheet{position:fixed;inset:auto 0 0 0;background:var(--card);border-top:1px solid var(--stroke);
+    .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--stroke);
+      border-radius:999px;padding:6px 10px;background:#0e1728;font-size:12px}
+    .ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+    input[type=text],select{flex:1 1 420px;min-width:240px;max-width:100%;
+      background:#0f1726;color:var(--text);border:1px solid var(--stroke);
+      border-radius:14px;padding:12px 14px;outline:none;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .btn{appearance:none;border:1px solid var(--stroke);background:#18243a;color:#dbe8ff;
+      border-radius:14px;padding:10px 14px;font-weight:700;cursor:pointer;white-space:nowrap}
+    .btn.primary{background:var(--pri);color:#071120;border-color:transparent}
+    .grid{display:grid;gap:12px}
+    .grid2{grid-template-columns:1fr 1fr}
+    .scoreBox{background:var(--card);border:1px solid var(--stroke);border-radius:16px;padding:12px}
+    .num{font-size:56px;font-weight:900;letter-spacing:.02em;line-height:1}
+    .bar{height:8px;border:1px solid var(--stroke);border-radius:999px;overflow:hidden;background:#0d1626;margin-top:10px}
+    .bar>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--bad),var(--warn),var(--ok))}
+    /* セクション内訳のタイル */
+    .tile{display:flex;align-items:center;gap:10px;justify-content:space-between;
+      background:var(--card);border:1px solid var(--stroke);border-radius:14px;padding:12px}
+    .pill{min-width:48px;text-align:center;border-radius:999px;border:1px solid var(--stroke);padding:6px 10px}
+    /* イベントテーブル */
+    .tr{display:grid;grid-template-columns:160px 90px 1fr;gap:10px;
+      background:var(--card);border:1px solid var(--stroke);border-radius:14px;padding:12px}
+    .tr:hover{outline:1px solid var(--pri)}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+    /* スライドパネル（下から） */
+    .sheet{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--stroke);
       border-radius:16px 16px 0 0;transform:translateY(110%);transition:transform .28s ease;
-      box-shadow:0 -10px 30px rgba(0,0,0,.45);max-height:82vh;overflow:auto;padding:16px}
+      max-height:82vh;overflow:auto;box-shadow:0 -10px 30px rgba(0,0,0,.45);padding:16px}
     .sheet.show{transform:translateY(0)}
-    .sheet .title{font-weight:800;margin-bottom:8px}
-    .small{font-size:12px}
+    @media (max-width:640px){.grid2{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1 id="ttl"></h1>
+    <h1>WalkNav 監査ダッシュボード</h1>
 
+    <!-- 接続先/発行番号 -->
     <div class="card">
-      <div class="field">
-        <div class="label" id="lab_ep"></div>
-        <input id="ep" type="text" value="https://ors-proxy-dev.miyata-connect-jp.workers.dev" />
-        <button class="btn" id="btnPing"></button>
-        <span class="chip" id="pingChip">-</span>
-      </div>
-
-      <div class="field">
-        <div class="label" id="lab_issue"></div>
-        <select id="issueSel"></select>
-        <button class="btn" id="btnReload"></button>
-        <span class="hint" id="issHint"></span>
-      </div>
-    </div>
-
-    <div class="scoreWrap" style="margin-top:14px">
-      <div class="card big bigScore">
-        <div class="label" id="lab_overall"></div>
-        <div class="num" id="overallNum">0</div>
-        <div class="bar"><i id="overallBar"></i></div>
-        <div class="hint" id="overallHint"></div>
-      </div>
-
-      <div class="card big bigScore">
-        <div class="label" id="lab_recentErr"></div>
-        <div class="num" id="errNum">0%</div>
-        <div class="bar"><i id="errBar"></i></div>
-        <div class="hint" id="errHint"></div>
-      </div>
-    </div>
-
-    <div class="card" style="margin-top:14px">
-      <div class="label" id="lab_self"></div>
-      <div class="grid cols2" style="margin-top:8px">
-        <div>
-          <div class="label" id="lab_entry"></div>
-          <div class="num" id="entryNum">-</div>
-        </div>
-        <div>
-          <div class="label" id="lab_run"></div>
-          <div class="num" id="runNum">-</div>
-        </div>
-        <div>
-          <div class="label" id="lab_exit"></div>
-          <div class="num" id="exitNum">-</div>
-        </div>
-        <div>
-          <div class="label" id="lab_phase"></div>
-          <div class="chip" id="phaseChip">-</div>
-        </div>
-      </div>
-      <div class="hint" style="margin-top:6px" id="selfNote"></div>
-    </div>
-
-    <div class="card" style="margin-top:14px">
-      <div class="label" id="lab_break"></div>
-      <div class="grid cols2" id="riskGrid" style="margin-top:8px"></div>
-    </div>
-
-    <div class="card" style="margin-top:14px">
       <div class="row">
-        <div class="label" id="lab_events"></div>
-        <span class="right hint" id="evtHint"></span>
+        <span class="label">接続先（Worker エンドポイント）</span>
+        <input id="ep" type="text" value="https://ors-proxy-dev.miyata-connect-jp.workers.dev">
+        <button class="btn" id="btnPing">接続テスト</button>
+        <span id="pingChip" class="chip">-</span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <span class="label">発行番号（自動取得／手動切替）</span>
+        <select id="issueSel" title="発行番号"></select>
+        <button class="btn" id="btnReload">再取得</button>
+        <span class="hint">/healthz の issue を自動取得します。</span>
+      </div>
+    </div>
+
+    <!-- 総合判定・直近エラー率 -->
+    <div class="grid grid2" style="margin-top:12px">
+      <div class="scoreBox">
+        <div class="label">総合判定（平均スコア）</div>
+        <div id="overallNum" class="num">0</div>
+        <div class="bar"><i id="overallBar"></i></div>
+        <div id="overallHint" class="hint">ログ由来の平均値（0〜100）。</div>
+      </div>
+      <div class="scoreBox">
+        <div class="label">直近 エラー率</div>
+        <div id="errNum" class="num">0%</div>
+        <div class="bar"><i id="errBar"></i></div>
+        <div class="hint">直近 RUN 記録の失敗割合。</div>
+      </div>
+    </div>
+
+    <!-- 自己診断（バー＋数値） -->
+    <div class="card" style="margin-top:12px">
+      <div class="label">自己診断</div>
+      <div class="grid grid2" style="margin-top:10px">
+        <div class="scoreBox">
+          <div class="label">入口（entry）</div>
+          <div id="entryNum" class="num">-</div>
+          <div class="bar"><i id="entryBar"></i></div>
+        </div>
+        <div class="scoreBox">
+          <div class="label">実行中（run）</div>
+          <div id="runNum" class="num">-</div>
+          <div class="bar"><i id="runBar"></i></div>
+        </div>
+        <div class="scoreBox">
+          <div class="label">出口（exit）</div>
+          <div id="exitNum" class="num">-</div>
+          <div class="bar"><i id="exitBar"></i></div>
+        </div>
+        <div class="scoreBox">
+          <div class="label">進行状況</div>
+          <div id="phaseChip" class="chip">-</div>
+          <div class="hint">手動投稿 UI は撤去。WalkNav 本体から自動送信。</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- セクション内訳（はみ出し抑止） -->
+    <div class="card" style="margin-top:12px">
+      <div class="label">セクション内訳（リスク比率）</div>
+      <div id="riskGrid" class="grid" style="margin-top:10px"></div>
+    </div>
+
+    <!-- 最新イベント -->
+    <div class="card" style="margin-top:12px">
+      <div class="row">
+        <span class="label">最新イベント（25）</span>
+        <span class="hint" id="evtHint"></span>
+        <button class="btn right" id="btnEvt">イベント再取得</button>
       </div>
       <div id="eventList" class="grid" style="margin-top:10px"></div>
     </div>
 
     <div class="sheet" id="sheet">
       <div class="row">
-        <div class="title" id="sheetTitle">-</div>
-        <span class="right"><button class="btn" id="closeSheet">Close</button></span>
+        <strong>イベント詳細</strong>
+        <button class="btn right" id="closeSheet">閉じる</button>
       </div>
-      <div id="sheetBody" class="mono small"></div>
+      <pre id="sheetBody" class="mono" style="white-space:pre-wrap"></pre>
     </div>
 
-    <div class="hint" style="text-align:center;margin:16px 0">© WalkNav Dashboard • ISSUE_ID: das202511012210</div>
+    <div class="hint" style="text-align:center;margin:16px 0">© WalkNav Dashboard • ISSUE_ID: das202511012305</div>
   </div>
 
   <script>
-    // ===== i18n (Japanese strings via Unicode escape so source stays ASCII) =====
-    const T = {
-      ttl:"WalkNav \u76E3\u67FB\u30C0\u30C3\u30B7\u30E5\u30DC\u30FC\u30C9",
-      lab_ep:"\u63A5\u7D9A\u5148\uFF08Worker \u30A8\u30F3\u30C9\u30DD\u30A4\u30F3\u30C8\uFF09",
-      ping:"\u63A5\u7D9A\u30C6\u30B9\u30C8",
-      lab_issue:"\u767A\u884C\u756A\u53F7\uFF08\u81EA\u52D5\u53D6\u5F97/\u624B\u52D5\u5207\u66FF\uFF09",
-      reload:"\u518D\u53D6\u5F97",
-      autoIssue:"\u81EA\u52D5\u3067 /healthz \u304B\u3089 issue \u3092\u53D6\u5F97\u3057\u307E\u3059\u3002",
-      overall:"\u7DCF\u5408\u5224\u5B9A\uFF08\u5E73\u5747\u30B9\u30B3\u30A2\uFF09",
-      overallHint:"\u8A55\u4FA1\u57FA\u6E96\u306F 100 \u70B9\u6E2C\u5B9A\u3002\u30ED\u30B0\u304B\u3089\u5E73\u5747\u5024\u3092\u7B97\u5B9A\u3002",
-      recentErr:"\u76F4\u8FD1 \u30A8\u30E9\u30FC\u7387",
-      self:"\u81EA\u5DF1\u8A3A\u65AD",
-      entry:"\u5165\u53E3 (entry)",
-      run:"\u5B9F\u884C\u4E2D (run)",
-      exit:"\u51FA\u53E3 (exit)",
-      phase:"\u9032\u884C\u72B6\u6CC1",
-      selfNote:"\u624B\u52D5\u6295\u7A3F\u6A5F\u80FD\u306F\u5EC3\u6B62\u3002WalkNav \u672C\u4F53\u304B\u3089\u81EA\u52D5\u9001\u4FE1\u3055\u308C\u307E\u3059\u3002",
-      break:"\u30BB\u30AF\u30B7\u30E7\u30F3\u5185\u8A73\uFF08\u30EA\u30B9\u30AF\u6BD4\u7387\uFF09",
-      events:"\u6700\u65B0\u30A4\u30D9\u30F3\u30C8 (25)",
-      noEvt:"\u30C7\u30FC\u30BF\u306A\u3057",
-      ok:"OK", ng:"NG"
-    };
-
-    // ===== minimal state =====
+    // ===== State =====
     const S = {
-      endpoint: document.getElementById('ep').value,
+      endpoint: document.getElementById('ep').value.trim().replace(/\/+$/,''),
       issue: null,
       timer: null,
       risks: [
@@ -178,153 +158,116 @@
         ["FieldMask/Places New params",2],
         ["Secrets (GMAPS_API_KEY)",2],
         ["Error shape/HTTP code diff",2],
-        ["Overhead (audit hooks)",1],
+        ["Overhead (audit hooks)",1]
       ]
     };
 
-    // ===== set labels =====
-    function setText(id, s){ document.getElementById(id).textContent = s; }
-    setText('ttl', T.ttl);
-    setText('lab_ep', T.lab_ep);
-    setText('btnPing', T.ping);
-    setText('lab_issue', T.lab_issue);
-    setText('btnReload', T.reload);
-    setText('issHint', T.autoIssue);
-    setText('lab_overall', T.overall);
-    setText('overallHint', T.overallHint);
-    setText('lab_recentErr', T.recentErr);
-    setText('lab_self', T.self);
-    setText('lab_entry', T.entry);
-    setText('lab_run', T.run);
-    setText('lab_exit', T.exit);
-    setText('lab_phase', T.phase);
-    setText('selfNote', T.selfNote);
-    setText('lab_break', T.break);
-    setText('lab_events', T.events);
+    // ===== Helpers =====
+    const $ = q=>document.querySelector(q);
+    const el = (t,p={},c=[])=>{const n=document.createElement(t);Object.assign(n,p);c.forEach(x=>n.append(x));return n;};
+    const clampPct = v => Math.max(0, Math.min(100, (v==null?0:Math.round(v))));
+    const setNum = (id,v,suf='') => { const n=$('#'+id); n.textContent=(v==null?'-':clampPct(v))+suf; };
+    const setBar = (id,v) => { $('#'+id).style.width=clampPct(v)+'%'; };
 
-    // ===== helpers =====
-    const $ = (q)=>document.querySelector(q);
-    const el = (t,props={},children=[])=>{
-      const n = document.createElement(t);
-      Object.assign(n, props);
-      children.forEach(c=> n.append(c));
-      return n;
-    };
-    function pct(v){ return Math.max(0, Math.min(100, v|0)); }
-    function barUpdate(iEl, v){ iEl.style.width = pct(v)+'%'; }
-    function toneFor(v){ return v>=80 ? 'ok' : v>=60 ? 'warn' : 'bad'; }
-    function setNum(id, v, suffix=''){ const n = $('#'+id); n.textContent = (v==null?'-':v)+suffix; n.className='num '+toneFor(v||0); }
-
-    // ===== endpoint/issue =====
-    async function fetchJSON(url, init){
+    async function jget(url, init){
       const r = await fetch(url, init);
       if(!r.ok) throw new Error('HTTP '+r.status);
       return r.json();
     }
+
+    // ===== Endpoint & Issue =====
     async function ping(){
-      const chip = $('#pingChip');
-      chip.textContent = '...';
-      chip.className='chip';
+      const chip = $('#pingChip'); chip.textContent='...'; chip.className='chip';
       try{
-        const j = await fetchJSON(S.endpoint.replace(/\/+$/,'')+'/healthz');
-        S.issue = j.issue || null;
-        chip.textContent = T.ok;
-        chip.classList.add('ok');
-        fillIssues([j.issue||'unknown']);
-        $('#issueSel').value = j.issue||'unknown';
-        startPoll();
+        const j = await jget(S.endpoint+'/healthz');
+        S.issue = j.issue || 'unknown';
+        setIssueSel([S.issue]);
+        chip.textContent='OK'; chip.classList.add('ok');
       }catch(e){
-        chip.textContent = T.ng;
-        chip.classList.add('bad');
+        chip.textContent='NG'; chip.classList.add('bad');
       }
     }
-    function fillIssues(list){
+    function setIssueSel(list){
       const sel = $('#issueSel'); sel.innerHTML='';
-      list.slice(0,25).forEach(x=>{
-        sel.append(el('option',{value:x, textContent:x}));
+      list.forEach(x=> sel.append(el('option',{value:x, textContent:x})));
+      sel.value = list[0]||'unknown';
+    }
+
+    // ===== Summary / Events =====
+    async function loadSummary(){
+      try{
+        const j = await jget(S.endpoint+'/audit/summary');
+        // 総合・エラー率
+        const avg = clampPct(j.avgScore||0);
+        setNum('overallNum', avg);
+        setBar('overallBar', avg);
+        $('#overallHint').textContent = `集計対象 RUN: ${j.totals?.runs||0} / EVENTS: ${j.totals?.events||0}`;
+        const err = clampPct(j.recentErrorRate||0);
+        setNum('errNum', err, '%'); setBar('errBar', err);
+
+        // 自己診断（バー＋数値）
+        const en = j.entryScore; const rn = j.runScore; const ex = j.exitScore;
+        setNum('entryNum', en); setBar('entryBar', en);
+        setNum('runNum', rn);   setBar('runBar', rn);
+        setNum('exitNum', ex);  setBar('exitBar', ex);
+        $('#phaseChip').textContent = j.phase || '-';
+
+        // リスク（静的）
+        const g = $('#riskGrid'); g.innerHTML='';
+        S.risks.forEach(([name,r])=>{
+          const pill = el('span',{className:'pill '+(r>=4?'bad':r>=3?'warn':'ok'),textContent:r+'%'});
+          g.append(el('div',{className:'tile'},[el('span',{textContent:name,className:'label',style:'overflow:hidden;text-overflow:ellipsis;white-space:nowrap'}), pill]));
+        });
+
+        // イベント
+        renderEvents(j.latestEvents||[]);
+      }catch(e){
+        // 失敗時は値を落として明示
+        ['overallBar','errBar','entryBar','runBar','exitBar'].forEach(id=>setBar(id,0));
+        ['overallNum','errNum','entryNum','runNum','exitNum'].forEach(id=>$('#'+id).textContent=id==='errNum'?'0%':'0');
+        renderEvents([]);
+      }
+    }
+
+    async function reloadEvents(){
+      // summary に含まれない場合の保険：/audit/summary を再取得
+      try{
+        const j = await jget(S.endpoint+'/audit/summary');
+        renderEvents(j.latestEvents||[]);
+      }catch(_e){ renderEvents([]); }
+    }
+
+    function renderEvents(list){
+      const box = $('#eventList'); box.innerHTML='';
+      $('#evtHint').textContent = `受信: ${list.length} 件`;
+      if(!list.length){ box.append(el('div',{className:'hint',textContent:'データなし'})); return; }
+      list.slice(0,25).forEach(e=>{
+        const t = new Date(e.ts||Date.now()).toLocaleString();
+        const row = el('div',{className:'tr'});
+        row.append(el('div',{textContent:t,className:'small'}));
+        row.append(el('div',{textContent:e.kind||'event',className:'chip'}));
+        const msg = (e.message||e.summary||JSON.stringify(e.meta||{},null,0)||'').toString().slice(0,180);
+        row.append(el('div',{textContent:msg,style:'overflow:hidden;text-overflow:ellipsis'}));
+        row.addEventListener('click',()=>openSheet(e));
+        box.append(row);
       });
     }
 
-    // ===== summary poll =====
-    async function loadSummary(){
-      try{
-        const j = await fetchJSON(S.endpoint.replace(/\/+$/,'')+'/audit/summary');
-        // numbers
-        const overall = Math.round(j.avgScore||0);
-        setNum('overallNum', overall);
-        barUpdate($('#overallBar'), overall);
-
-        const err = Math.round(j.recentErrorRate||0);
-        $('#errNum').textContent = err+'%';
-        barUpdate($('#errBar'), err);
-
-        setNum('entryNum', j.entryScore ?? '-');
-        setNum('runNum', j.runScore ?? '-');
-        setNum('exitNum', j.exitScore ?? '-');
-
-        $('#phaseChip').textContent = (j.phase || '-');
-
-        // risks static grid
-        const g = $('#riskGrid'); g.innerHTML='';
-        S.risks.forEach(([name,r])=>{
-          const row = el('div',{className:'row card',style:'padding:12px'});
-          row.append(el('div',{textContent:name, className:'label',style:'min-width:50%'}));
-          const chip = el('span',{className:'chip '+(r>=3?'warn':r>=4?'bad':'ok'),textContent:(r+'%')});
-          row.append(chip);
-          g.append(row);
-        });
-
-        // events
-        const list = $('#eventList'); list.innerHTML='';
-        const evts = (j.latestEvents||[]).slice(0,25);
-        if(!evts.length){
-          list.append(el('div',{className:'hint',textContent:T.noEvt}));
-        }else{
-          evts.forEach(e=>{
-            const tr = el('div',{className:'tr'});
-            const t = new Date(e.ts||Date.now()).toLocaleString();
-            tr.append(el('div',{textContent:t,className:'small'}));
-            tr.append(el('div',{textContent:e.kind||'event',className:'small chip'}));
-            tr.append(el('div',{textContent:(e.message||'').slice(0,120),className:'small'}));
-            tr.addEventListener('click',()=>openSheet(e));
-            list.append(tr);
-          });
-        }
-      }catch(e){
-        // show failure states
-        barUpdate($('#overallBar'), 0);
-        $('#overallNum').textContent='0';
-        $('#errNum').textContent='0%';
-        $('#eventList').innerHTML='';
-        $('#eventList').append(el('div',{className:'hint',textContent:T.noEvt}));
-      }
-    }
-    function startPoll(){
-      clearInterval(S.timer);
-      loadSummary();
-      S.timer = setInterval(loadSummary, 15000);
-    }
-
-    // ===== sheet =====
+    // ===== Sheet =====
     function openSheet(e){
-      $('#sheetTitle').textContent = e.kind||'event';
       $('#sheetBody').textContent = JSON.stringify(e,null,2);
       $('#sheet').classList.add('show');
     }
-    $('#closeSheet').onclick=()=>$('#sheet').classList.remove('show');
+    $('#closeSheet').onclick = ()=> $('#sheet').classList.remove('show');
 
-    // ===== wiring =====
-    $('#btnPing').onclick=()=>{
-      S.endpoint = $('#ep').value.trim();
-      ping();
-    };
-    $('#btnReload').onclick=loadSummary;
-    $('#ep').addEventListener('change',()=>{ S.endpoint=$('#ep').value.trim(); });
+    // ===== Wiring =====
+    $('#btnPing').onclick = ()=>{ S.endpoint=$('#ep').value.trim().replace(/\/+$/,''); ping(); };
+    $('#btnReload').onclick = loadSummary;
+    $('#btnEvt').onclick = reloadEvents;
+    $('#ep').addEventListener('change',()=>{ S.endpoint=$('#ep').value.trim().replace(/\/+$/,''); });
 
-    // first run
-    (function init(){
-      ping();
-    })();
+    // 初期化（ISSUE バッジは存在しない＝非表示対応済み）
+    (async function init(){ await ping(); await loadSummary(); S.timer=setInterval(loadSummary,15000); })();
   </script>
 </body>
 </html>
