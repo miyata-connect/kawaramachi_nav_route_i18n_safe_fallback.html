@@ -1,306 +1,258 @@
+<!-- ISSUE_ID: das202511012330 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="x-issue" content="das202511012330">
   <title>監査ダッシュボード</title>
-  <!-- ISSUE ID -->
-  <meta name="x-issue" content="das202511012300" />
   <style>
     :root{
-      --bg:#0a1321;
-      --panel:#111a2d;
-      --glass: rgba(20,28,44,.78);
-      --text:#eaf2ff;
-      --muted:#a7b8ce;
-      --accent:#5fb1ff;
-      --ok:#25d07a;
-      --warn:#ffb020;
-      --bad:#ff6565;
-      --stroke: rgba(255,255,255,.12);
+      --bg:#0a1321; --panel:#111A2B; --glass:rgba(20,28,44,.7);
+      --stroke:rgba(255,255,255,.14); --text:#EAF2FF; --muted:#A7B8CE;
+      --ok:#25D07A; --warn:#FFC857; --bad:#FF6565; --accent:#5FB1FF;
     }
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     *{box-sizing:border-box}
     .wrap{max-width:1100px;margin:0 auto;padding:16px}
-    h1{margin:0 0 12px 0;font-size:20px;letter-spacing:.3px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .card{background:var(--glass);border:1px solid var(--stroke);border-radius:16px;padding:14px 16px;backdrop-filter:blur(6px)}
+    h1{font-size:20px;margin:0 0 12px}
+    h2{font-size:16px;margin:0 0 8px}
+    .tiny{font-size:11px;color:var(--muted)}
+    .btn{height:36px;padding:0 12px;border-radius:10px;border:1px solid var(--stroke);background:#152136;color:var(--text)}
+    .btn:active{transform:translateY(1px)}
+    input[type="text"]{height:36px;border-radius:10px;border:1px solid var(--stroke);background:#0f1727;color:var(--text);padding:0 10px;min-width:260px}
+    .badge{display:inline-block;padding:3px 8px;border:1px solid var(--stroke);border-radius:999px;background:#0f1727}
     .grid{display:grid;gap:12px}
-    @media(min-width:920px){.grid{grid-template-columns:1.2fr .8fr}}
-    .card{
-      background:var(--glass);border:1px solid var(--stroke);border-radius:14px;
-      padding:12px;backdrop-filter:blur(6px)
-    }
-    .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-    .row.nowrap{flex-wrap:nowrap}
-    label{font-size:12px;color:var(--muted)}
-    input[type="text"]{
-      flex:1;min-width:260px;background:#0f1726;border:1px solid var(--stroke);color:var(--text);
-      padding:10px 12px;border-radius:10px;font-size:13px;outline:none
-    }
-    button{
-      background:#18233a;border:1px solid var(--stroke);color:var(--text);
-      padding:10px 12px;border-radius:10px;font-size:13px;cursor:pointer
-    }
-    button:hover{filter:brightness(1.08)}
-    .status-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-left:6px}
-    .ok{background:var(--ok)} .bad{background:var(--bad)} .warn{background:var(--warn)}
-    .score-box{display:flex;align-items:center;gap:10px}
-    .score-big{font-size:36px;font-weight:700;min-width:110px;text-align:right}
-    .bar{flex:1;height:12px;background:#0f1726;border:1px solid var(--stroke);border-radius:8px;overflow:hidden}
-    .bar>span{display:block;height:100%;background:var(--ok);width:0%}
-    .small{font-size:12px;color:var(--muted)}
+    .grid.cols2{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .grid.cols3{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .grid.cols4{grid-template-columns:repeat(4,minmax(0,1fr))}
+    @media(max-width:900px){.grid.cols3,.grid.cols4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media(max-width:640px){.grid.cols2,.grid.cols3,.grid.cols4{grid-template-columns:1fr}}
+    .score{display:flex;align-items:center;gap:10px}
+    .bar{flex:1;height:12px;border-radius:999px;background:#0f1727;border:1px solid var(--stroke);overflow:hidden}
+    .bar>i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--ok),var(--accent));transition:width .3s}
+    .mono{font-variant-numeric:tabular-nums}
+    .kv{display:flex;flex-direction:column;gap:6px}
+    .kv .k{font-size:12px;color:var(--muted)}
     .list{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto}
-    .log{border:1px solid var(--stroke);background:#0f1726;padding:10px;border-radius:10px}
-    .log h4{margin:0 0 6px 0;font-size:13px}
-    .log p{margin:0;font-size:12px;color:var(--muted);line-height:1.35}
-    .pill{display:inline-flex;gap:6px;align-items:center;font-size:11px;color:#cfe3ff;background:#132038;border:1px solid var(--stroke);padding:4px 8px;border-radius:999px}
-    .kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-    .kpi{background:#0f1726;border:1px solid var(--stroke);border-radius:10px;padding:10px}
-    .kpi .v{font-size:16px}
-    .nowrap{white-space:nowrap}
-    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono","Courier New", monospace;}
-    .hidden{display:none !important}
-    .reasons{margin-top:8px;color:#ffd7d7;font-size:12px}
+    .item{border:1px solid var(--stroke);border-radius:12px;padding:10px;background:#0f1727}
+    .item h4{margin:0 0 4px;font-size:14px}
+    .item p{margin:0;font-size:13px;color:#d7e4ff}
+    .nowrap{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .small{font-size:12px}
+    .pill{display:inline-flex;gap:6px;align-items:center}
+    .right{margin-left:auto}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>監査ダッシュボード</h1>
+    <div class="row" style="justify-content:space-between">
+      <h1>監査ダッシュボード</h1>
+      <span class="tiny">発行番号: <span id="issue" class="badge">das202511012330</span></span>
+    </div>
 
-    <!-- 接続先 -->
+    <!-- 接続先 + テスト -->
     <div class="card">
-      <div class="row nowrap">
-        <label for="ep" class="nowrap">接続先</label>
-        <input id="ep" type="text" value="https://ors-proxy-dev.miyata-connect-jp.workers.dev" />
-        <button id="btnPing">接続テスト</button>
-        <span id="pingIcon" title="接続状態" class="status-dot bad"></span>
-        <span id="pingText" class="small">未接続</span>
+      <div class="row">
+        <label class="tiny" for="endpoint">接続先</label>
+        <input id="endpoint" type="text" value="https://ors-proxy-dev.miyata-connect-jp.workers.dev" />
+        <button id="btnPing" class="btn">接続テスト</button>
+        <span id="pingBadge" class="badge">未判定</span>
+        <button id="btnRefresh" class="btn right">再取得</button>
       </div>
     </div>
 
-    <div class="grid">
-      <!-- 総合判定 -->
+    <!-- 総合判定（厳格：100点 or 0点） -->
+    <div class="card">
+      <h2>総合判定</h2>
+      <div class="score">
+        <div class="bar"><i id="scoreBar"></i></div>
+        <strong id="scoreNum" class="mono">0</strong>
+      </div>
+      <div class="tiny" id="scoreNote">厳格モード：要件をすべて満たした時のみ100点</div>
+    </div>
+
+    <!-- 自己診断 -->
+    <div class="grid cols3">
       <div class="card">
-        <div class="row" style="justify-content:space-between">
-          <div class="row">
-            <div class="pill">総合判定</div>
-          </div>
-          <div class="row small">
-            <span id="issue" class="mono hidden"></span>
-          </div>
-        </div>
-        <div class="score-box" style="margin-top:8px">
-          <div id="scoreBig" class="score-big">0 / 100</div>
-          <div class="bar"><span id="scoreBar"></span></div>
-        </div>
-        <div id="scoreReasons" class="reasons hidden"></div>
-        <div class="kpis" style="margin-top:10px">
-          <div class="kpi">
-            <div class="small">自己診断（入口/実行/出口）</div>
-            <div class="v mono" id="phases">-- / -- / --</div>
-          </div>
-          <div class="kpi">
-            <div class="small">直近エラー率</div>
-            <div class="v mono" id="errRate">-- %</div>
-          </div>
+        <h2>自己診断（入り口）</h2>
+        <div class="kv">
+          <div class="k">直近の自己診断スコア（平均）</div>
+          <div><span id="avgScore" class="mono">0</span> 点</div>
         </div>
       </div>
-
-      <!-- セクション内訳 -->
       <div class="card">
-        <div class="row" style="justify-content:space-between">
-          <div class="pill">セクション内訳</div>
-          <button id="btnRefresh">再取得</button>
+        <h2>自己診断（実行中）</h2>
+        <div class="kv">
+          <div class="k">直近エラー率</div>
+          <div><span id="errRate" class="mono">0</span>%</div>
         </div>
-        <div class="list" id="sections" style="max-height:190px">
-          <!-- 動的 -->
+      </div>
+      <div class="card">
+        <h2>自己診断（出口）</h2>
+        <div class="kv">
+          <div class="k">最新のイベント数</div>
+          <div><span id="evCount" class="mono">0</span> 件</div>
         </div>
       </div>
     </div>
 
-    <!-- 最新イベント(25) -->
-    <div class="card" style="margin-top:12px">
-      <div class="row" style="justify-content:space-between">
-        <div class="pill">最新イベント（25）</div>
-        <div class="small">新しい順</div>
-      </div>
-      <div id="events" class="list"></div>
+    <!-- セクション内訳 -->
+    <div class="card">
+      <h2>セクション内訳（リスク推定）</h2>
+      <div class="grid cols3" id="sections"></div>
+      <div class="tiny">※ 表示幅を自動調整し、はみ出し防止済み</div>
+    </div>
+
+    <!-- 最新イベント（25件） -->
+    <div class="card">
+      <h2>最新イベント（25件）</h2>
+      <div class="list" id="evList"></div>
     </div>
   </div>
 
   <script>
-    // ====== Config ======
-    const ISSUE_ID = "das202511012300";
-    const REQ_TIMEOUT = 15000;
+  // ---- 初期設定 ----
+  const ISSUE_ID = "das202511012330";
+  const qs = (s)=>document.querySelector(s);
+  const endpointInput = qs("#endpoint");
+  const scoreBar = qs("#scoreBar");
+  const scoreNum = qs("#scoreNum");
+  const avgScore = qs("#avgScore");
+  const errRate = qs("#errRate");
+  const evCount = qs("#evCount");
+  const pingBadge = qs("#pingBadge");
+  const sectionsEl = qs("#sections");
+  const evList = qs("#evList");
 
-    // ====== DOM refs ======
-    const ep = document.getElementById('ep');
-    const btnPing = document.getElementById('btnPing');
-    const pingIcon = document.getElementById('pingIcon');
-    const pingText = document.getElementById('pingText');
-    const scoreBig = document.getElementById('scoreBig');
-    const scoreBar = document.getElementById('scoreBar');
-    const phasesEl = document.getElementById('phases');
-    const errRateEl = document.getElementById('errRate');
-    const sections = document.getElementById('sections');
-    const eventsList = document.getElementById('events');
-    const issueSpan = document.getElementById('issue');
-    const btnRefresh = document.getElementById('btnRefresh');
-    const scoreReasons = document.getElementById('scoreReasons');
+  // セクション内訳（固定上限）
+  const SECTION_RISKS = [
+    ["ルーティング互換", 2],
+    ["CORS/Origin 厳格化", 3],
+    ["FieldMask/整合", 2],
+    ["Secrets 参照", 2],
+    ["エラー整形/返却差", 2],
+    ["速度劣化(監査負荷)", 1],
+  ];
 
-    // ====== Helpers ======
-    const j = (o)=>JSON.stringify(o);
-    const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
-    const withTimeout = (p, ms=REQ_TIMEOUT)=>Promise.race([p,new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),ms))]);
-    const fmtTs = (n)=> {
-      try{
-        const d = new Date(n);
-        const y = d.getFullYear();
-        const m = String(d.getMonth()+1).padStart(2,'0');
-        const dd = String(d.getDate()).padStart(2,'0');
-        const hh = String(d.getHours()).padStart(2,'0');
-        const mm = String(d.getMinutes()).padStart(2,'0');
-        const ss = String(d.getSeconds()).padStart(2,'0');
-        return `${y}/${m}/${dd} ${hh}:${mm}:${ss}`;
-      }catch{ return '--'; }
-    };
+  function renderSections() {
+    sectionsEl.innerHTML = "";
+    SECTION_RISKS.forEach(([name, risk])=>{
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="kv">
+          <div class="k nowrap">${name}</div>
+          <div><span class="mono">${risk}</span>%</div>
+        </div>
+      `;
+      sectionsEl.appendChild(card);
+    });
+  }
 
-    function setConn(ok,text){
-      pingIcon.className = 'status-dot ' + (ok?'ok':'bad');
-      pingText.textContent = text || (ok?'接続OK':'未接続');
+  async function ping() {
+    const ep = endpointInput.value.trim().replace(/\/+$/, "");
+    try{
+      const r = await fetch(ep + "/healthz", { mode:"cors" });
+      if(!r.ok) throw new Error(String(r.status));
+      const j = await r.json();
+      pingBadge.textContent = "✅";
+      pingBadge.style.color = "#25D07A";
+      return j;
+    }catch(e){
+      pingBadge.textContent = "❌";
+      pingBadge.style.color = "#FF6565";
+      return null;
     }
-    function setScore(v, reasons=[]){
-      const val = Math.max(0, Math.min(100, v|0));
-      scoreBig.textContent = `${val} / 100`;
-      scoreBar.style.width = `${val}%`;
-      scoreBar.style.background = val===100 ? 'var(--ok)' : 'var(--bad)';
-      if(reasons.length){
-        scoreReasons.classList.remove('hidden');
-        scoreReasons.innerHTML = '不足理由: ' + reasons.map(s=>`<span class="mono">• ${s}</span>`).join('<br>');
+  }
+
+  function strictScore(summary){
+    // 厳格モード：以下を満たす時のみ100点
+    // - avgScore >= 90
+    // - recentErrorRate === 0
+    // - latestEvents は 1件以上
+    const ok =
+      (summary.avgScore >= 90) &&
+      (Number(summary.recentErrorRate) === 0) &&
+      (Array.isArray(summary.latestEvents) && summary.latestEvents.length > 0);
+    return ok ? 100 : 0;
+  }
+
+  function setBar(n){
+    const v = Math.max(0, Math.min(100, Number(n)||0));
+    scoreBar.style.width = v + "%";
+    scoreNum.textContent = v;
+  }
+
+  function renderEvents(items){
+    evList.innerHTML = "";
+    if(!items || !items.length){
+      const empty = document.createElement("div");
+      empty.className = "tiny";
+      empty.textContent = "イベントはありません。";
+      evList.appendChild(empty);
+      return;
+    }
+    items.forEach(ev=>{
+      const div = document.createElement("div");
+      div.className = "item";
+      const t = new Date(ev.ts||Date.now());
+      div.innerHTML = `
+        <h4 class="nowrap">${(ev.title||"イベント")} <span class="tiny">/ ${t.toLocaleString()}</span></h4>
+        <p class="small nowrap">オーダー番号: ${(ev.orderId||"—")}</p>
+        <p>${(ev.detail||"").slice(0,300)}</p>
+        <div class="tiny pill">
+          <span class="badge">${ev.section||"general"}</span>
+          <span class="badge">${ev.severity||"info"}</span>
+        </div>
+      `;
+      evList.appendChild(div);
+    });
+  }
+
+  async function reloadAll(){
+    renderSections();
+    const ep = endpointInput.value.trim().replace(/\/+$/, "");
+
+    // summary
+    let summary = { ok:false, totals:{runs:0,events:0}, avgScore:0, recentErrorRate:0, latestEvents:[] };
+    try{
+      const r = await fetch(ep + "/audit/summary", { mode:"cors" });
+      if(r.ok) summary = await r.json();
+    }catch{}
+
+    avgScore.textContent = Number(summary.avgScore||0);
+    errRate.textContent = Number(summary.recentErrorRate||0);
+    evCount.textContent = (summary.latestEvents||[]).length;
+
+    // 厳格総合判定
+    setBar(strictScore(summary));
+
+    // events
+    try{
+      const r2 = await fetch(ep + "/audit/events?limit=25", { mode:"cors" });
+      if(r2.ok){
+        const j2 = await r2.json();
+        renderEvents(j2.items||[]);
       }else{
-        scoreReasons.classList.add('hidden');
-        scoreReasons.textContent = '';
+        renderEvents([]);
       }
+    }catch{
+      renderEvents([]);
     }
-    function addSection(label, ok, detail=''){
-      const div = document.createElement('div');
-      div.className = 'row';
-      const dot = `<span class="status-dot ${ok?'ok':'bad'}"></span>`;
-      const txt = `<span class="small">${label}</span>`;
-      const tail = detail ? `<span class="small mono" style="margin-left:auto">${detail}</span>` : '';
-      div.innerHTML = `${dot}${txt}${tail}`;
-      sections.appendChild(div);
-    }
-    function addEventItem(ev){
-      const box = document.createElement('div');
-      box.className = 'log';
-      const head = document.createElement('h4');
-      head.textContent = `${ev.type || 'event'}  •  ${fmtTs(ev.ts)}`;
-      const p = document.createElement('p');
-      const msg = ev.message || ev.msg || '';
-      p.textContent = msg.slice(0,300);
-      box.appendChild(head);
-      box.appendChild(p);
-      eventsList.appendChild(box);
-    }
+  }
 
-    // ====== Core checks (Strict mode) ======
-    async function checkAll(){
-      sections.innerHTML = '';
-      eventsList.innerHTML = '';
-      scoreReasons.classList.add('hidden'); scoreReasons.textContent='';
+  // イベント
+  qs("#btnPing").addEventListener("click", async ()=>{ await ping(); });
+  qs("#btnRefresh").addEventListener("click", async ()=>{ await reloadAll(); });
 
-      const base = ep.value.replace(/\/+$/,'');
-      const reasons = [];
-
-      // 1) healthz
-      let okHealth = false, healthTs = 0, issue = '';
-      try{
-        const r = await withTimeout(fetch(base + '/healthz', {credentials:'omit'}));
-        if(r.ok){
-          const js = await r.json();
-          okHealth = !!(js && js.ok);
-          healthTs = js && js.ts || 0;
-          issue = js && js.issue || '';
-        }
-      }catch(_){}
-      setConn(okHealth, okHealth?'接続OK':'未接続');
-      if(issue){ issueSpan.textContent = ''; issueSpan.classList.add('hidden'); } // ISSUEは非表示指示
-      addSection('ヘルスチェック', okHealth, okHealth?fmtTs(healthTs):'NG');
-      if(!okHealth) reasons.push('healthz NG');
-
-      // 2) audit events
-      let evOk=false, events=[], recentTs=0;
-      try{
-        const r = await withTimeout(fetch(base + '/audit/events?limit=25', {credentials:'omit'}));
-        if(r.ok){
-          const js = await r.json();
-          if(Array.isArray(js)){
-            events = js;
-            evOk = js.length>0;
-            recentTs = js[0]?.ts || 0;
-          }
-        }
-      }catch(_){}
-      addSection('イベント取得', evOk, evOk?`${events.length}件`:'0件');
-      if(!evOk) reasons.push('イベント0件');
-
-      // 3) recent RUN error rate
-      let runOk=false, entry='--', run='--', exit='--', errRate='--';
-      try{
-        const r = await withTimeout(fetch(base + '/audit/summary', {credentials:'omit'}));
-        if(r.ok){
-          const js = await r.json();
-          // optional summary schema: { ok, latestRun:{phaseScores:{entry,run,exit}, errorRate }, ... }
-          const latestRun = js && js.latestRun;
-          if(latestRun){
-            const ps = latestRun.phaseScores || {};
-            entry = Number.isFinite(ps.entry) ? ps.entry : '--';
-            run   = Number.isFinite(ps.run)   ? ps.run   : '--';
-            exit  = Number.isFinite(ps.exit)  ? ps.exit  : '--';
-            const er = latestRun.errorRate;
-            if(Number.isFinite(er)){ errRate = er.toFixed(1); runOk = er<=1; }
-          }
-        }
-      }catch(_){}
-      phasesEl.textContent = `${entry} / ${run} / ${exit}`;
-      errRateEl.textContent = `${errRate}%`;
-      addSection('直近エラー率 ≤ 1%', runOk, `${errRate}%`);
-      if(!runOk) reasons.push('直近エラー率>1%');
-
-      // 4) recency within 24h
-      const within24h = recentTs && (Date.now()-recentTs <= 24*3600*1000);
-      addSection('直近イベントが24時間以内', within24h, recentTs?fmtTs(recentTs):'--');
-      if(!within24h) reasons.push('直近イベント>24h');
-
-      // 5) optional light Places/Directions probe（失敗しても減点しない）
-      let probeOk=true;
-      try{
-        const probe = await withTimeout(fetch(base + '/healthz'));
-        probeOk = probe.ok;
-      }catch(_){ probeOk=false; }
-      addSection('補助プローブ', probeOk, probeOk?'OK':'SKIP');
-
-      // render events
-      if(events.length){
-        events.forEach(addEventItem);
-      }else{
-        const none = document.createElement('div');
-        none.className='small';
-        none.textContent='イベントはありません。';
-        eventsList.appendChild(none);
-      }
-
-      // Strict score (all-or-nothing)
-      const strictPass = okHealth && evOk && runOk && within24h;
-      setScore(strictPass?100:0, strictPass?[]:reasons);
-    }
-
-    // ====== UI wiring ======
-    btnPing.addEventListener('click', checkAll);
-    btnRefresh.addEventListener('click', checkAll);
-
-    // 初回
-    checkAll().catch(()=>setScore(0,['初期チェック失敗']));
+  // 起動時
+  (async ()=>{
+    await ping();
+    await reloadAll();
+  })();
   </script>
 </body>
 </html>
