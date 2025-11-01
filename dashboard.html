@@ -1,235 +1,313 @@
-<!-- ISSUE_ID: das202511011031 -->
+<!-- ISSUE: das202511011946 -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>WalkNav 管理ダッシュボード</title>
-  <meta name="x-issue" content="das202511011031" />
+  <meta name="x-issue" content="das202511011946" />
+  <title>WalkNav 監査ダッシュボード</title>
   <style>
-    /* ISSUE_ID css202511011031 */
     :root{
-      --bg:#0a1321; --text:#eaf2ff; --muted:#a7b8ce; --glass:rgba(20,28,44,.78);
-      --stroke:rgba(255,255,255,.12); --ok:#25d07a; --warn:#ffb020; --bad:#ff6565; --accent:#5fb1ff;
+      --bg:#0a1321; --panel:#131c2e; --text:#eaf2ff; --muted:#a7b8ce; --accent:#5fb1ff; --ok:#25d07a; --bad:#ff6565; --warn:#ffb020; --stroke:rgba(255,255,255,.12);
     }
     html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
     *{box-sizing:border-box}
-    .wrap{max-width:1100px;margin:24px auto;padding:16px}
-    h1{margin:0 0 16px;font-size:24px}
-    .card{background:var(--glass);border:1px solid var(--stroke);border-radius:16px;padding:16px;margin-bottom:16px;backdrop-filter:blur(6px)}
-    .row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    .grow{flex:1}
-    .btn{padding:10px 14px;border:1px solid var(--stroke);border-radius:10px;background:rgba(255,255,255,.06);color:var(--text);cursor:pointer}
-    .btn:hover{background:rgba(255,255,255,.12)}
+    .wrap{max-width:1180px;margin:26px auto;padding:0 16px}
+    h1{margin:0 0 10px}
+    .card{background:var(--panel);border:1px solid var(--stroke);border-radius:14px;padding:16px;margin:14px 0}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .col{flex:1 1 320px}
+    label{font-size:14px;color:var(--muted)}
+    input,button,select{
+      width:100%;padding:10px;border-radius:10px;border:1px solid var(--stroke);background:#0f1727;color:var(--text);
+    }
+    button{cursor:pointer}
+    .mini{width:auto; padding:8px 10px; font-size:13px}
+    .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+    .gauge{font-size:56px;font-weight:800;letter-spacing:1px}
+    .sub{color:var(--muted);font-size:13px}
     .ok{color:var(--ok)} .bad{color:var(--bad)} .warn{color:var(--warn)}
-    .bar{height:12px;background:#20304a;border-radius:8px;overflow:hidden}
-    .bar>span{display:block;height:100%;background:var(--accent);width:0%}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;font-size:12px}
     table{width:100%;border-collapse:collapse}
-    th,td{border-bottom:1px solid var(--stroke);padding:8px;text-align:left;font-size:14px}
-    small{color:var(--muted)}
-    input,select{background:rgba(255,255,255,.06);border:1px solid var(--stroke);border-radius:8px;color:var(--text);padding:8px}
-    label{font-size:12px;color:var(--muted)}
+    th,td{border-bottom:1px solid var(--stroke);padding:8px 6px;text-align:left;font-size:13px}
+    .badge{display:inline-block;padding:4px 8px;border:1px solid var(--stroke);border-radius:999px;background:#0f1727;font-size:12px}
+    /* Slide panel */
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);display:none;align-items:flex-start;justify-content:flex-end;z-index:50}
+    .panel{width:min(520px,100%);height:100%;background:#0c1424;border-left:1px solid var(--stroke);padding:16px;overflow:auto}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; white-space:pre-wrap; font-size:12px}
+    .hint{font-size:12px;color:var(--muted)}
+    .right{display:flex;gap:8px;align-items:center}
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>WalkNav 管理ダッシュボード <small>（採点/監視/出口報告）</small></h1>
+    <h1>WalkNav 監査ダッシュボード <span class="badge" id="issueBadge">ISSUE: --</span></h1>
 
+    <!-- 接続先名 + テスト + 判定 -->
     <div class="card">
       <div class="row">
-        <div class="grow">
-          <div>接続先 Worker</div>
-          <div class="row" style="gap:8px;margin-top:6px">
-            <input id="base" class="grow" value="https://ors-proxy-dev.miyata-connect-jp.workers.dev" />
-            <button class="btn" id="btnPing">接続テスト</button>
-            <button class="btn" id="btnClear">監査ログのクリア</button>
+        <div class="col">
+          <label>接続先（Worker エンドポイント）</label>
+          <input id="ep" placeholder="https://ors-proxy-dev.miyata-connect-jp.workers.dev" />
+        </div>
+        <div class="right">
+          <button id="btnPing" class="mini">接続テスト</button>
+          <span id="pingMark" style="font-size:20px">—</span>
+        </div>
+        <div class="col">
+          <label>発行番号（自動取得 / 手動切替）</label>
+          <div class="row">
+            <div class="col">
+              <select id="issueSelect">
+                <option value="">— 自動検出（/healthz）—</option>
+              </select>
+            </div>
+            <div class="right">
+              <span class="hint">自動で /healthz の issue を取得</span>
+            </div>
           </div>
-          <small class="mono" id="connLog">未接続</small>
         </div>
       </div>
     </div>
 
+    <!-- 総合判定 -->
     <div class="card">
-      <div class="row">
-        <div class="grow">
-          <div class="row" style="justify-content:space-between">
-            <strong>自己診断（入口 / 実行 / 出口）</strong>
-            <small id="issueId">ISSUE:</small>
-          </div>
-          <div class="grid" style="margin-top:10px">
-            <div>
-              <div>入口スコア <span id="inScore" class="ok">--</span>/100</div>
-              <div class="bar"><span id="inBar"></span></div>
-            </div>
-            <div>
-              <div>実行中エラー率 <span id="runErr" class="warn">--</span>%</div>
-              <div class="bar"><span id="runBar"></span></div>
-            </div>
-            <div>
-              <div>出口スコア <span id="outScore" class="ok">--</span>/100</div>
-              <div class="bar"><span id="outBar"></span></div>
-            </div>
-            <div>
-              <div>平均スコア <span id="avgScore">--</span>/100</div>
-              <div class="bar"><span id="avgBar"></span></div>
-            </div>
-          </div>
+      <div class="row" style="align-items:flex-end">
+        <div class="col">
+          <div class="gauge" id="totalScore">--</div>
+          <div class="sub">総合判定（平均スコア）</div>
         </div>
-        <div style="min-width:260px">
-          <div class="row" style="gap:8px">
-            <label class="grow">手動投稿（テスト用）</label>
-            <select id="phase">
-              <option value="IN">IN（入口）</option>
-              <option value="RUN">RUN（実行）</option>
-              <option value="OUT">OUT（出口）</option>
-            </select>
-          </div>
-          <div class="row" style="gap:8px;margin-top:8px">
-            <input id="score" placeholder="score 0-100" />
-            <input id="err" placeholder="errorRate 0-100%" />
-          </div>
-          <div class="row" style="gap:8px;margin-top:8px">
-            <button class="btn" id="btnIngest">投稿</button>
-            <button class="btn" id="btnRefresh">再取得</button>
-          </div>
-          <small>※ 実運用ではフロント/CIから自動送信</small>
+        <div class="col">
+          <div class="gauge" id="latestScore">--</div>
+          <div class="sub">直近 RUN スコア</div>
+        </div>
+        <div class="col">
+          <div class="gauge" id="latestErr">--%</div>
+          <div class="sub">直近 エラー率</div>
+        </div>
+        <div class="right">
+          <button id="btnRefresh" class="mini">再取得</button>
         </div>
       </div>
     </div>
 
+    <!-- 自己診断（入口・実行中・出口） -->
     <div class="card">
-      <strong>セクション内訳（主要コンポーネント別）</strong>
-      <table style="margin-top:8px">
-        <thead><tr><th>項目</th><th>リスク(%)</th></tr></thead>
-        <tbody id="riskBody">
-          <tr><td>ルーティング互換（/healthz, /places:searchText, /directions）</td><td class="warn">--</td></tr>
-          <tr><td>CORS/Origin 厳格化（許可外ブロック誤検出）</td><td class="warn">--</td></tr>
-          <tr><td>FieldMask/Places New パラメータ整合</td><td class="warn">--</td></tr>
-          <tr><td>Secrets 参照（GMAPS_API_KEY 誤環境/未反映）</td><td class="warn">--</td></tr>
-          <tr><td>エラー整形/返却コード差分（呼び出し側期待と差異）</td><td class="warn">--</td></tr>
-          <tr><td>速度劣化（ログ/監査フック増設の影響）</td><td class="warn">--</td></tr>
-        </tbody>
+      <h3 style="margin:0 0 8px">自己診断</h3>
+      <div class="grid3">
+        <div>
+          <div class="sub">入口（entry）</div>
+          <div class="gauge" id="scoreEntry">--</div>
+        </div>
+        <div>
+          <div class="sub">実行中（run）</div>
+          <div class="gauge" id="scoreRun">--</div>
+        </div>
+        <div>
+          <div class="sub">出口（exit）</div>
+          <div class="gauge" id="scoreExit">--</div>
+        </div>
+      </div>
+      <div class="hint" style="margin-top:8px">※ 手動投稿機能は廃止。WalkNav 本体または自動化から /audit/run を送信してください。</div>
+    </div>
+
+    <!-- セクション内訳 -->
+    <div class="card">
+      <h3 style="margin:0 0 8px">セクション内訳（リスク比率）</h3>
+      <table id="riskTable">
+        <thead><tr><th>項目</th><th>リスク</th></tr></thead>
+        <tbody></tbody>
       </table>
-      <small>※ リスクはPOST /audit/ingest の記録に含めて集計表示</small>
     </div>
 
+    <!-- 接続先（生の統計） -->
     <div class="card">
-      <strong>最新25件ログ</strong>
-      <div id="log" class="mono" style="margin-top:8px;white-space:pre-wrap"></div>
+      <h3 style="margin:0 0 8px">接続先 統計</h3>
+      <div class="mono" id="reportBox">{}</div>
+    </div>
+
+    <!-- 最終ログ 25件 -->
+    <div class="card">
+      <h3 style="margin:0 0 8px">最終ログ 25件</h3>
+      <table id="evTable">
+        <thead><tr><th>時刻</th><th>種別</th><th>短文</th></tr></thead>
+        <tbody></tbody>
+      </table>
+      <div class="hint" style="margin-top:6px">※ 行をタップすると詳細パネルがスライド表示されます。</div>
+    </div>
+  </div>
+
+  <!-- 詳細パネル -->
+  <div class="overlay" id="ov">
+    <div class="panel">
+      <div class="row" style="justify-content:space-between">
+        <h3 style="margin:0">詳細</h3>
+        <button id="closePanel" class="mini">閉じる</button>
+      </div>
+      <div id="detailBox" class="mono" style="margin-top:10px"></div>
     </div>
   </div>
 
   <script>
-    // ISSUE_ID js202511011031
-    const $ = (id)=>document.getElementById(id);
-    const fmt = (n)=> (n==null||isNaN(n)) ? "--" : String(n);
-    const setBar = (el, v)=> el.style.width = Math.max(0, Math.min(100, Number(v)||0)) + "%";
+    const ISSUE_ID = "das202511011946";
+    const $ = (s)=>document.querySelector(s);
+    const qi = (id)=>document.getElementById(id);
 
-    async function ping() {
-      const base = $("base").value.trim();
+    function prettyt(ms){ const d=new Date(ms); return d.toLocaleString(); }
+    function hoursAgo(h){ return Date.now()-h*3600*1000; }
+
+    async function jget(url){
+      const r = await fetch(url);
+      if(!r.ok) throw new Error("HTTP "+r.status);
+      return r.json();
+    }
+
+    // 接続テスト
+    async function ping(){
+      const ep = qi("ep").value.trim();
       try{
-        const r = await fetch(base + "/healthz", { method:"GET" });
-        const j = await r.json();
-        $("connLog").textContent = r.ok ? `接続OK ts=${j.ts} issue=${j.issue}` : `NG ${r.status}`;
-        $("issueId").textContent = "ISSUE: " + (j.issue || "n/a");
-      }catch(e){
-        $("connLog").textContent = "接続失敗: " + e.message;
+        const h = await jget(`${ep}/healthz`);
+        qi("pingMark").textContent = "✅";
+        // 発行番号 自動取得 → セレクトへ
+        const opt = document.createElement("option");
+        opt.value = h.issue || "";
+        opt.textContent = h.issue ? `自動検出: ${h.issue}` : "自動検出: (なし)";
+        // 先頭の自動検出を置き換え
+        const sel = qi("issueSelect");
+        sel.innerHTML = "";
+        sel.appendChild(opt);
+        qi("issueBadge").textContent = "ISSUE: " + (h.issue || "--");
+        return true;
+      }catch{
+        qi("pingMark").textContent = "❌";
+        return false;
       }
     }
 
-    async function refresh() {
-      const base = $("base").value.trim();
+    // レポート再取得
+    async function refresh(){
+      const ep = qi("ep").value.trim();
+      const from = hoursAgo(24), to = Date.now();
+
+      // 最新スコア
       try{
-        const r = await fetch(base + "/audit/summary");
-        const j = await r.json();
-        const last = j.last || {};
-        // 平均など
-        $("avgScore").textContent = fmt(j.avgScore);
-        setBar($("avgBar"), j.avgScore);
-
-        // 入口/実行/出口は最新のフェーズ別をざっくり表示（簡易）
-        $("inScore").textContent = fmt(last?.phase==="IN" ? last.score : "--");
-        setBar($("inBar"), last?.phase==="IN" ? last.score : 0);
-
-        $("runErr").textContent = fmt(last?.phase==="RUN" ? last.errorRate : "--");
-        setBar($("runBar"), last?.phase==="RUN" ? last.errorRate : 0);
-
-        $("outScore").textContent = fmt(last?.phase==="OUT" ? last.score : "--");
-        setBar($("outBar"), last?.phase==="OUT" ? last.score : 0);
-
-        // リスク内訳（最新を採用）
-        const risks = last.risks || {};
-        const rows = $("riskBody").querySelectorAll("tr");
-        const keys = [
-          "routingCompat","corsStrict","fieldMaskAlign","secretsRef","errorShape","perfOverhead"
-        ];
-        const fallback = [2,3,2,2,2,1]; // 既定
-        keys.forEach((k, i)=>{
-          const val = risks[k];
-          rows[i].lastElementChild.textContent = fmt(val == null ? fallback[i] : val);
-        });
-
-        // ログ
-        const lines = (j.items||[]).map(it=>{
-          return `[${new Date(it.ts).toISOString()}] phase=${it.phase} score=${it.score} err=${it.errorRate}% risks=${JSON.stringify(it.risks)} notes=${it.notes}`;
-        }).join("\n");
-        $("log").textContent = lines || "(ログなし)";
-      }catch(e){
-        $("log").textContent = "取得失敗: " + e.message;
-      }
-    }
-
-    async function ingest() {
-      const base = $("base").value.trim();
-      const body = {
-        phase: $("phase").value,
-        score: Number($("score").value || 0),
-        errorRate: Number($("err").value || 0),
-        risks: {
-          routingCompat: 2,
-          corsStrict: 3,
-          fieldMaskAlign: 2,
-          secretsRef: 2,
-          errorShape: 2,
-          perfOverhead: 1
-        },
-        notes: "manual submit",
-        sectionScores: {
-          IN: 97, RUN: 95, OUT: 95
+        const cur = await jget(`${ep}/audit/score/current`);
+        qi("latestScore").textContent = String(cur.score ?? "--");
+        qi("latestErr").textContent   = (cur.errorRate ?? "--") + "%";
+        if(cur.latest && cur.latest.issue){
+          qi("issueBadge").textContent = "ISSUE: " + cur.latest.issue;
+          // セレクトに未登録なら追加
+          const sel = qi("issueSelect");
+          const exists = Array.from(sel.options).some(o=>o.value===cur.latest.issue);
+          if(!exists){
+            const o=document.createElement("option");
+            o.value = cur.latest.issue;
+            o.textContent = `検出: ${cur.latest.issue}`;
+            sel.appendChild(o);
+          }
         }
-      };
+      }catch{
+        qi("latestScore").textContent="--";
+        qi("latestErr").textContent="--%";
+      }
+
+      // レポート
       try{
-        const r = await fetch(base + "/audit/ingest", {
-          method:"POST",
-          headers:{ "Content-Type":"application/json" },
-          body: JSON.stringify(body)
+        const rep = await jget(`${ep}/audit/report?from=${from}&to=${to}`);
+        // 総合（平均）
+        qi("totalScore").textContent = String(rep.report?.avgScore ?? "--");
+        // 自己診断（入口/実行/出口）: runs から最新各フェーズ
+        const runs = rep.runs || [];
+        const latestEntry = [...runs].filter(r=>r.phase==="entry").sort((a,b)=>b.ts-a.ts)[0];
+        const latestRun   = [...runs].filter(r=>r.phase==="run").sort((a,b)=>b.ts-a.ts)[0];
+        const latestExit  = [...runs].filter(r=>r.phase==="exit").sort((a,b)=>b.ts-a.ts)[0];
+        qi("scoreEntry").textContent = latestEntry ? latestEntry.score : "--";
+        qi("scoreRun").textContent   = latestRun   ? latestRun.score   : "--";
+        qi("scoreExit").textContent  = latestExit  ? latestExit.score  : "--";
+
+        // 内訳テーブル
+        const rt = qi("riskTable").querySelector("tbody");
+        rt.innerHTML = "";
+        (rep.report?.risk || []).forEach(r=>{
+          const tr=document.createElement("tr");
+          tr.innerHTML = `<td>${r.label}</td><td>${r.pct}%</td>`;
+          rt.appendChild(tr);
         });
-        if(!r.ok) throw new Error("HTTP "+r.status);
-        await refresh();
-      }catch(e){
-        alert("投稿失敗: " + e.message);
-      }
-    }
 
-    async function clearLog() {
-      const base = $("base").value.trim();
+        // 生 JSON
+        qi("reportBox").textContent = JSON.stringify(rep, null, 2);
+
+      }catch{
+        qi("totalScore").textContent="--";
+        qi("scoreEntry").textContent="--";
+        qi("scoreRun").textContent="--";
+        qi("scoreExit").textContent="--";
+        qi("reportBox").textContent="{}";
+        const rt = qi("riskTable").querySelector("tbody");
+        rt.innerHTML = "";
+      }
+
+      // 最新 25 ログ
       try{
-        await fetch(base + "/audit/clear", { method:"POST" });
-        await refresh();
-      }catch(e){
-        alert("クリア失敗: " + e.message);
+        const ev = await jget(`${ep}/audit/latest?n=25`);
+        const tb = qi("evTable").querySelector("tbody");
+        tb.innerHTML = "";
+        (ev.items||[]).forEach(x=>{
+          const tr=document.createElement("tr");
+          tr.innerHTML = `<td>${prettyt(x.ts)}</td><td>${x.kind}</td><td>${(x.message||"").slice(0,60)}</td>`;
+          tr.style.cursor = "pointer";
+          tr.addEventListener("click", ()=> openDetail(x));
+          tb.appendChild(tr);
+        });
+      }catch{
+        const tb = qi("evTable").querySelector("tbody");
+        tb.innerHTML = "";
       }
     }
 
-    $("btnPing").addEventListener("click", ping);
-    $("btnRefresh").addEventListener("click", refresh);
-    $("btnIngest").addEventListener("click", ingest);
-    $("btnClear").addEventListener("click", clearLog);
+    // 詳細パネル（仕様に合わせてオーダー番号・内容・得点等を表示）
+    function openDetail(x){
+      const orderId   = x.meta?.orderId || x.meta?.order || x.id || "(なし)";
+      const orderText = (x.meta?.orderText || x.message || "").toString().slice(0, 300);
+      const diag = {
+        entry: x.meta?.entryScore ?? "(不明)",
+        runError: x.meta?.runErrorRate ?? "(不明)",
+        exit: x.meta?.exitScore ?? "(不明)",
+        avg: x.meta?.avgScore ?? "(不明)"
+      };
+      const breakdown = x.meta?.breakdown || [];
 
-    // 初期ロード
-    ping().then(refresh);
+      const html = [
+        `オーダー番号: ${orderId}`,
+        ``,
+        `オーダー内容(先頭300文字):`,
+        orderText || "(なし)",
+        ``,
+        `自己診断:`,
+        ` - 入口: ${diag.entry}`,
+        ` - 実行中エラー率: ${diag.runError}`,
+        ` - 出口: ${diag.exit}`,
+        ` - 平均スコア: ${diag.avg}`,
+        ``,
+        `セクション内訳:`,
+        ...(breakdown.length? breakdown.map(b=>` - ${b.label}: ${b.pct}%`): ["(未登録)"]),
+        ``,
+        `Raw:`,
+        JSON.stringify(x, null, 2)
+      ].join("\n");
+
+      qi("detailBox").textContent = html;
+      qi("ov").style.display = "flex";
+    }
+    qi("closePanel").addEventListener("click", ()=> qi("ov").style.display="none");
+    qi("ov").addEventListener("click", (e)=>{ if(e.target.id==="ov") qi("ov").style.display="none"; });
+
+    // UI handlers
+    qi("btnPing").addEventListener("click", async ()=>{ await ping(); });
+    qi("btnRefresh").addEventListener("click", refresh);
+
+    // 初期値
+    qi("ep").value = "https://ors-proxy-dev.miyata-connect-jp.workers.dev";
+    (async ()=>{ await ping(); await refresh(); setInterval(refresh, 8000); })();
   </script>
 </body>
 </html>
